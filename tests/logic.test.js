@@ -210,10 +210,44 @@ test('印つけから「解答にもどる」と直前の辺選択/角選択に�
   assert.equal(g.mode, 'angle');
 });
 
+test('辺選択で同じ辺を2回タップすると共通な辺の候補、3回目で選択解除', () => {
+  const g = new PH.Game(p01);
+  const bd = k(p01, 'BD');
+  g.tap(bd);
+  g.tap(bd);
+  assert.deepEqual(g.selection, [bd, bd]);
+  assert.ok(g.availableReasons().includes('common'));
+  g.tap(bd);
+  assert.deepEqual(g.selection, []);
+  g.tap(bd);
+  g.tap(bd);
+  g.selectReason('common');
+  assert.equal(g.confirmEvidence().status, 'correct');
+  // 共通な辺を選択肢に持たない問題でも、同じ辺を2回選べば理由に出る
+  const g3 = new PH.Game(p03);
+  g3.tap(k(p03, 'AB'));
+  g3.tap(k(p03, 'AB'));
+  assert.ok(g3.availableReasons().includes('common'));
+  g3.selectReason('common');
+  assert.equal(g3.confirmEvidence().status, 'not-common');
+});
+
+test('角は同じ角を2回タップすると選択解除', () => {
+  const g = new PH.Game(p02);
+  g.setMode('angle');
+  g.tap(k(p02, '∠AOC'));
+  g.tap(k(p02, '∠AOC'));
+  assert.deepEqual(g.selection, []);
+});
+
 test('同じ要素の再タップで選択解除・確定前は判定しない', () => {
   const g = new PH.Game(p01);
   g.tap(k(p01, 'AB'));
-  g.tap(k(p01, 'AB'));
+  g.tap(k(p01, 'CB'));
+  g.tap(k(p01, 'CB'));
+  assert.deepEqual(g.selection, [k(p01, 'AB')]);
+  g.tap(k(p01, 'AB'));   // AB＝AB
+  g.tap(k(p01, 'AB'));   // 3回目で解除
   assert.equal(g.selection.length, 0);
   assert.equal(g.confirmEvidence().status, 'incomplete');
   assert.equal(g.misses, 0);

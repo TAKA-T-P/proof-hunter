@@ -113,9 +113,16 @@
     if (el.kind !== MODE_KIND[this.mode]) {
       return { type: 'ignored', message: el.kind === 'ang' ? '角を選ぶときは「角選択」に切り替えよう。' : '辺を選ぶときは「辺選択」に切り替えよう。' };
     }
+    // 同じ辺を2回タップ → 「BD＝BD」（共通な辺）の候補、3回目で選択解除
+    if (el.kind === 'seg' && this.selection.length === 1 && this.selection[0] === key) {
+      this.selection.push(key);
+      this.reason = null;
+      return { type: 'select' };
+    }
     const idx = this.selection.indexOf(key);
     if (idx >= 0) {
-      this.selection.splice(idx, 1);
+      if (this.isSameTwice()) this.selection = [];
+      else this.selection.splice(idx, 1);
       this.reason = null;
       return { type: 'deselect' };
     }
@@ -125,9 +132,14 @@
     return { type: 'select' };
   };
 
+  // 同じ要素が2つ選ばれている（共通な辺の候補）
+  Game.prototype.isSameTwice = function () {
+    return this.selection.length === 2 && this.selection[0] === this.selection[1];
+  };
+
   Game.prototype.availableReasons = function () {
     const list = this.problem.reasons.slice();
-    if (this.mode === 'common' && list.indexOf('common') < 0) list.splice(1, 0, 'common');
+    if ((this.mode === 'common' || this.isSameTwice()) && list.indexOf('common') < 0) list.splice(1, 0, 'common');
     return list;
   };
 
