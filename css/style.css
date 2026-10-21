@@ -189,10 +189,23 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .counter-label { font-size: .72rem; margin-right: 2px; }
 .counter b { font-size: 1.3rem; color: #fde68a; }
 
-.play-body { display: grid; gap: 12px; }
-.play-main, .play-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* 基本（横画面・タブレット横など）: 問題文 → 図 → 操作の1カラム */
+.play-body {
+  display: grid; gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "statement" "stage" "side";
+}
+.play-scroll { display: contents; }
+.statement { grid-area: statement; }
+.play-stage { grid-area: stage; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.play-side { grid-area: side; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 @media (min-width: 900px) {
-  .play-body { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+  .play-body {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "statement side" "stage side";
+    align-items: start;
+  }
   .play-side { position: sticky; top: 76px; }
 }
 
@@ -207,6 +220,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .tag-mini { display: inline-block; padding: 0 6px; border-radius: 6px; color: #fff; font-weight: 700; margin-right: 3px; }
 
 .figure-card { position: relative; padding: 8px; background: #fff; border-width: 3px; transition: border-color .2s; }
+.figure-card.mode-angle { border-color: #fbbf24; }
 .figure-card.mode-common { border-color: #34d399; }
 .figure-card.mode-mark { border-color: #60a5fa; border-style: dashed; }
 .figure-card.mode-erase { border-color: #fb923c; border-style: dashed; }
@@ -245,6 +259,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .under-sector.is-selected { fill: rgba(250, 204, 21, .5); }
 .under-ray.is-selected { stroke: #fde047; stroke-width: 10; stroke-linecap: round; }
 .sel-arc { fill: none; stroke: #ca8a04; stroke-width: 3.5; }
+.ang-guide { fill: none; stroke: #f59e0b; stroke-width: 3.5; stroke-dasharray: 5 4; opacity: .85; }
 .is-flash { animation: flash .55s ease-in-out 2 alternate; }
 .under-seg.is-flash, .under-ray.is-flash { stroke: #34d399; }
 .under-ray.is-flash { stroke-width: 10; stroke-linecap: round; }
@@ -282,6 +297,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
   line-height: 1.1;
 }
 .tool .ico { font-size: 1.25rem; }
+.tool .ico-glyph { font-weight: 900; line-height: 1.2; }
 .tool .lbl { font-size: .72rem; font-weight: 700; white-space: nowrap; }
 .tool[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
 .tool:disabled { opacity: .4; }
@@ -442,6 +458,43 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .points ul { margin: 0; padding-left: 1.2em; font-size: .92rem; }
 .result-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .result-actions .btn { flex: 1 1 140px; }
+
+/* スマホ縦画面: 上半分（タイトルバー・図・ボタン）を固定し、下半分だけスクロール */
+@media (max-width: 899px) and (orientation: portrait) {
+  body[data-screen="play"] { overflow: hidden; }
+  .screen-play {
+    height: 100vh; height: 100dvh;
+    padding: 0;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .screen-play .play-header { position: static; margin: 0; flex: none; }
+  .play-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0; }
+  .play-stage {
+    flex: none; flex-direction: row; align-items: stretch; gap: 8px;
+    padding: 8px 12px; border-bottom: 1px solid var(--line);
+    background: var(--bg); box-shadow: 0 3px 8px rgba(30, 58, 138, .08); position: relative; z-index: 1;
+  }
+  .play-stage .figure-card { flex: 1; min-width: 0; padding: 4px; display: flex; align-items: center; justify-content: center; }
+  .play-stage .figure { max-height: 38vh; max-height: 38dvh; }
+  .play-stage .pt-label { font-size: 30px; }
+  .play-stage .toolbar {
+    flex: none; width: 116px;
+    grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); gap: 6px;
+  }
+  .play-stage .tool { min-height: 0; }
+  /* 図が小さいので、モード表示は図の枠の色・ボタンの状態・解答欄の見出しで示す */
+  .mode-badge { display: none; }
+  .pop-msg { font-size: 1.05rem; padding: 6px 14px; }
+  .play-scroll {
+    display: flex; flex-direction: column; gap: 12px;
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
+  }
+  .screen-play .result {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
+  }
+}
 
 /* 小さい画面 */
 @media (max-width: 380px) {

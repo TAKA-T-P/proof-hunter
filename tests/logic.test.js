@@ -136,6 +136,7 @@ test('根拠がそろっていなければ合同条件は判定しない', () =>
 // ---- ゲーム進行 -------------------------------------------------------------
 
 function play(game, a, b, reason) {
+  game.setMode(geo.isAngleName(a) ? 'angle' : 'side');
   game.tap(k(game.problem, a));
   game.tap(k(game.problem, b));
   game.selectReason(reason);
@@ -183,12 +184,30 @@ test('重複はミスにならず、誤った合同条件はミスになる', ()
   assert.equal(g.stars, 2);
 });
 
-test('辺と角は混ぜて選べない（選び直しになる）', () => {
+test('辺選択では角、角選択では辺はタップしても選ばれない', () => {
   const g = new PH.Game(p02);
+  assert.equal(g.mode, 'side');
   g.tap(k(p02, 'AO'));
-  const r = g.tap(k(p02, '∠AOC'));
-  assert.equal(r.switched, true);
-  assert.deepEqual(g.selection, [k(p02, '∠AOC')]);
+  assert.equal(g.tap(k(p02, '∠AOC')).type, 'ignored');
+  assert.deepEqual(g.selection, [k(p02, 'AO')]);
+  // 角選択に切り替えると、種類の違う選択はやり直しになる
+  g.setMode('angle');
+  assert.deepEqual(g.selection, []);
+  assert.equal(g.tap(k(p02, 'AO')).type, 'ignored');
+  g.tap(k(p02, '∠AOC'));
+  g.tap(k(p02, '∠BOD'));
+  assert.equal(g.selection.length, 2);
+});
+
+test('印つけから「解答にもどる」と直前の辺選択/角選択に戻る', () => {
+  const g = new PH.Game(p02);
+  g.setMode('angle');
+  g.setMode('mark');
+  g.tap(k(p02, '∠OAC'));
+  g.tap(k(p02, 'AC'));
+  assert.equal(Object.keys(g.userMarks).length, 2);
+  g.setMode('answer');
+  assert.equal(g.mode, 'angle');
 });
 
 test('同じ要素の再タップで選択解除・確定前は判定しない', () => {
@@ -239,7 +258,7 @@ test('再挑戦でミス・ヒント回数・印が初期化される', () => {
   assert.equal(g.hintsUsed, 0);
   assert.deepEqual(g.userMarks, {});
   assert.deepEqual(g.found, []);
-  assert.equal(g.mode, 'answer');
+  assert.equal(g.mode, 'side');
 });
 
 test('クリア評価の計算', () => {

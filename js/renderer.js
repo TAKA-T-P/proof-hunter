@@ -8,6 +8,8 @@
  *   view.userMarks   : 生徒がつけた印 { key: 本数 }
  *   view.triangles   : true なら対象の2つの三角形を色付け
  *   view.interactive : true ならタップ用の透明な操作領域を置く
+ *   view.hit         : { seg, ang } どちらの操作領域を置くか（省略時は両方）
+ *   view.angleGuide  : true なら選択できる角に薄い円弧を表示（角選択モード）
  */
 (function (root) {
   'use strict';
@@ -15,8 +17,11 @@
   const NS = 'http://www.w3.org/2000/svg';
   const G = function () { return PH.geometry; };
 
-  const SEG_HIT_WIDTH = 40;     // 辺の操作領域の太さ（viewBox単位）
-  const ANGLE_HIT_MAX = 56;     // 角の操作領域の半径の上限
+  const SEG_HIT_WIDTH = 40;     // 辺の操作領域の太さ（viewBox単位）の最小値
+  const SEG_HIT_PX = 36;        // 図が縮小表示されても、画面上でこの太さ(px)は確保する
+  const SEG_HIT_MAX = 64;
+  const ANGLE_HIT_MAX = 56;     // 角の操作領域の半径の上限（辺と同時に置くとき）
+  const ANGLE_ONLY_MAX = 92;    // 角だけを置くとき（角選択モード）は広くとる
   const SELECT_RADIUS = 34;
 
   function el(name, attrs, parent) {
@@ -30,9 +35,11 @@
     return el('line', Object.assign({ x1: a.x, y1: a.y, x2: b.x, y2: b.y }, attrs), parent);
   }
 
-  function hitRadius(a) {
+  // 角の操作領域の半径。隣の頂点の角と重ならないよう、辺の長さの半分未満に抑える
+  function hitRadius(a, angleOnly) {
     const v = G().vec;
-    return Math.min(ANGLE_HIT_MAX, 0.45 * Math.min(v.dist(a.vertex, a.from), v.dist(a.vertex, a.to)));
+    const shortest = Math.min(v.dist(a.vertex, a.from), v.dist(a.vertex, a.to));
+    return angleOnly ? Math.min(ANGLE_ONLY_MAX, 0.48 * shortest) : Math.min(ANGLE_HIT_MAX, 0.45 * shortest);
   }
 
   function drawMark(group, item, mark, cls) {
@@ -101,8 +108,13 @@
     const gs = el('g', { class: 'layer-seg' }, svg);
     els.segments.forEach(function (s) { line(s.p1, s.p2, { class: 'seg' }, gs); });
 
-    // 4. 選択中の角の円弧
+    // 4. 選択できる角の目印（角選択モード）と、選択中の角の円弧
     const ga = el('g', { class: 'layer-arc' }, svg);
+    if (v.angleGuide) {
+      els.angles.forEach(function (a) {
+        if (selection.indexOf(a.key) < 0) el('path', { d: g.arcPath(a.vertex, a.from, a.to, 30), class: 'ang-guide' }, ga);
+      });
+    }
     selection.forEach(function (k) {
       const a = els.byKey[k];
       if (a && a.kind === 'ang') el('path', { d: g.arcPath(a.vertex, a.from, a.to, SELECT_RADIUS), class: 'sel-arc' }, ga);
@@ -136,16 +148,20 @@
     // 8. 操作領域（辺 → 角の順。角を上に置き、頂点付近のタップは角を優先）
     if (v.interactive) {
       const gh = el('g', { class: 'layer-hit' }, svg);
-      els.segments.forEach(function (s) {
+      const hit = v.hit || { seg: true, ang: true };
+      const angleOnly = hit.ang && !hit.seg;
+      const scale = svg.clientWidth ? Math.min(svg.clientWidth / fig.viewBox[2], svg.clientHeight / fig.viewBox[3]) : 1;
+      const segHit = Math.min(SEG_HIT_MAX, Math.max(SEG_HIT_WIDTH, SEG_HIT_PX / (scale || 1)));
+      if (hit.seg) els.segments.forEach(function (s) {
         const h = line(s.p1, s.p2, {
-          class: 'hit hit-seg', 'stroke-width': SEG_HIT_WIDTH, 'data-key': s.key,
+          class: 'hit hit-seg', 'stroke-width': segHit, 'data-key': s.key,
           role: 'button', tabindex: '0', 'aria-label': '辺' + s.display,
         }, gh);
         el('title', null, h).textContent = '辺' + s.display;
       });
-      els.angles.forEach(function (a) {
+      if (hit.ang) els.angles.forEach(function (a) {
         const h = el('path', {
-          d: g.sectorPath(a.vertex, a.from, a.to, hitRadius(a)),
+          d: g.sectorPath(a.vertex, a.from, a.to, hitRadius(a, angleOnly)),
           class: 'hit hit-ang', 'data-key': a.key,
           role: 'button', tabindex: '0', 'aria-label': a.display,
         }, gh);

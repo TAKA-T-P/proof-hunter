@@ -2,7 +2,8 @@
  * game.js — 問題進行・根拠収集（DOMに依存しない状態管理）
  *
  * phase : 'collect'（根拠収集） → 'congruence'（合同条件選択） → 'clear'（証明完成）
- * mode  : 'answer'（解答） / 'common'（共通な辺） / 'mark'（印つけ） / 'erase'（印を消す）
+ * mode  : 'side'（辺選択） / 'angle'（角選択） / 'common'（共通な辺） / 'mark'（印つけ） / 'erase'（印を消す）
+ *         辺選択では辺だけ、角選択では角だけがタップに反応する（頂点付近の誤選択を防ぐ）。
  */
 (function (root) {
   'use strict';
@@ -23,7 +24,8 @@
 
   Game.prototype.reset = function () {
     this.phase = 'collect';
-    this.mode = 'answer';
+    this.mode = 'side';
+    this.answerMode = 'side';    // 印つけ等から「解答にもどる」ときの戻り先
     this.selection = [];         // 選択中の要素キー（共通な辺は同じキーが2つ）
     this.reason = null;          // 選択中の理由ID
     this.found = [];             // 見つけた根拠ID（見つけた順）
@@ -45,12 +47,23 @@
     return el ? el.kind : null;
   };
 
+  const MODE_KIND = { side: 'seg', angle: 'ang' };
+
+  Game.prototype.isAnswering = function () {
+    return this.mode === 'side' || this.mode === 'angle' || this.mode === 'common';
+  };
+
   Game.prototype.setMode = function (mode) {
     if (mode === 'common' && this.phase !== 'collect') return false;
-    // 同じボタンをもう一度押すと解答モードへ戻る
-    if (mode === this.mode && mode !== 'answer') mode = 'answer';
+    // 同じボタンをもう一度押すと（共通な辺・印つけ・消す）解答に戻る。'answer' は直前の辺選択/角選択
+    if (mode === 'answer' || (mode === this.mode && !MODE_KIND[mode])) mode = this.answerMode;
     // 「共通な辺」に入る・出るときは選択をやり直す
     if ((this.mode === 'common') !== (mode === 'common')) this.clearSelection();
+    if (MODE_KIND[mode]) {
+      // 辺選択⇔角選択：選択中のものと種類が違えば選び直し
+      if (this.selection.length && this.selectionKind() !== MODE_KIND[mode]) this.clearSelection();
+      this.answerMode = mode;
+    }
     this.mode = mode;
     return true;
   };
@@ -96,21 +109,20 @@
       return { type: 'select' };
     }
 
-    // 解答モード
+    // 辺選択・角選択
+    if (el.kind !== MODE_KIND[this.mode]) {
+      return { type: 'ignored', message: el.kind === 'ang' ? '角を選ぶときは「角選択」に切り替えよう。' : '辺を選ぶときは「辺選択」に切り替えよう。' };
+    }
     const idx = this.selection.indexOf(key);
     if (idx >= 0) {
       this.selection.splice(idx, 1);
       this.reason = null;
       return { type: 'deselect' };
     }
-    const switched = this.selection.length === 1 && this.selectionKind() !== el.kind;
-    if (this.selection.length !== 1 || switched) {
-      this.selection = [key];
-    } else {
-      this.selection.push(key);
-    }
+    if (this.selection.length === 1) this.selection.push(key);
+    else this.selection = [key];
     this.reason = null;
-    return { type: 'select', switched: switched };
+    return { type: 'select' };
   };
 
   Game.prototype.availableReasons = function () {
@@ -145,7 +157,7 @@
       case 'correct':
         this.found.push(r.evidence.id);
         this.clearSelection();
-        if (this.mode === 'common') this.mode = 'answer';
+        if (this.mode === 'common') this.mode = this.answerMode = 'side';
         if (this.found.length === this.total()) {
           this.phase = 'congruence';
           r.complete = true;
@@ -172,7 +184,7 @@
     const r = PH.validation.checkCongruence(this.problem, this.found, this.condition);
     if (r.ok) {
       this.phase = 'clear';
-      this.mode = 'answer';
+      this.mode = this.answerMode;
       this.stars = calcStars(this.misses, this.hintsUsed);
     } else {
       this.misses++;

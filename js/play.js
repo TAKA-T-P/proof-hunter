@@ -63,6 +63,9 @@
     this.onKey = this.handleKey.bind(this);
     this.root.addEventListener('click', this.onClick);
     this.root.addEventListener('keydown', this.onKey);
+    // 画面の回転などで図の表示サイズが変わったら、操作領域の太さを計算し直す
+    this.onResize = this.renderFigures.bind(this);
+    root.addEventListener('resize', this.onResize);
     PH.storage.setLastProblem(problem.id);
     this.render();
   }
@@ -78,34 +81,38 @@
         '<button class="head-btn" data-act="home" aria-label="ホームに戻る"><span class="ico">⌂</span><span class="lbl">ホーム</span></button>' +
         '<div class="play-title"><span class="play-no">問題' + esc(p.number) + '</span><span class="play-name">' + esc(p.title) + '</span></div>' +
         '<div class="counter" aria-live="polite"><span class="counter-label">根拠</span><b data-ref="count">0</b><span>/' + p.evidence.length + '</span></div>' +
-        '<button class="head-btn head-hint" data-act="hint" aria-label="ヒント"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
+        '<button class="head-btn head-restart" data-act="restart" aria-label="最初からやり直す"><span class="ico">↺</span><span class="lbl">最初から</span></button>' +
       '</header>' +
+      // スマホ縦画面: .play-stage（図＋ボタン）を上に固定し、.play-scroll（問題文・解答欄）だけスクロール
+      // PC・横画面: .play-scroll は display: contents になり、グリッドで2カラム配置
       '<div class="play-body" data-ref="body">' +
-        '<div class="play-main">' +
-          '<div class="card statement">' +
-            '<p class="statement-text">' + esc(p.statement) + '</p>' +
-            '<div class="cond-row"><span class="tag tag-given">仮定</span><span class="cond-text">' + p.given.map(esc).join('、') + '</span></div>' +
-            '<div class="cond-row"><span class="tag tag-goal">結論</span><span class="cond-text">' + esc(p.conclusion) + '</span></div>' +
-            '<p class="cond-note"><span class="tag-mini tag-given">仮定</span>証明の根拠に使える　<span class="tag-mini tag-goal">結論</span>証明するゴール（根拠には使えない）</p>' +
-          '</div>' +
+        '<div class="play-stage">' +
           '<div class="card figure-card" data-ref="figureCard">' +
             '<div class="mode-badge" data-ref="modeBadge"></div>' +
             '<svg class="figure" data-ref="svg" role="group" aria-label="問題の図"></svg>' +
             '<div class="pop-msg" data-ref="popMsg" aria-hidden="true"></div>' +
           '</div>' +
           '<div class="toolbar" role="toolbar" aria-label="操作">' +
-            '<button class="tool" data-mode="answer"><span class="ico">✏️</span><span class="lbl">解答</span></button>' +
-            '<button class="tool" data-mode="mark"><span class="ico">🖍️</span><span class="lbl">印つけ</span></button>' +
+            '<button class="tool" data-mode="side"><span class="ico ico-glyph">／</span><span class="lbl">辺選択</span></button>' +
+            '<button class="tool" data-mode="angle"><span class="ico ico-glyph">∠</span><span class="lbl">角選択</span></button>' +
             '<button class="tool" data-mode="common"><span class="ico">🔗</span><span class="lbl">共通な辺</span></button>' +
+            '<button class="tool" data-mode="mark"><span class="ico">🖍️</span><span class="lbl">印つけ</span></button>' +
             '<button class="tool" data-mode="erase"><span class="ico">🧽</span><span class="lbl">消す</span></button>' +
             '<button class="tool" data-act="hint"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
-            '<button class="tool" data-act="restart"><span class="ico">↺</span><span class="lbl">最初から</span></button>' +
           '</div>' +
         '</div>' +
-        '<div class="play-side">' +
-          '<div class="card panel" data-ref="panel"></div>' +
-          '<div class="slots-wrap"><div class="slots" data-ref="slots"></div><p class="slots-note">見つけた根拠をタップすると、図の場所が光るよ</p></div>' +
-          '<div class="stats" data-ref="stats"></div>' +
+        '<div class="play-scroll" data-ref="scroll">' +
+          '<div class="card statement">' +
+            '<p class="statement-text">' + esc(p.statement) + '</p>' +
+            '<div class="cond-row"><span class="tag tag-given">仮定</span><span class="cond-text">' + p.given.map(esc).join('、') + '</span></div>' +
+            '<div class="cond-row"><span class="tag tag-goal">結論</span><span class="cond-text">' + esc(p.conclusion) + '</span></div>' +
+            '<p class="cond-note"><span class="tag-mini tag-given">仮定</span>証明の根拠に使える　<span class="tag-mini tag-goal">結論</span>証明するゴール（根拠には使えない）</p>' +
+          '</div>' +
+          '<div class="play-side">' +
+            '<div class="card panel" data-ref="panel"></div>' +
+            '<div class="slots-wrap"><div class="slots" data-ref="slots"></div><p class="slots-note">見つけた根拠をタップすると、図の場所が光るよ</p></div>' +
+            '<div class="stats" data-ref="stats"></div>' +
+          '</div>' +
         '</div>' +
       '</div>' +
       '<div class="result" data-ref="result" hidden></div>';
@@ -114,6 +121,7 @@
   PlayController.prototype.destroy = function () {
     this.root.removeEventListener('click', this.onClick);
     this.root.removeEventListener('keydown', this.onKey);
+    root.removeEventListener('resize', this.onResize);
     clearTimeout(this.flashTimer);
     this.timers.forEach(clearTimeout);
     PH.hints.hide(doc.getElementById('hint-popup'));
@@ -173,8 +181,7 @@
       else if (g.phase === 'congruence') this.say('3つの根拠はそろったよ。合同条件を選ぼう！', 'info');
     } else {
       PH.sound.play('tap');
-      if (r.switched) this.say('辺と角は別々に選ぼう。選び直したよ。', 'info');
-      else this.say(null);
+      this.say(null);
     }
     this.render();
   };
@@ -232,7 +239,14 @@
     PH.hints.hide(doc.getElementById('hint-popup'));
     PH.storage.setLastProblem(this.problem.id);
     this.render();
+    this.scrollToTop();
+  };
+
+  // ページ全体と、スマホ縦画面で独立してスクロールする領域を先頭に戻す
+  PlayController.prototype.scrollToTop = function () {
     root.scrollTo(0, 0);
+    this.ref('scroll').scrollTop = 0;
+    this.ref('result').scrollTop = 0;
   };
 
   PlayController.prototype.flash = function (keys, ms) {
@@ -337,7 +351,7 @@
     this.say(null);
     this.showSuccess();
     this.render();
-    root.scrollTo({ top: 0, behavior: 'smooth' });
+    this.scrollToTop();
   };
 
   PlayController.prototype.showSuccess = function () {
@@ -359,7 +373,7 @@
     this.ref('body').hidden = clear;
     this.ref('result').hidden = !clear;
     this.ref('count').textContent = String(g.found.length);
-    this.root.querySelectorAll('.head-hint').forEach(function (b) { b.disabled = clear; });
+    this.root.querySelectorAll('.head-restart').forEach(function (b) { b.hidden = clear; });
     if (clear) {
       if (!this.resultBuilt) this.buildResult();
       this.renderFigures();
@@ -392,7 +406,7 @@
     }
     const card = this.ref('figureCard');
     card.className = 'card figure-card mode-' + g.mode;
-    const badge = { answer: '', common: '🔗 共通な辺：辺を1本タップ', mark: '🖍️ 印つけ：下書き用（判定なし）', erase: '🧽 消す：印をタップ' }[g.mode];
+    const badge = { side: '', angle: '∠ 角選択：角の内側をタップ', common: '🔗 共通な辺：辺を1本タップ', mark: '🖍️ 印つけ：下書き用（判定なし）', erase: '🧽 消す：印をタップ' }[g.mode];
     const mb = this.ref('modeBadge');
     mb.textContent = badge;
     mb.hidden = !badge;
@@ -402,6 +416,9 @@
       autoMarks: g.autoMarks(),
       userMarks: g.userMarks,
       interactive: true,
+      // 辺選択・共通な辺では辺だけ、角選択では角だけ、印つけ・消すでは両方がタップに反応する
+      hit: { seg: g.mode !== 'angle', ang: g.mode === 'angle' || g.mode === 'mark' || g.mode === 'erase' },
+      angleGuide: g.mode === 'angle' && g.phase === 'collect',
     });
   };
 
@@ -410,7 +427,7 @@
     this.root.querySelectorAll('.toolbar [data-mode]').forEach(function (b) {
       const m = b.getAttribute('data-mode');
       b.setAttribute('aria-pressed', String(g.mode === m));
-      b.disabled = m === 'common' && g.phase !== 'collect';
+      b.disabled = m !== 'mark' && m !== 'erase' && g.phase !== 'collect';
     });
   };
 
@@ -466,16 +483,20 @@
     }
 
     const common = g.mode === 'common';
+    const what = g.mode === 'angle' ? '角' : '辺';
     const cand = g.candidate();
     const n = g.selection.length;
     let note;
     if (common) note = n ? '理由を確認して「根拠を確定」を押そう。' : '2つの三角形に共通している辺を1本タップしよう。';
-    else if (n === 0) note = '図を見て、等しいと思う辺や角をタップしよう。';
-    else if (n === 1) note = '等しいと思う2つ目の' + (g.selectionKind() === 'ang' ? '角' : '辺') + 'をタップしよう。';
+    else if (n === 0) note = g.mode === 'angle'
+      ? '等しいと思う角を、角の内側をタップして選ぼう。辺を選ぶときは「辺選択」へ。'
+      : '等しいと思う辺をタップしよう。角を選ぶときは「角選択」へ。';
+    else if (n === 1) note = '等しいと思う2つ目の' + what + 'をタップしよう。';
     else if (!g.reason) note = '等しい理由を選ぼう。';
     else note = '「根拠を確定」を押そう！';
 
-    html += '<div class="panel-head">' + (common ? '🔗 共通な辺をさがそう' : '✏️ 等しい辺や角をさがそう') + '</div>' +
+    const head = common ? '🔗 共通な辺をさがそう' : g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
+    html += '<div class="panel-head">' + head + '</div>' +
       '<p class="panel-note">' + note + '</p>' +
       '<div class="equation' + (n === 2 ? ' is-ready' : '') + '" aria-label="等式の候補">' +
         '<span class="eq-part' + (cand[0] ? ' filled' : '') + '">' + esc(cand[0] || '？') + '</span>' +
