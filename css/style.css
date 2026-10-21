@@ -871,7 +871,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 }
 .kp-key.is-next { border-color: #93c5fd; }
 .kp-key:disabled, .kp-op:disabled { opacity: .35; }
-.kp-ops { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.kp-ops { display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 6px; }
 .kp-op { font-size: 1.05rem; }
 .kp-op.is-next { border-color: var(--gold); background: var(--gold-soft); }
 .kp-op.is-fixed { color: var(--purple); }

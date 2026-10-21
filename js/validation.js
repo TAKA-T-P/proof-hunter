@@ -130,6 +130,46 @@
   }
 
   /*
+   * 等式の書き方が、2つの三角形の頂点の対応順に合っているか。
+   *   items: 書かれたとおりの左辺・右辺（例 ['AB', 'BC']、['∠BAC', '∠DCA']）
+   *   左辺を一方の三角形の頂点で読み、対応（triangles の同じ位置の頂点どうし）で移したものが、
+   *   右辺をもう一方の三角形の頂点で読んだものと、文字の順番まで一致すれば 'ok'。
+   *   例：△ABD≡△CBD（A↔C、B↔B、D↔D）で AB＝CB・BA＝BC は ok、AB＝BC・BD＝DB は 'order'。
+   *   角は一直線上の別名を、その三角形の頂点に読みかえる（O が AC 上なら ∠BAC は △ABO の ∠BAO）。
+   *   どちらの三角形でも読めないときは 'unknown'（判定しない）。
+   */
+  function correspondenceOrder(problem, items) {
+    const fig = problem.figure;
+    const tris = problem.triangles;
+    function resolve(name, tri) {
+      const isAng = geo().isAngleName(name);
+      const s = String(name).replace(/[∠\s]/g, '');
+      if (!isAng) return s.length === 2 && tri.indexOf(s[0]) >= 0 && tri.indexOf(s[1]) >= 0 ? s : null;
+      if (s.length !== 3) return null;
+      const V = s[1];
+      if (tri.indexOf(V) < 0) return null;
+      const end = function (P) {
+        if (tri.indexOf(P) >= 0 && P !== V) return P;
+        const ray = geo().rayKey(fig, V, P);
+        const w = tri.find(function (W) { return W !== V && geo().rayKey(fig, V, W) === ray; });
+        return w || null;
+      };
+      const P = end(s[0]), Q = end(s[2]);
+      return P && Q && P !== Q ? P + V + Q : null;
+    }
+    let judged = false;
+    for (const pair of [[0, 1], [1, 0]]) {
+      const from = tris[pair[0]], to = tris[pair[1]];
+      const L = resolve(items[0], from), R = resolve(items[1], to);
+      if (!L || !R) continue;
+      judged = true;
+      const mapped = L.split('').map(function (c) { return to[from.indexOf(c)]; }).join('');
+      if (mapped === R) return 'ok';
+    }
+    return judged ? 'order' : 'unknown';
+  }
+
+  /*
    * 根拠の組から合同条件を導く。
    *   'SSS' 3組の辺 / 'SAS' 2組の辺とその間の角 / 'ASA' 1組の辺とその両端の角 / null 不成立
    */
@@ -353,6 +393,7 @@
     checkEvidence: checkEvidence,
     matchEvidence: matchEvidence,
     equationStatus: equationStatus,
+    correspondenceOrder: correspondenceOrder,
     deriveCondition: deriveCondition,
     checkCongruence: checkCongruence,
     verifyProblem: verifyProblem,

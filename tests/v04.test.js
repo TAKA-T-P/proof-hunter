@@ -119,9 +119,56 @@ function challenge(id) {
   return { p, z, sol: z.solution() };
 }
 
+test('チャレンジ：頂点の対応順が合っていない等式は「対応順が合っていないよ」で正解にしない（ミスにもしない）', () => {
+  // 正しい対応順：p01 △ABD≡△CBD（A↔C、B↔B、D↔D）
+  const order = (id, a, b) => val.correspondenceOrder(PH.getProblem(id), [a, b]);
+  assert.equal(order('p01', 'AB', 'CB'), 'ok');
+  assert.equal(order('p01', 'BA', 'BC'), 'ok');
+  assert.equal(order('p01', 'CB', 'AB'), 'ok');          // 左右を入れかえても対応は合っている
+  assert.equal(order('p01', 'AB', 'BC'), 'order');
+  assert.equal(order('p01', 'BD', 'BD'), 'ok');
+  assert.equal(order('p01', 'BD', 'DB'), 'order');       // 共通な辺も、B↔B・D↔D の順に書く
+  assert.equal(order('p04', 'BC', 'CB'), 'ok');          // △ABC≡△DCB は B↔C
+  assert.equal(order('p04', 'BC', 'BC'), 'order');
+  assert.equal(order('p02', '∠AOC', '∠BOD'), 'ok');
+  assert.equal(order('p02', '∠COA', '∠DOB'), 'ok');
+  assert.equal(order('p02', '∠AOC', '∠DOB'), 'order');
+  assert.equal(order('p03', '∠BAC', '∠DCA'), 'ok');      // 一直線上の別名（O は AC 上）
+  assert.equal(order('p03', '∠CAB', '∠DCA'), 'order');
+  assert.equal(order('p14', '∠BAE', '∠CAD'), 'ok');
+  assert.equal(order('p14', '∠BAE', '∠DAC'), 'order');
+
+  let { z, sol } = challenge('p01');
+  fill(z, Object.assign({}, sol, { e0: 'AB=BC' }));
+  let r = z.check();
+  assert.equal(r.status, 'wrong');
+  assert.equal(r.result.slotStatus.e0, 'ng');
+  assert.equal(r.result.slotStatus.r0, 'ok');
+  assert.match(r.result.messages[0].text, /^対応順が合っていないよ/);
+  assert.equal(z.misses, 0);                               // ミスにしない
+  fill(z, { e0: 'BA=BC' });
+  assert.equal(z.check().status, 'clear');
+  assert.equal(z.stars, 3);
+
+  // 理由も誤っているときは、両方を知らせる（理由の誤りだけミス）
+  ({ z, sol } = challenge('p01'));
+  fill(z, Object.assign({}, sol, { e0: 'AB=BC', r0: z.cards.reason.find((c) => c.reason === 'common').id }));
+  r = z.check();
+  assert.equal(r.result.slotStatus.e0, 'ng');
+  assert.equal(r.result.slotStatus.r0, 'ng');
+  assert.equal(z.misses, 1);
+
+  // 穴埋め・組み立てのカードは正しい対応順で書かれているので影響しない
+  ['fill', 'build'].forEach((type) => {
+    const zz = new PH.Puzzle(PH.getProblem('p01'), type);
+    fill(zz, zz.solution());
+    assert.equal(zz.check().status, 'clear');
+  });
+});
+
 test('チャレンジ：等式の左右・辺の向き・角の別表記・一直線上の点による角の別名を同じ等式として判定', () => {
   let { z, sol } = challenge('p01');
-  fill(z, Object.assign({}, sol, { e0: 'CB=AB', e1: 'DA=DC', e2: 'DB=BD' }));
+  fill(z, Object.assign({}, sol, { e0: 'CB=AB', e1: 'DA=DC', e2: 'DB=DB' }));
   assert.equal(z.check().status, 'clear');
 
   ({ z, sol } = challenge('p01'));
@@ -253,11 +300,13 @@ test('キーパッド：辺の等式・角の等式を入力でき、不完全�
   assert.equal(kp.press('A'), false);              // 種類を選ぶまでは入力できない
   kp.setKind('seg');
   assert.equal(kp.display(), '＿＿＝＿＿');
-  kp.press('A'); kp.press('B');
-  assert.equal(kp.press('C'), false);              // 左辺は2文字まで
+  kp.press('A');
+  assert.equal(kp.display(), 'A＿＝＿＿');
+  kp.press('B');                                   // 左辺が終わると、＝を押さなくても右辺へ進む
+  assert.equal(kp.display(), 'AB＝＿＿');
   assert.equal(kp.complete(), false);
   assert.equal(kp.value(), null);
-  assert.equal(kp.pressEq(), true);
+  assert.equal(kp.pressEq(), false);               // ＝ボタンは不要（押しても何も変わらない）
   kp.press('C');
   assert.equal(kp.display(), 'AB＝C＿');
   assert.equal(kp.complete(), false);
@@ -267,7 +316,11 @@ test('キーパッド：辺の等式・角の等式を入力でき、不完全�
 
   kp.setKind('ang');                               // 種類を変えると入力はリセット
   assert.equal(kp.display(), '∠＿＿＿＝∠＿＿＿');
-  assert.equal(kp.pressEq(), false);               // 左辺が終わるまで＝は押せない
+  ['A', 'B', 'C', 'D', 'E', 'F'].forEach((c) => assert.equal(kp.press(c), true));   // 6文字だけで入力完了
+  assert.equal(kp.value(), '∠ABC=∠DEF');
+  assert.equal(kp.press('A'), false);              // それ以上は入らない
+  // キーボードの = を押しても同じ結果になる
+  kp.clear();
   ['A', 'B', 'C'].forEach((c) => kp.press(c));
   kp.pressEq();
   ['D', 'E', 'F'].forEach((c) => kp.press(c));
@@ -288,15 +341,16 @@ test('キーパッド：同じ辺・角の中で同じ文字は使えない', ()
 test('キーパッド：1文字削除・すべて消す・決定ずみの等式の読みこみ', () => {
   const kp = KP.create(['A', 'B', 'C', 'D']);
   kp.setKind('seg');
-  ['A', 'B'].forEach((c) => kp.press(c));
-  kp.pressEq();
-  kp.press('C');
+  ['A', 'B', 'C'].forEach((c) => kp.press(c));
   kp.backspace();
   assert.equal(kp.display(), 'AB＝＿＿');
-  kp.backspace();                                  // ＝を取り消す
-  assert.equal(kp.canPressEq(), true);
-  kp.backspace();
+  kp.backspace();                                  // ＝をまたいで、左辺の最後の文字を消す
   assert.equal(kp.display(), 'A＿＝＿＿');
+  assert.equal(kp.press('C'), true);               // 左辺に入る
+  assert.equal(kp.display(), 'AC＝＿＿');
+  kp.backspace();
+  kp.backspace();
+  assert.equal(kp.isEmpty(), true);
   kp.clear();
   assert.equal(kp.isEmpty(), true);
   assert.equal(kp.backspace(), false);
@@ -424,4 +478,12 @@ test('LocalStorage が使えない環境でも解答レベル・記録が動く'
     else delete globalThis.localStorage;
     PH.storage._reset();
   }
+});
+
+test('全問題の根拠（evidence の書き方）は、どれも頂点の対応順が合っている', () => {
+  PH.problems.forEach((p) => {
+    p.evidence.forEach((ev) => {
+      assert.equal(val.correspondenceOrder(p, ev.items), 'ok', p.id + ' ' + ev.label);
+    });
+  });
 });

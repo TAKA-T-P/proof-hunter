@@ -303,6 +303,8 @@
    * 根拠の各行の判定（入っていないところは 'empty'）。
    *   ok / empty / wrong-reason（等式は根拠だが理由が合わない）/ duplicate（同じ根拠を2回）
    *   / from-conclusion / not-common / wrong-equation / irrelevant（正しいが今回は使わない）
+   *   / order（チャレンジ：根拠の等式だが、頂点の対応順が合っていない。ミスにはしない）
+   *   row.orderOk … チャレンジで入力した等式の頂点の対応順が合っているか（理由が誤りのときも別に確かめる）
    */
   Puzzle.prototype.evaluateRows = function () {
     const p = this.problem;
@@ -311,7 +313,7 @@
     for (let i = 0; i < p.evidence.length; i++) {
       const eqCard = this.cardIn(this.eqSlotId(i));
       const reason = this.rowReason(i);
-      const row = { row: i, status: 'ok', evidence: null, eqCard: eqCard, reason: reason };
+      const row = { row: i, status: 'ok', evidence: null, eqCard: eqCard, reason: reason, orderOk: true };
       if (!eqCard) {
         row.status = 'empty';
       } else if (!eqCard.keys) {
@@ -319,11 +321,16 @@
       } else {
         const ev = V().matchEvidence(p, eqCard.keys);
         row.evidence = ev;
+        // チャレンジで入力した等式は、頂点の対応順（例：AB＝CB を AB＝BC と書いていないか）も確かめる
+        if (ev && eqCard.input) row.orderOk = V().correspondenceOrder(p, eqCard.items) !== 'order';
         if (!ev) row.status = V().equationStatus(p, eqCard.keys);
         else if (!reason) row.status = 'empty';
         else if (!reasonAccepts(reason, ev)) row.status = 'wrong-reason';
         else if (used[ev.id]) row.status = 'duplicate';
-        else used[ev.id] = true;
+        else {
+          used[ev.id] = true;
+          if (!row.orderOk) row.status = 'order';
+        }
       }
       rows.push(row);
     }
@@ -340,6 +347,12 @@
     const slotStatus = {};
     const messages = [];
     let newMisses = 0;
+
+    // まちがいの表示だけ（ミスに数えない）：頂点の対応順
+    function note(slotId, text, label) {
+      slotStatus[slotId] = 'ng';
+      messages.push({ slotId: slotId, label: label, text: text });
+    }
 
     function fail(slotId, signature, text, label) {
       slotStatus[slotId] = 'ng';
@@ -358,6 +371,7 @@
         : 'それは' + p.conclusion + 'が証明できたら言えることだよ！ 結論はまだ根拠に使えないよ。',
       wrongEquation: challenge ? 'その2つが等しいと言えるか、図と仮定を確認しよう。' : 'この等式は、まだ言えないよ！',
       cond: challenge ? '3つの根拠と合同条件の関係を確認しよう。' : 'この3つの根拠では、その合同条件は使えないよ！',
+      order: '対応順が合っていないよ！ 結論 ' + p.conclusion + ' の頂点の順番に合わせて書こう。',
     };
 
     rows.forEach(function (r) {
@@ -370,9 +384,14 @@
           slotStatus[eqId] = 'ok';
           if (rsId) slotStatus[rsId] = 'ok';
           break;
+        case 'order':
+          if (rsId) slotStatus[rsId] = 'ok';
+          note(eqId, MSG.order, label);
+          break;
         case 'wrong-reason':
           if (self.buildLike) {
-            slotStatus[eqId] = 'ok';
+            if (r.orderOk) slotStatus[eqId] = 'ok';
+            else note(eqId, MSG.order, label);
             fail(rsId, sig, MSG.wrongReason, label);
           } else {
             fail(eqId, sig, '「' + r.reason.text + '」で言える等式かな？ 理由と等式の組み合わせを考えよう。', label);

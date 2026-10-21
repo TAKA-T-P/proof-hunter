@@ -5,8 +5,9 @@
  *   PH.mathKeypad.create(letters)  … letters はその問題の図にある頂点記号だけ
  *     .setKind('seg' | 'ang')       辺の等式（□□＝□□）／角の等式（∠□□□＝∠□□□）。切りかえると入力はリセット
  *     .press('A')                   頂点記号を1文字（同じ辺・角の中で同じ文字は使えない）
- *     .pressEq()                    ＝（左辺が入力しおわったときだけ）
- *     .backspace() / .clear()       1文字削除／すべて消す
+ *                                   左辺を入力しおわると、そのまま右辺へ進む（＝・∠ は表示ずみなので押さなくてよい）
+ *     .pressEq()                    ＝（キーボードの = 用。左辺が入力しおわっていれば右辺へ。押さなくても進む）
+ *     .backspace() / .clear()       1文字削除（＝をまたいで左辺へ戻る）／すべて消す
  *     .complete()                   最後まで入力されたか（決定できるか）
  *     .value()                      'AB=CD' / '∠ABC=∠DEF'（判定に渡す正規化された文字列）
  *     .display()                    'AB＝C＿' のような表示用の文字列（入力位置が分かる）
@@ -57,6 +58,8 @@
     const L = String(letter).toUpperCase();
     if (!this.canPress(L)) return false;
     this.side().push(L);
+    // 左辺が入力しおわったら、＝を押さなくても右辺の入力に進む
+    if (!this.eq && this.left.length === SIZE[this.kind]) this.eq = true;
     return true;
   };
 
@@ -70,10 +73,10 @@
     return true;
   };
 
+  // 1文字削除。右辺が空なら＝をまたいで、左辺の最後の文字を消す
   Keypad.prototype.backspace = function () {
     if (this.right.length) this.right.pop();
-    else if (this.eq) this.eq = false;
-    else if (this.left.length) this.left.pop();
+    else if (this.left.length) { this.eq = false; this.left.pop(); }
     else return false;
     return true;
   };
@@ -170,7 +173,7 @@
 
   /*
    * キーパッドのHTML。ボタンは data-kp 属性で操作を表す：
-   *   kind:seg / kind:ang / key:A / eq / back / clear / decide
+   *   kind:seg / kind:ang / key:A / back / clear / decide
    */
   function render(kp) {
     const kindBtn = function (k, label, sample) {
@@ -187,13 +190,12 @@
       const can = kp.canPress(L);
       return '<button class="kp-key' + (can ? ' is-next' : '') + '" data-kp="key:' + esc(L) + '"' + (can ? '' : ' disabled') + '>' + esc(L) + '</button>';
     }).join('') + '</div>';
+    // ＝・∠ は入力欄に表示ずみなのでボタンはない。←・消す・決定を1行に並べる
     html += '<div class="kp-ops">' +
-      '<button class="kp-op' + (kp.kind === 'seg' ? '' : ' is-fixed') + '" data-kp="kind:ang" aria-label="∠（角の等式にする）">∠</button>' +
-      '<button class="kp-op' + (kp.canPressEq() ? ' is-next' : '') + '" data-kp="eq"' + (kp.canPressEq() ? '' : ' disabled') + '>＝</button>' +
       '<button class="kp-op" data-kp="back"' + (kp.isEmpty() ? ' disabled' : '') + ' aria-label="1文字消す">←</button>' +
       '<button class="kp-op" data-kp="clear"' + (kp.isEmpty() ? ' disabled' : '') + '>消す</button>' +
+      '<button class="btn btn-primary kp-decide" data-kp="decide"' + (kp.complete() ? '' : ' disabled') + '>決定</button>' +
       '</div>';
-    html += '<button class="btn btn-primary kp-decide" data-kp="decide"' + (kp.complete() ? '' : ' disabled') + '>決定</button>';
     return html;
   }
 
