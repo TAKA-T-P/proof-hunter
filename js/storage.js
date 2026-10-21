@@ -133,8 +133,7 @@
     };
   }
 
-  // クリアを記録。最高評価・最少ミスを更新した場合 improved: true
-  function recordClear(id, stars, misses, mode) {
+  function merge(id, stars, misses, mode) {
     const prev = getProblem(id, mode);
     const next = {
       cleared: true,
@@ -142,8 +141,26 @@
       minMisses: prev.minMisses == null ? misses : Math.min(prev.minMisses, misses),
     };
     records(mode)[id] = next;
+    return { prev: prev, next: next };
+  }
+
+  /*
+   * クリアを記録。最高評価・最少ミスを更新した場合 improved: true
+   * 証明パズルで★★★なら、同じ問題の下位の解答レベルも★★★にする
+   * （例：チャレンジで★★★ → おてがる・スタンダードも★★★）。新たに★★★になった下位レベルを lowered に返す
+   */
+  function recordClear(id, stars, misses, mode) {
+    const m = merge(id, stars, misses, mode);
+    const lowered = [];
+    if (stars === 3 && typeof mode === 'string' && mode.indexOf('puzzle:') === 0) {
+      const at = LEVELS.indexOf(mode.slice(7));
+      LEVELS.slice(0, Math.max(at, 0)).forEach(function (lv) {
+        const r = merge(id, 3, misses, 'puzzle:' + lv);
+        if (r.prev.bestStars < 3 || !r.prev.cleared) lowered.push(lv);
+      });
+    }
     save();
-    return { improved: !prev.cleared || stars > (prev.bestStars || 0), record: next };
+    return { improved: !m.prev.cleared || stars > (m.prev.bestStars || 0), record: m.next, lowered: lowered };
   }
 
   // ---- ステージ・復習（PH.problems を参照して集計） --------------------------

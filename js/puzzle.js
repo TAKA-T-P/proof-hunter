@@ -118,6 +118,70 @@
     });
   }
 
+  // ---- Ver.0.5：三角形の選択・最終結論のカード ------------------------------------------
+
+  function triText(t1, t2) { return '△' + t1.join('') + 'と△' + t2.join(''); }
+
+  function permutations(a) {
+    if (a.length <= 1) return [a.slice()];
+    const out = [];
+    a.forEach(function (x, i) {
+      permutations(a.slice(0, i).concat(a.slice(i + 1))).forEach(function (rest) { out.push([x].concat(rest)); });
+    });
+    return out;
+  }
+
+  // おてがる：三角形の組（正しい組と対応＋ダミー）から1つ選ぶ
+  function makeTriPairCards(problem) {
+    const t = problem.triangles;
+    const list = [[t[0], t[1]]].concat((problem.puzzle.distractors.triangles || []).map(function (s) {
+      return String(s).split('/').map(function (x) { return x.split(''); });
+    }));
+    return shuffle(list.map(function (pair) {
+      return { kind: 'tripair', t1: pair[0], t2: pair[1], text: triText(pair[0], pair[1]) };
+    }), problem.id + ':tripair').map(function (c, i) { c.id = 'tp' + i; return c; });
+  }
+
+  // スタンダード：1つ目の三角形（図の三角形を頂点のアルファベット順で）と、
+  // 2つ目の三角形（頂点の並び6通り。並びが1つ目との対応を表す）
+  function makeTriCards(problem) {
+    const tris = G().figureTriangles(problem.figure);
+    const first = tris.map(function (t, i) { return { id: 'ta' + i, kind: 'tri1', tri: t.slice(), text: '△' + t.join('') }; });
+    const second = [];
+    tris.forEach(function (t) {
+      permutations(t).forEach(function (q) { second.push({ kind: 'tri2', tri: q, set: t.join(''), text: '△' + q.join('') }); });
+    });
+    return {
+      tri1: first,
+      tri2: shuffle(second, problem.id + ':tri2').map(function (c, i) { c.id = 'tb' + i; return c; }),
+    };
+  }
+
+  // 最終結論の理由のカード（合同な図形の対応する辺／角・仮定）
+  function makeFinalReasonCards(problem) {
+    return shuffle(['correspondingSides', 'correspondingAngles', 'given'].map(function (r) {
+      return { kind: 'freason', reason: r, text: PH.REASONS[r].proof };
+    }), problem.id + ':freason').map(function (c, i) { c.id = 'fr' + i; return c; });
+  }
+
+  // 最終結論の等式のカード（結論＋ダミー）
+  function makeFinalCards(problem) {
+    const fig = problem.figure;
+    const labels = [problem.finalStep.label].concat(problem.puzzle.distractors.finals || []);
+    return shuffle(labels.map(function (label) {
+      const items = splitEquation(label);
+      const keys = items.map(function (n) { return G().elementKey(fig, n); });
+      return { kind: 'final', text: label, items: items, keys: keys, eq: V().equationKey(keys[0], keys[1]) };
+    }), problem.id + ':final').map(function (c, i) { c.id = 'fe' + i; return c; });
+  }
+
+  // チャレンジで入力した三角形の組（'△ABC/△DEF'）をカードと同じ形に
+  function inputTriangles(value) {
+    const v = PH.mathKeypad.parse(value);
+    if (!v || v.kind !== 'tri') return null;
+    return { id: 'in:' + v.value, kind: 'tri', t1: v.left.split(''), t2: v.right.split(''), text: PH.mathKeypad.pretty(v.value), input: true };
+  }
+
   // ---- 解答レベル（Ver.0.4） -----------------------------------------------------
 
   // 3段階の解答レベル。どの問題も3つすべてで遊べる（problem.puzzle.type は Ver.0.3 の標準形式として残っているだけ）
@@ -153,14 +217,22 @@
     this.type = type || (problem.puzzle && problem.puzzle.type) || 'fill';
     this.buildLike = this.type === 'build' || this.type === 'challenge';   // 理由も選ぶ形式
     this.letters = PH.mathKeypad ? PH.mathKeypad.lettersOf(problem.figure) : [];
+    // 結論が辺・角の等しさの問題（Ver.0.5）：最初に三角形を選び、最後に合同から結論を導く
+    this.hasFinal = !!(PH.hasFinalStep && PH.hasFinalStep(problem));
+    const triCards = this.hasFinal && this.type === 'build' ? makeTriCards(problem) : { tri1: [], tri2: [] };
     this.cards = {
       eq: this.type === 'challenge' ? [] : makeEquationCards(problem),   // チャレンジでは等式カードを出さない
       reason: this.buildLike ? makeReasonCards(problem) : [],
       cond: makeConditionCards(),
+      tripair: this.hasFinal && this.type === 'fill' ? makeTriPairCards(problem) : [],
+      tri1: triCards.tri1,
+      tri2: triCards.tri2,
+      freason: this.hasFinal && this.buildLike ? makeFinalReasonCards(problem) : [],
+      final: this.hasFinal && this.type !== 'challenge' ? makeFinalCards(problem) : [],
     };
     this.cardById = {};
     const self = this;
-    ['eq', 'reason', 'cond'].forEach(function (k) {
+    Object.keys(this.cards).forEach(function (k) {
       self.cards[k].forEach(function (c) { self.cardById[c.id] = c; });
     });
     this.slots = this.makeSlots();
@@ -173,10 +245,21 @@
    *   build: { id:'r0', kind:'reason', row:0 }, { id:'e0', kind:'eq', row:0 } …
    *   challenge: build と同じで、等式の空欄に input: true（キーパッドで入力）
    *   共通 : { id:'cond', kind:'cond' }
+   *   Ver.0.5（結論が辺・角の等しさ）：最初に三角形、最後に最終結論
+   *     fill     : { id:'tri', kind:'tripair' } … { id:'fe', kind:'final', fixed:{ text } }（理由は表示済み）
+   *     build    : { id:'t1', kind:'tri1' }, { id:'t2', kind:'tri2' } … { id:'fr', kind:'freason' }, { id:'fe', kind:'final' }
+   *     challenge: { id:'tri', kind:'tri', input:true, inputKind:'tri' } … { id:'fr', kind:'freason' }, { id:'fe', kind:'final', input:true }
    */
   Puzzle.prototype.makeSlots = function () {
     const p = this.problem;
     const slots = [];
+    if (this.hasFinal) {
+      if (this.type === 'fill') slots.push({ id: 'tri', kind: 'tripair', label: '証明する三角形' });
+      else if (this.type === 'build') {
+        slots.push({ id: 't1', kind: 'tri1', label: '1つ目の三角形' });
+        slots.push({ id: 't2', kind: 'tri2', label: '2つ目の三角形（頂点の対応）' });
+      } else slots.push({ id: 'tri', kind: 'tri', label: '証明する三角形', input: true, inputKind: 'tri' });
+    }
     p.evidence.forEach(function (ev, i) {
       if (this.buildLike) {
         slots.push({ id: 'r' + i, kind: 'reason', row: i, label: '根拠' + CIRCLED[i] + 'の理由' });
@@ -189,7 +272,27 @@
       }
     }, this);
     slots.push({ id: 'cond', kind: 'cond', label: '合同条件' });
+    if (this.hasFinal) {
+      if (this.type === 'fill') {
+        slots.push({ id: 'fe', kind: 'final', label: '結論', fixed: { text: PH.REASONS[PH.finalReasonFor(p)].proof } });
+      } else {
+        slots.push({ id: 'fr', kind: 'freason', label: '結論の理由' });
+        slots.push({ id: 'fe', kind: 'final', label: '結論の等式', input: this.type === 'challenge' });
+      }
+    }
     return slots;
+  };
+
+  // 空欄が数学キーパッドで入力する欄か、そのとき入力できる種類
+  Puzzle.prototype.inputKinds = function (slotId) {
+    const s = this.slot(slotId);
+    if (!s || !s.input) return null;
+    return s.inputKind === 'tri' ? ['tri'] : ['seg', 'ang'];
+  };
+
+  // 3つの頂点が図の上の三角形か（三角形の入力欄で、図にない三角形は決定できない）
+  Puzzle.prototype.isTriangle = function (tri) {
+    return G().isFigureTriangle(this.problem.figure, tri);
   };
 
   Puzzle.prototype.reset = function () {
@@ -218,7 +321,15 @@
   // 選択中の空欄に入れられるカード
   Puzzle.prototype.cardsForActive = function () {
     const s = this.slot(this.active);
-    if (!s || s.input) return [];             // チャレンジの等式はキーパッドで入力
+    if (!s || s.input) return [];             // チャレンジの等式・三角形はキーパッドで入力
+    if (s.kind === 'tri2') {
+      // 2つ目の三角形：1つ目と同じ三角形の並べかえは出さない
+      const first = this.cardIn('t1');
+      if (first) {
+        const set = first.tri.slice().sort().join('');
+        return this.cards.tri2.filter(function (c) { return c.set !== set; });
+      }
+    }
     return this.cards[s.kind];
   };
 
@@ -237,6 +348,10 @@
     if (!s || !s.input) return false;
     const v = PH.mathKeypad.parse(value, this.letters);
     if (!v) return false;
+    // 三角形の欄には図の上の三角形の組だけ、等式の欄には辺・角の等式だけが入る
+    if (s.inputKind === 'tri') {
+      if (v.kind !== 'tri' || !this.isTriangle(v.left.split('')) || !this.isTriangle(v.right.split(''))) return false;
+    } else if (v.kind === 'tri') return false;
     this.inputs[s.id] = v.value;
     this.placed[s.id] = 'input';
     if (this.result) delete this.result.slotStatus[s.id];
@@ -285,14 +400,58 @@
 
   Puzzle.prototype.cardIn = function (slotId) {
     const id = this.placed[slotId];
-    if (id === 'input') return inputCard(this.problem, this.inputs[slotId]);
+    if (id === 'input') {
+      const s = this.slot(slotId);
+      return s && s.inputKind === 'tri' ? inputTriangles(this.inputs[slotId]) : inputCard(this.problem, this.inputs[slotId]);
+    }
     return id ? this.cardById[id] : null;
+  };
+
+  // 答えた三角形の組 [t1, t2]（同じ位置の頂点どうしが対応）。未完成なら null
+  Puzzle.prototype.triangleAnswer = function () {
+    if (!this.hasFinal) return null;
+    if (this.type === 'build') {
+      const a = this.cardIn('t1'), b = this.cardIn('t2');
+      return a && b ? [a.tri, b.tri] : null;
+    }
+    const c = this.cardIn('tri');
+    return c ? [c.t1, c.t2] : null;
+  };
+
+  Puzzle.prototype.triangleSlotIds = function () {
+    if (!this.hasFinal) return [];
+    return this.type === 'build' ? ['t1', 't2'] : ['tri'];
+  };
+
+  // 三角形の判定（validation.checkTriangles）。未完成は 'incomplete'
+  Puzzle.prototype.evaluateTriangles = function () {
+    const ans = this.triangleAnswer();
+    if (!ans) return { status: 'incomplete', ok: false };
+    return V().checkTriangles(this.problem, ans[0], ans[1]);
+  };
+
+  /*
+   * 最終結論の判定
+   *   reasonOk … 理由（おてがるは表示済みなので常に正しい）
+   *   status   … goal / not-goal / evidence / wrong-equation / empty
+   *   orderOk  … チャレンジで入力した等式の頂点の対応順
+   */
+  Puzzle.prototype.evaluateFinal = function () {
+    if (!this.hasFinal) return null;
+    const p = this.problem;
+    const rc = this.type === 'fill' ? { reason: PH.finalReasonFor(p) } : this.cardIn('fr');
+    const ec = this.cardIn('fe');
+    const out = { reasonCard: rc, eqCard: ec, reasonOk: !!rc && rc.reason === PH.finalReasonFor(p), status: 'empty', orderOk: true };
+    if (!ec) return out;
+    out.status = ec.keys ? V().finalEquationStatus(p, ec.keys) : 'wrong-equation';
+    if (out.status === 'goal' && ec.input) out.orderOk = V().correspondenceOrder(p, ec.items) !== 'order';
+    return out;
   };
 
   // 根拠の行ごとの理由（fill は表示済みの理由、build・challenge は理由カード）
   Puzzle.prototype.rowReason = function (row) {
     if (this.buildLike) return this.cardIn('r' + row);
-    return this.slots[row].fixed;
+    return this.slot('s' + row).fixed;
   };
 
   Puzzle.prototype.eqSlotId = function (row) {
@@ -364,15 +523,39 @@
     }
 
     const challenge = this.type === 'challenge';
+    // 結論が辺・角の等しさの問題では、答え合わせの文で証明する三角形（STEP 1 の答え）を明かさない
     const MSG = {
       wrongReason: '等式は合っているよ！ 理由をもう一度考えてみよう。',
       duplicate: '同じ根拠が2回使われているよ！',
       fromConclusion: challenge ? 'それは合同が証明できてから使える関係だよ！'
+        : this.hasFinal ? 'それは合同が証明できてから使える関係だよ！ まだ根拠に使えないよ。'
         : 'それは' + p.conclusion + 'が証明できたら言えることだよ！ 結論はまだ根拠に使えないよ。',
       wrongEquation: challenge ? 'その2つが等しいと言えるか、図と仮定を確認しよう。' : 'この等式は、まだ言えないよ！',
       cond: challenge ? '3つの根拠と合同条件の関係を確認しよう。' : 'この3つの根拠では、その合同条件は使えないよ！',
-      order: '対応順が合っていないよ！ 結論 ' + p.conclusion + ' の頂点の順番に合わせて書こう。',
+      order: this.hasFinal ? '対応順が合っていないよ！ 2つの三角形の頂点の対応に合わせて書こう。'
+        : '対応順が合っていないよ！ 結論 ' + p.conclusion + ' の頂点の順番に合わせて書こう。',
+      triOrder: '三角形は見つけられたね！ 頂点の対応順を確認しよう！',
+      triWrong: 'この2つの三角形で、結論を導けるかな？ 対応する辺・角に注目しよう！',
+      finalNotGoal: '正しい関係だけれど、問題で求められている結論ではないよ。結論をもう一度確認しよう！',
+      finalEvidence: 'それは合同を示すのに使った関係だよ。合同から導く結論を答えよう！',
+      finalWrong: 'その2つは、合同な三角形で対応しているかな？ 結論をもう一度確認しよう！',
+      finalReason: '合同な図形の性質を使おう。辺と角のどちらの等しさかな？',
     };
+
+    // 三角形の選択（Ver.0.5）：三角形の組と頂点の対応
+    if (this.hasFinal) {
+      const tr = this.evaluateTriangles();
+      const ids = this.triangleSlotIds();
+      const ans = this.triangleAnswer();
+      const sig = 'tri:' + (ans ? V().correspondenceKey(ans[0], ans[1]) : '');
+      if (tr.ok) ids.forEach(function (id) { slotStatus[id] = 'ok'; });
+      else {
+        const last = ids[ids.length - 1];
+        ids.forEach(function (id) { slotStatus[id] = 'ng'; });
+        if (tr.status === 'order' && ids.length > 1) slotStatus[ids[0]] = 'ok';   // 1つ目の三角形は合っている
+        fail(last, sig, tr.status === 'order' ? MSG.triOrder : MSG.triWrong, '三角形');
+      }
+    }
 
     rows.forEach(function (r) {
       const eqId = self.eqSlotId(r.row);
@@ -423,6 +606,22 @@
     else fail('cond', 'cond:' + condCard.id + ':' + rows.map(function (r) { return r.eqCard.id; }).join(','),
       MSG.cond, '合同条件');
 
+    // 最終結論（Ver.0.5）：合同な図形の対応する辺・角から導く結論と、その理由
+    if (this.hasFinal) {
+      const f = this.evaluateFinal();
+      const fsig = 'final:' + f.eqCard.id;
+      if (this.type !== 'fill') {
+        if (f.reasonOk) slotStatus.fr = 'ok';
+        else fail('fr', 'freason:' + f.reasonCard.id, MSG.finalReason, '結論の理由');
+      }
+      if (f.status === 'goal') {
+        if (f.orderOk) slotStatus.fe = 'ok';
+        else note('fe', MSG.order, '結論');
+      } else if (f.status === 'not-goal') fail('fe', fsig, MSG.finalNotGoal, '結論');
+      else if (f.status === 'evidence') fail('fe', fsig, MSG.finalEvidence, '結論');
+      else fail('fe', fsig, MSG.finalWrong, '結論');
+    }
+
     this.misses += newMisses;
     const ok = messages.length === 0;
     this.result = { ok: ok, slotStatus: slotStatus, messages: messages, newMisses: newMisses };
@@ -451,21 +650,33 @@
   // ヒントの対象：まだ正しくそろっていない根拠（答え合わせで誤りがあった所・空欄を優先）、最後に合同条件
   Puzzle.prototype.hintTarget = function () {
     const p = this.problem;
+    // Ver.0.5：まず証明する三角形
+    if (this.hasFinal && !this.evaluateTriangles().ok) {
+      return { id: 'triangleSelection', ev: null, slotId: this.triangleSlotIds()[0] };
+    }
     const rows = this.evaluateRows();
     const done = {};
     rows.forEach(function (r) { if (r.status === 'ok') done[r.evidence.id] = true; });
-    const order = this.slots.filter(function (s) { return s.kind !== 'cond'; });
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       if (r.status === 'ok') continue;
       if (this.type === 'fill') {
         // 表示済みの理由で言える根拠のうち、まだ使っていないもの（同じ理由の行どうしは入れかえ可）
-        const fixed = this.slots[i].fixed;
+        const fixed = this.slot('s' + i).fixed;
         const ev = p.evidence.find(function (e) { return !done[e.id] && reasonAccepts(fixed, e); });
-        if (ev) return { id: ev.id, ev: ev, slotId: order[i].id };
+        if (ev) return { id: ev.id, ev: ev, slotId: 's' + i };
       } else {
         const ev = p.evidence.find(function (e) { return !done[e.id]; });
         if (ev) return { id: ev.id, ev: ev, slotId: 'e' + i };
+      }
+    }
+    // 根拠がそろい、合同条件も正しければ、最後は合同から結論を導くところ
+    if (this.hasFinal) {
+      const cond = this.cardIn('cond');
+      const f = this.evaluateFinal();
+      const finalOk = f.reasonOk && f.status === 'goal' && f.orderOk;
+      if (cond && cond.cond === p.congruence && !finalOk) {
+        return { id: 'finalStep', ev: null, slotId: this.type === 'fill' || f.reasonOk ? 'fe' : 'fr' };
       }
     }
     return { id: 'congruence', ev: null, slotId: 'cond' };
@@ -473,6 +684,12 @@
 
   Puzzle.prototype.hintList = function (target) {
     const p = this.problem;
+    if (target.id === 'triangleSelection' || target.id === 'finalStep') {
+      // 問題データのヒント（最終段階でも答えは自動で入れない）
+      return (p.hints[target.id] || []).map(function (h) {
+        return { text: h.text, focus: (h.focus || []).map(function (n) { return G().elementKey(p.figure, n); }) };
+      });
+    }
     if (!target.ev) return (p.hints.congruence || []).map(function (h) { return { text: h.text, focus: [] }; });
     const ev = target.ev;
     const fig = p.figure;
@@ -533,11 +750,28 @@
       }
     });
     out.cond = this.cards.cond.find(function (c) { return c.cond === p.congruence; }).id;
+    if (this.hasFinal) {
+      const t = p.triangles;
+      // 1つ目をアルファベット順にしたときの、対応する2つ目の頂点の並び
+      const first = t[0].slice().sort();
+      const second = first.map(function (v) { return t[1][t[0].indexOf(v)]; });
+      if (this.type === 'fill') {
+        out.tri = this.cards.tripair.find(function (c) { return V().checkTriangles(p, c.t1, c.t2).ok; }).id;
+      } else if (this.type === 'build') {
+        out.t1 = this.cards.tri1.find(function (c) { return c.tri.join('') === first.join(''); }).id;
+        out.t2 = this.cards.tri2.find(function (c) { return c.tri.join('') === second.join(''); }).id;
+      } else {
+        out.tri = '△' + first.join('') + '/△' + second.join('');
+      }
+      if (this.type !== 'fill') out.fr = this.cards.freason.find(function (c) { return c.reason === PH.finalReasonFor(p); }).id;
+      out.fe = this.type === 'challenge' ? p.finalStep.items.join('=')
+        : this.cards.final.find(function (c) { return c.text === p.finalStep.label; }).id;
+    }
     return out;
   };
 
   PH.Puzzle = Puzzle;
-  PH.puzzleUtil = { reasonText: reasonText, reasonAccepts: reasonAccepts, splitEquation: splitEquation, inputCard: inputCard };
+  PH.puzzleUtil = { reasonText: reasonText, reasonAccepts: reasonAccepts, splitEquation: splitEquation, inputCard: inputCard, inputTriangles: inputTriangles };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = { Puzzle: Puzzle };
 })(typeof window !== 'undefined' ? window : globalThis);

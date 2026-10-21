@@ -169,6 +169,92 @@
     return judged ? 'order' : 'unknown';
   }
 
+  // ---- 三角形の選択と頂点の対応（Ver.0.5） ------------------------------------
+
+  /*
+   * 頂点の対応を正規化したキー。対応を保ったまま頂点を並べ替えた表記と、左右の三角形の交換を同じキーにする。
+   *   △ABCと△DEF、△BCAと△EFD、△ACBと△DFE、△DEFと△ABC → どれも同じキー
+   *   キーは「対応する頂点の組」（例 'A>D,B>E,C>F'）を並べたもの。左右を入れかえた向きと比べて小さい方。
+   */
+  function correspondenceKey(t1, t2) {
+    const pairs = function (a, b) {
+      return [0, 1, 2].map(function (i) { return a[i] + '>' + b[i]; }).sort().join(',');
+    };
+    const k1 = pairs(t1, t2), k2 = pairs(t2, t1);
+    return k1 < k2 ? k1 : k2;
+  }
+
+  // 頂点の集合としての三角形（向き・並びを無視）
+  function triangleSetKey(t) { return t.slice().sort().join(''); }
+
+  // 正解として認める対応：triangles（唯一の基準）と、対称性などで明示的に許可した対応（altTriangles、任意）
+  function acceptedCorrespondences(problem) {
+    return [problem.triangles].concat(problem.altTriangles || []);
+  }
+
+  /*
+   * 証明する2つの三角形と頂点の対応の判定。t1, t2 は頂点の配列（同じ位置どうしが対応）。
+   *   ok        … 正しい三角形と対応（並べ方・左右の交換は自由）
+   *   order     … 三角形の組は正しいが、頂点の対応がちがう
+   *   wrong     … 三角形の組がちがう
+   *   same      … 同じ三角形を2つ選んだ
+   *   invalid   … 図の上の三角形ではない（一直線上の3点・かかれていない辺など）
+   *   incomplete… 未完成
+   */
+  function checkTriangles(problem, t1, t2) {
+    const full = function (t) { return Array.isArray(t) && t.length === 3 && t.every(function (c) { return typeof c === 'string' && c; }); };
+    if (!full(t1) || !full(t2)) return { status: 'incomplete', ok: false };
+    const fig = problem.figure;
+    if (!geo().isFigureTriangle(fig, t1) || !geo().isFigureTriangle(fig, t2)) return { status: 'invalid', ok: false };
+    if (triangleSetKey(t1) === triangleSetKey(t2)) return { status: 'same', ok: false };
+    const key = correspondenceKey(t1, t2);
+    const sets = [triangleSetKey(t1), triangleSetKey(t2)].sort().join('|');
+    const accepted = acceptedCorrespondences(problem);
+    if (accepted.some(function (c) { return correspondenceKey(c[0], c[1]) === key; })) return { status: 'ok', ok: true };
+    const sameSets = accepted.some(function (c) { return [triangleSetKey(c[0]), triangleSetKey(c[1])].sort().join('|') === sets; });
+    return { status: sameSets ? 'order' : 'wrong', ok: false };
+  }
+
+  // ---- 最終結論（合同から導く辺・角の等しさ） -----------------------------------
+
+  function finalKeys(problem) {
+    return keysOf(problem.figure, problem.finalStep.items);
+  }
+
+  /*
+   * 最終結論の等式の種類（合同が成立したあとに判定する）
+   *   goal       … 問題で求められている結論（左右・表記の違いは同一視）
+   *   not-goal   … 合同から言える正しい関係（対応する辺・角）だが、求められている結論ではない
+   *   evidence   … 合同を示すのに使った根拠（または今回使わない正しい関係）で、結論ではない
+   *   wrong-equation … 等しいと言えない
+   */
+  function finalEquationStatus(problem, keys) {
+    if (!keys || !keys[0] || !keys[1]) return 'incomplete';
+    const fk = finalKeys(problem);
+    const eq = equationKey(keys[0], keys[1]);
+    if (eq === equationKey(fk[0], fk[1])) return 'goal';
+    const st = equationStatus(problem, keys);
+    if (st === 'evidence' || st === 'irrelevant') return 'evidence';
+    if (st === 'from-conclusion') return 'not-goal';
+    return 'wrong-equation';
+  }
+
+  /*
+   * 最終結論の判定。congruenceProved が false（合同がまだ成立していない）なら、結論は使えない。
+   *   correct / wrong-reason（等式は正しいが理由がちがう）/ not-goal / evidence / wrong-equation / not-proved / incomplete
+   */
+  function checkFinal(problem, keys, reasonId, congruenceProved) {
+    if (!keys || keys.length !== 2 || !keys[0] || !keys[1] || !reasonId) return { status: 'incomplete', miss: false };
+    if (!congruenceProved) return { status: 'not-proved', miss: true };
+    const st = finalEquationStatus(problem, keys);
+    if (st === 'goal') {
+      return reasonId === PH.finalReasonFor(problem)
+        ? { status: 'correct', miss: false }
+        : { status: 'wrong-reason', miss: true };
+    }
+    return { status: st, miss: st !== 'not-goal' };
+  }
+
   /*
    * 根拠の組から合同条件を導く。
    *   'SSS' 3組の辺 / 'SAS' 2組の辺とその間の角 / 'ASA' 1組の辺とその両端の角 / null 不成立
@@ -270,8 +356,15 @@
           if (Math.abs((B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x)) < 1) errors.push('三角形' + (i + 1) + 'がつぶれている');
         }
       });
-      const expected = '△' + problem.triangles[0].join('') + '≡△' + problem.triangles[1].join('');
-      if (problem.conclusion !== expected) errors.push('結論の表記と triangles の対応順が一致しない: ' + expected);
+      const ctype = PH.conclusionType(problem);
+      if (PH.CONCLUSION_TYPES.indexOf(ctype) < 0) errors.push('conclusionType が無効: ' + ctype);
+      if (ctype === 'triangleCongruence') {
+        const expected = '△' + problem.triangles[0].join('') + '≡△' + problem.triangles[1].join('');
+        if (problem.conclusion !== expected) errors.push('結論の表記と triangles の対応順が一致しない: ' + expected);
+        if (problem.finalStep) errors.push('三角形の合同が結論の問題に finalStep がある');
+      } else {
+        verifyFinalStep(problem, errors);
+      }
 
       // 一直線上の点（figure.lines）が本当に一直線上に、書いた順で並んでいるか
       (fig.lines || []).forEach(function (L) {
@@ -371,6 +464,58 @@
     return errors;
   }
 
+  /*
+   * 結論が辺・角の等しさの問題（Ver.0.5）の追加チェック
+   *   最終結論が、途中で示す合同の対応する辺・角から導けるか、根拠に混ざっていないか、理由・ヒント・パズルのダミーが正しいか
+   */
+  function verifyFinalStep(problem, errors) {
+    const fig = problem.figure;
+    const fs = problem.finalStep;
+    if (!fs || !Array.isArray(fs.items) || fs.items.length !== 2) { errors.push('finalStep がない・不正'); return; }
+    const kind = PH.conclusionType(problem) === 'equalAngle' ? 'angle' : 'side';
+    if (fs.relationType !== kind) errors.push('finalStep.relationType が conclusionType と合わない');
+    if (fs.items.some(function (n) { return geo().isAngleName(n) !== (kind === 'angle'); })) errors.push('finalStep.items の種類が合わない');
+    if (fs.reason !== PH.finalReasonFor(problem)) errors.push('finalStep.reason が不正: ' + fs.reason);
+    if (fs.label !== problem.conclusion) errors.push('finalStep.label と結論が一致しない');
+    if (fs.label.replace(/＝/g, '=') !== fs.items.join('=')) errors.push('finalStep の label と items が一致しない');
+    const els = geo().getElements(fig);
+    const keys = keysOf(fig, fs.items);
+    keys.forEach(function (k) { if (!els.byKey[k]) errors.push('最終結論: 図で選択できない要素 ' + k); });
+    // 合同の対応する辺・角か（＝合同から導ける）。頂点の対応順どおりに書かれているか
+    if (!classifyPair(problem, keys)) errors.push('最終結論が、合同な三角形の対応する辺・角になっていない');
+    if (correspondenceOrder(problem, fs.items) !== 'ok') errors.push('最終結論が頂点の対応順どおりに書かれていない');
+    if (!nearlyEqual(measure(fig, fs.items[0]), measure(fig, fs.items[1]))) errors.push('最終結論が図の上で等しくない');
+    // 最終結論を途中の根拠に使っていない・仮定そのものではない（合同を示す意味がある）
+    const st = equationStatus(problem, keys);
+    if (st === 'evidence') errors.push('最終結論が根拠（仮定など）にふくまれている');
+    if (st === 'irrelevant') errors.push('最終結論が extraTruths にふくまれている');
+    if (problem.given.indexOf(problem.conclusion) >= 0) errors.push('最終結論が仮定にふくまれている');
+    // 証明する三角形が図の上にあるか
+    problem.triangles.forEach(function (t) { if (!geo().isFigureTriangle(fig, t)) errors.push('三角形 △' + t.join('') + ' が図の上の三角形ではない'); });
+    // ヒント
+    ['triangleSelection', 'finalStep'].forEach(function (id) {
+      if (!(problem.hints && problem.hints[id] && problem.hints[id].length === 3)) errors.push(id + ' のヒントが3段階ない');
+    });
+    // パズルのダミー：三角形の組は不正解になること、最終結論のダミーは結論にならないこと
+    const dist = (problem.puzzle && problem.puzzle.distractors) || {};
+    const tris = dist.triangles || [];
+    if (tris.length < 2) errors.push('三角形の組のダミーが2つ未満');
+    tris.forEach(function (s) {
+      const tt = String(s).split('/').map(function (x) { return x.split(''); });
+      const r = tt.length === 2 ? checkTriangles(problem, tt[0], tt[1]) : { status: 'incomplete' };
+      if (r.status !== 'order' && r.status !== 'wrong') errors.push('三角形の組のダミーが不適切（' + r.status + '）: ' + s);
+    });
+    const finals = dist.finals || [];
+    if (finals.length < 2) errors.push('最終結論のダミーが2つ未満');
+    finals.forEach(function (label) {
+      const items = String(label).split('＝');
+      if (items.length !== 2) { errors.push('最終結論のダミーの形式が不正: ' + label); return; }
+      const fst = finalEquationStatus(problem, keysOf(fig, items));
+      if (fst === 'goal') errors.push('最終結論のダミーが結論と同じ: ' + label);
+      if (fst === 'wrong-equation' && nearlyEqual(measure(fig, items[0]), measure(fig, items[1]))) errors.push('最終結論のダミーが図の上で等しく見える: ' + label);
+    });
+  }
+
   // 問題全体のチェック（ID重複・各ステージに問題があるか・各問題）
   function verifyAll(problems, stages) {
     const errors = [];
@@ -394,6 +539,10 @@
     matchEvidence: matchEvidence,
     equationStatus: equationStatus,
     correspondenceOrder: correspondenceOrder,
+    correspondenceKey: correspondenceKey,
+    checkTriangles: checkTriangles,
+    finalEquationStatus: finalEquationStatus,
+    checkFinal: checkFinal,
     deriveCondition: deriveCondition,
     checkCongruence: checkCongruence,
     verifyProblem: verifyProblem,

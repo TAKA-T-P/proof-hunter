@@ -241,6 +241,75 @@
       .map(function (a) { return a.key; });
   }
 
+  // ---- 三角形（Ver.0.5：証明する三角形を選ぶ） ----------------------------------
+
+  // 2点が図の線で結ばれているか（辺そのもの、または一直線上に並んだ辺のつながり。例 A-O-C で AO・OC があれば AC）
+  function connected(figure, P, Q) {
+    const byKey = getElements(figure).byKey;
+    if (byKey[segKey(P + Q)]) return true;
+    return (figure.lines || []).some(function (L) {
+      const i = L.indexOf(P), j = L.indexOf(Q);
+      if (i < 0 || j < 0) return false;
+      const a = Math.min(i, j), b = Math.max(i, j);
+      for (let k = a; k < b; k++) {
+        // 隣り合う点の間がどれかの辺（途中に点がある長い辺をふくむ）に覆われているか
+        const covered = getElements(figure).segments.some(function (s) {
+          const si = L.indexOf(s.name[0]), sj = L.indexOf(s.name[1]);
+          return si >= 0 && sj >= 0 && Math.min(si, sj) <= k && Math.max(si, sj) >= k + 1;
+        });
+        if (!covered) return false;
+      }
+      return true;
+    });
+  }
+
+  function triArea(A, B, C) {
+    return Math.abs((B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x)) / 2;
+  }
+
+  const triCache = new WeakMap();
+  /*
+   * 図の上にある三角形の一覧（頂点はアルファベット順の配列）。
+   * 3辺がすべて図にかかれていて（一直線上のつながりもふくむ）、3点が一直線上にないものだけ。
+   * 図にかかれていない三角形を候補として作らない。
+   */
+  function figureTriangles(figure) {
+    if (triCache.has(figure)) return triCache.get(figure);
+    const pts = figure.points;
+    const names = Object.keys(pts).sort();
+    const out = [];
+    for (let i = 0; i < names.length; i++) {
+      for (let j = i + 1; j < names.length; j++) {
+        for (let k = j + 1; k < names.length; k++) {
+          const t = [names[i], names[j], names[k]];
+          if (triArea(pts[t[0]], pts[t[1]], pts[t[2]]) < 1) continue;     // 一直線上
+          if (connected(figure, t[0], t[1]) && connected(figure, t[1], t[2]) && connected(figure, t[0], t[2])) out.push(t);
+        }
+      }
+    }
+    triCache.set(figure, out);
+    return out;
+  }
+
+  // 3つの頂点（順不同）が図の上の三角形か
+  function isFigureTriangle(figure, tri) {
+    if (!tri || tri.length !== 3 || new Set(tri).size !== 3) return false;
+    const id = tri.slice().sort().join('');
+    return figureTriangles(figure).some(function (t) { return t.join('') === id; });
+  }
+
+  // タップした点 q をふくむ図の三角形（小さい三角形が先）
+  function triangleCandidates(figure, q) {
+    const pts = figure.points;
+    return figureTriangles(figure).filter(function (t) {
+      const A = pts[t[0]], B = pts[t[1]], C = pts[t[2]];
+      const s = triArea(A, B, C);
+      return Math.abs(triArea(q, B, C) + triArea(A, q, C) + triArea(A, B, q) - s) < 0.5;
+    }).sort(function (a, b) {
+      return triArea(pts[a[0]], pts[a[1]], pts[a[2]]) - triArea(pts[b[0]], pts[b[1]], pts[b[2]]);
+    });
+  }
+
   // 平行の印の一覧。[始点, 終点] または [始点, 終点, 組番号]（組番号の数だけ矢印を重ねる）
   function parallelLines(figure) {
     return (figure.parallel || []).map(function (e) {
@@ -290,6 +359,9 @@
     inSector: inSector,
     segmentCandidates: segmentCandidates,
     angleCandidates: angleCandidates,
+    figureTriangles: figureTriangles,
+    isFigureTriangle: isFigureTriangle,
+    triangleCandidates: triangleCandidates,
     vec: { sub: sub, add: add, mul: mul, len: len, dist: dist, unit: unit, normal: normal, lerp: lerp },
     fmt: pt,
     arcPath: arcPath,

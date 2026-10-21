@@ -448,7 +448,7 @@ test('解答レベルごとに評価・ステージ集計・復習対象が独�
     assert.ok(!PH.storage.isReviewTarget('p01', 'puzzle:easy'));
     assert.ok(PH.storage.isReviewTarget('p01', 'puzzle:standard'));
     assert.ok(PH.storage.isReviewTarget('p01', 'puzzle:challenge'));
-    assert.equal(PH.storage.reviewProblems('puzzle:easy').length, 14);
+    assert.equal(PH.storage.reviewProblems('puzzle:easy').length, PH.problems.length - 1);
     assert.equal(PH.storage.getProblem('p01').cleared, false);                       // ハンターには影響しない
     assert.equal(PH.storage.setPuzzleLevel('expert'), false);
     assert.equal(PH.storage.getPuzzleLevel(), 'easy');
@@ -485,5 +485,41 @@ test('全問題の根拠（evidence の書き方）は、どれも頂点の対�
     p.evidence.forEach((ev) => {
       assert.equal(val.correspondenceOrder(p, ev.items), 'ok', p.id + ' ' + ev.label);
     });
+  });
+});
+
+test('上位の解答レベルで★★★を取ると、同じ問題の下位レベルも★★★になる', () => {
+  withFakeStorage(null, () => {
+    const S = PH.storage;
+    // チャレンジで★★★ → おてがる・スタンダードも★★★
+    let r = S.recordClear('p01', 3, 0, 'puzzle:challenge');
+    assert.deepEqual(r.lowered, ['easy', 'standard']);
+    ['easy', 'standard', 'challenge'].forEach((lv) => {
+      const rec = S.getProblem('p01', 'puzzle:' + lv);
+      assert.equal(rec.cleared, true, lv);
+      assert.equal(rec.bestStars, 3, lv);
+    });
+    assert.equal(S.getProblem('p02', 'puzzle:easy').cleared, false);          // ほかの問題は変わらない
+    assert.equal(S.getProblem('p01').cleared, false);                          // ハンターは変わらない
+
+    // スタンダードで★★★ → おてがるだけ。チャレンジは変わらない
+    S.recordClear('p02', 2, 1, 'puzzle:easy');
+    r = S.recordClear('p02', 3, 0, 'puzzle:standard');
+    assert.deepEqual(r.lowered, ['easy']);
+    assert.equal(S.getProblem('p02', 'puzzle:easy').bestStars, 3);
+    assert.equal(S.getProblem('p02', 'puzzle:easy').minMisses, 0);
+    assert.equal(S.getProblem('p02', 'puzzle:challenge').cleared, false);
+
+    // ★★以下では下位レベルは変わらない。すでに★★★なら lowered に入らない
+    r = S.recordClear('p03', 2, 1, 'puzzle:challenge');
+    assert.deepEqual(r.lowered, []);
+    assert.equal(S.getProblem('p03', 'puzzle:easy').cleared, false);
+    r = S.recordClear('p02', 3, 0, 'puzzle:challenge');
+    assert.deepEqual(r.lowered, []);
+
+    // おてがるで★★★でも上位レベルは変わらない
+    S.recordClear('p05', 3, 0, 'puzzle:easy');
+    assert.equal(S.getProblem('p05', 'puzzle:standard').cleared, false);
+    assert.equal(S.stageStats(PH.getProblem('p01').stage, 'puzzle:easy').stars >= 3, true);
   });
 });

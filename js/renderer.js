@@ -11,6 +11,8 @@
  *   view.interactive : true ならタップ用の透明な操作領域を置く
  *   view.hit         : { seg, ang } どちらの操作領域を置くか（省略時は両方）
  *   view.angleGuide  : true なら選択できる角に薄い円弧を表示（角選択モード）
+ *   view.triSel      : 選んだ三角形（頂点の配列のリスト。1つ目は青、2つ目は黄）（Ver.0.5：三角形を選ぶ）
+ *   view.hit.tri     : true なら図の三角形の内側をタップできる（data-tri="ABD"）
  */
 (function (root) {
   'use strict';
@@ -110,6 +112,15 @@
       });
     }
 
+    // 1b. 選んだ三角形（三角形を選ぶ段階）
+    if (v.triSel && v.triSel.length) {
+      const gs0 = el('g', { class: 'layer-trisel' }, svg);
+      v.triSel.forEach(function (tri, i) {
+        const pts = tri.map(function (n) { return g.fmt(fig.points[n]).replace(' ', ','); }).join(' ');
+        el('polygon', { points: pts, class: 'tri-sel tri-sel-' + i }, gs0);
+      });
+    }
+
     // 2. 強調（選択・フラッシュ）の下敷き
     const gu = el('g', { class: 'layer-under' }, svg);
     function underlay(item, cls) {
@@ -183,6 +194,14 @@
       const angleOnly = hit.ang && !hit.seg;
       const scale = svg.clientWidth ? Math.min(svg.clientWidth / fig.viewBox[2], svg.clientHeight / fig.viewBox[3]) : 1;
       const segHit = Math.min(SEG_HIT_MAX, Math.max(SEG_HIT_WIDTH, SEG_HIT_PX / (scale || 1)));
+      // 三角形の内側（重なった三角形は、タップした点から候補を出して「どの三角形を選びますか？」で選ぶ）
+      if (hit.tri) g.figureTriangles(fig).forEach(function (t) {
+        const h = el('polygon', {
+          points: t.map(function (n) { return g.fmt(fig.points[n]).replace(' ', ','); }).join(' '),
+          class: 'hit hit-tri', 'data-tri': t.join(''), role: 'button', tabindex: '0', 'aria-label': '△' + t.join(''),
+        }, gh);
+        el('title', null, h).textContent = '△' + t.join('');
+      });
       if (hit.seg) els.segments.forEach(function (s) {
         const h = line(s.h1, s.h2, {
           class: 'hit hit-seg', 'stroke-width': segHit, 'data-key': s.key,

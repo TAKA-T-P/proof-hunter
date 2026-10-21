@@ -756,8 +756,6 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .pz-tray-head { justify-content: space-between; align-items: center; flex-wrap: nowrap; }
 .pz-tray-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; min-width: 0; }
 .pz-tray-close { flex: none; width: 36px; height: 32px; margin: -4px -6px -4px 0; border: 0; background: none; font-size: 1.4rem; color: var(--muted); }
-.pz-tray-actions { display: flex; justify-content: flex-end; margin-top: 6px; }
-.pz-tray-actions .btn { min-height: 32px; padding: 1px 12px; font-size: .8rem; }
 .pz-tray:not([hidden]) { animation: tray-in .18s ease-out; }
 @keyframes tray-in { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
 .pz-actions .btn { min-height: 36px; padding: 2px 8px; font-size: .85rem; }
@@ -940,3 +938,47 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
   .is-flash { animation: none; }
   .counter.bump, .panel.glow { animation: none; }
 }
+
+/* ---- Ver.0.5：三角形の選択・最終結論 ---------------------------------------------- */
+.hit-tri { fill: transparent; stroke: none; pointer-events: fill; }
+@media (hover: hover) { .hit-tri:hover { fill: rgba(37, 99, 235, .08); } }
+.hit-tri:focus-visible { fill: rgba(245, 179, 1, .25); }
+.tri-sel { stroke-width: 4; stroke-linejoin: round; }
+.tri-sel-0 { fill: rgba(37, 99, 235, .22); stroke: #2563eb; }
+.tri-sel-1 { fill: rgba(245, 179, 1, .32); stroke: #d97706; }
+
+/* 手順（三角形 → 根拠 → 合同条件 → 結論） */
+.step-bar { display: flex; gap: 4px; margin: 4px 0 2px; padding: 0; list-style: none; font-size: .72rem; font-weight: 800; color: var(--muted); }
+.step-bar li { flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 2px 2px; border-radius: 99px; background: #f1f5f9; white-space: nowrap; }
+.step-bar b { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #cbd5e1; color: #fff; font-size: .68rem; }
+.step-bar li.is-done { color: var(--green); background: var(--green-soft); }
+.step-bar li.is-done b { background: var(--green); }
+.step-bar li.is-now { color: #fff; background: var(--blue); }
+.step-bar li.is-now b { background: #fff; color: var(--blue); }
+
+/* 三角形を選ぶパネル */
+.tri-answer { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; margin: 4px 0; font-size: 1.35rem; font-weight: 900; }
+.tri-slot { padding: 0 8px; border-radius: 10px; border: 2px dashed #94a3b8; color: #94a3b8; letter-spacing: .06em; }
+.tri-slot.filled { border-style: solid; color: var(--ink); }
+.tri-slot-0.filled { border-color: #2563eb; background: rgba(37, 99, 235, .12); }
+.tri-slot-1.filled { border-color: #d97706; background: rgba(245, 179, 1, .18); }
+.tri-answer .tri-and { font-size: .9rem; }
+.vx-map { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: 2px 0 4px; }
+.vx-chip.vx-empty { background: #fff; color: #94a3b8; border: 2px dashed #94a3b8; }
+.vx-keys { display: flex; justify-content: center; gap: 8px; margin-bottom: 4px; }
+.vx-key { min-width: 52px; font-size: 1.2rem; font-weight: 900; text-align: center; }
+.tri-search { margin: 0; padding-left: 1.2em; font-weight: 700; line-height: 1.6; }
+
+/* 完成した証明：合同は途中の結果、最後の等式を最終結論として強調 */
+.proof-concl.is-mid { font-size: 1.15rem; }
+.proof-final { margin-top: 4px; }
+.proof-final-lead, .proof-final-reason { margin: 2px 0 0; font-weight: 800; }
+.proof-concl.proof-goal { display: inline-block; margin-top: 4px; padding: 0 12px; border-radius: 10px; background: #fffbeb; border: 3px solid var(--gold); }
+.proof-goal .pl-eq { font-size: inherit; font-weight: inherit; color: inherit; }
+.pz-introline, .pz-finalline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 2px 0; font-weight: 800; }
+.pz-blank.kind-freason { flex: 1 1 14em; font-size: .92rem; }
+.pz-blank.kind-tripair { flex: 1 1 12em; }
+.pz-cards.kind-tripair, .pz-cards.kind-freason { grid-template-columns: minmax(0, 1fr); }
+.pz-cards.kind-freason .pz-card { text-align: left; font-size: .9rem; }
+.pz-cards.kind-tri2 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.kp-warn { margin: 0; padding: 2px 8px; border-radius: 8px; background: var(--red-soft); color: #991b1b; font-size: .82rem; font-weight: 700; text-align: center; }

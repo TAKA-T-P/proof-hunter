@@ -33,10 +33,10 @@ test('全問題のデータ検証（図の数値チェック・ID重複・ステ
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
 });
 
-test('15問・5ステージ・各ステージ3問', () => {
-  assert.equal(PH.problems.length, 15);
-  assert.equal(PH.STAGES.length, 5);
-  PH.STAGES.forEach((st) => assert.equal(PH.stageProblems(st.id).length, 3, 'STAGE ' + st.id));
+test('20問・6ステージ（STAGE 1〜5は各3問、Ver.0.5 の STAGE 6 は5問）', () => {
+  assert.equal(PH.problems.length, 20);
+  assert.equal(PH.STAGES.length, 6);
+  PH.STAGES.forEach((st) => assert.equal(PH.stageProblems(st.id).length, st.id === 6 ? 5 : 3, 'STAGE ' + st.id));
   ['p01', 'p02', 'p03'].forEach((id) => assert.ok(PH.getProblem(id), id + ' が残っている'));
 });
 
@@ -54,8 +54,9 @@ test('問題はステージ順に並び、ステージ内の次の問題をた�
 });
 
 // ---- 全問題の正誤判定 ----------------------------------------------------------
+// 三角形の合同が結論の問題（p01〜p15）。結論が辺・角の等しさの問題（STAGE 6）は v05.test.js で同じ内容を確かめる
 
-PH.problems.forEach((p) => {
+PH.problems.filter((p) => !PH.hasFinalStep(p)).forEach((p) => {
   test(p.id + ': 根拠を逆の順番で登録しても証明が完成し、合同条件を誤るとクリアにならない', () => {
     const g = new PH.Game(p);
     p.evidence.slice().reverse().forEach((ev) => {
@@ -220,7 +221,7 @@ test('Ver.0.1 の保存データを引き継ぎ、ステージのクリア数・
 
 test('復習対象：未クリアと★・★★の問題。★★★は外れ、評価が上がると更新される', () => {
   withFakeStorage(null, () => {
-    assert.equal(PH.storage.reviewProblems().length, 15);
+    assert.equal(PH.storage.reviewProblems().length, PH.problems.length);
     PH.storage.recordClear('p01', 3, 0);
     PH.storage.recordClear('p04', 1, 4);
     PH.storage.recordClear('p06', 2, 1);
@@ -244,7 +245,7 @@ test('壊れた保存データでも安全な値で動く', () => {
     assert.deepEqual(PH.storage.getProblem('p02'), { cleared: false, bestStars: 0, minMisses: null });
   });
   withFakeStorage('{not json', () => {
-    assert.equal(PH.storage.reviewProblems().length, 15);
+    assert.equal(PH.storage.reviewProblems().length, PH.problems.length);
   });
 });
 

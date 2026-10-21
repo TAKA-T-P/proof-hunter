@@ -9,7 +9,13 @@
   'use strict';
   const PH = root.PH = root.PH || {};
   const doc = root.document;
-  const PLACEHOLDER = { eq: '等式を選ぶ', reason: '理由を選ぶ', cond: '合同条件を選ぶ', input: '等式を入力' };
+  const PLACEHOLDER = {
+    eq: '等式を選ぶ', reason: '理由を選ぶ', cond: '合同条件を選ぶ', input: '等式を入力',
+    // Ver.0.5：三角形の選択・最終結論
+    tripair: '三角形の組を選ぶ', tri1: '三角形を選ぶ', tri2: '対応する三角形を選ぶ', tri: '三角形を入力',
+    freason: '理由を選ぶ', final: '結論を選ぶ', finalInput: '結論の等式を入力',
+  };
+  const KIND_NAME = { eq: '等式', reason: '理由', cond: '合同条件', tripair: '三角形の組', tri1: '三角形', tri2: '三角形', freason: '理由', final: '結論の等式' };
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -97,7 +103,6 @@
           '<div class="pz-tray-head"><div class="pz-tray-title" data-ref="trayHead"></div>' +
             '<button class="pz-tray-close" data-act="close-tray" aria-label="閉じる">×</button></div>' +
           '<div class="pz-cards" data-ref="cards"></div>' +
-          '<div class="pz-tray-actions"><button class="btn" data-act="undo">この空欄を取り消す</button></div>' +
         '</div>' +
       '</div>' +
       '<div class="result" data-ref="result" hidden></div>' +
@@ -153,7 +158,6 @@
       case 'next': return this.nav.next();
       case 'next-stage': return this.nav.nextStage();
       case 'hint': return this.hint();
-      case 'undo': return this.undo();
       case 'close-tray': return this.setTray(false);
       case 'open-marks': return this.setMarks(true);
       case 'close-marks': return this.setMarks(false);
@@ -162,7 +166,15 @@
       case 'check': return this.check();
       case 'restart': return this.restart();
       case 'change-level': return this.changeLevel();
+      case 'final-flash': return this.flashFinal();
     }
+  };
+
+  // 完成した証明の最終結論のタップ：結論の辺・角を光らせる
+  PuzzleView.prototype.flashFinal = function () {
+    const p = this.problem;
+    PH.sound.play('tap');
+    this.flash(p.finalStep.items.map(function (n) { return PH.geometry.elementKey(p.figure, n); }), 1600);
   };
 
   // ---- チャレンジ：数学キーパッド --------------------------------------------------
@@ -175,7 +187,9 @@
   // 空欄ごとの入力途中の内容。決定ずみの等式があれば読み込む
   PuzzleView.prototype.draftFor = function (slotId) {
     if (!this.drafts[slotId]) {
-      const kp = PH.mathKeypad.create(this.puzzle.letters);
+      const z = this.puzzle;
+      // 三角形の欄は三角形だけ（図の上の三角形でなければ決定できない）、等式の欄は辺・角の等式
+      const kp = PH.mathKeypad.create(z.letters, { kinds: z.inputKinds(slotId), isTriangle: z.isTriangle.bind(z) });
       if (this.puzzle.inputs[slotId]) kp.load(this.puzzle.inputs[slotId]);
       this.drafts[slotId] = kp;
     }
@@ -225,7 +239,7 @@
     const kp = this.draftFor(s.id);
     const key = e.key;
     if (/^[a-zA-Z]$/.test(key)) {
-      if (!kp.kind) kp.setKind('seg');
+      if (!kp.kind) kp.setKind(kp.kinds[0]);
       if (kp.press(key.toUpperCase())) PH.sound.play('tap');
     } else if (key === '=' || key === '＝') {
       kp.pressEq();
@@ -420,14 +434,6 @@
     }
   };
 
-  PuzzleView.prototype.undo = function () {
-    delete this.drafts[this.puzzle.active];
-    if (this.puzzle.clearActive()) {
-      PH.sound.play('tap');
-      this.render();
-    }
-  };
-
   PuzzleView.prototype.resetCards = function () {
     if (this.puzzle.clearAll()) {
       PH.sound.play('tap');
@@ -541,6 +547,7 @@
     const stageBefore = PH.storage.stageStats(this.problem.stage, this.recordMode).complete;
     const saved = PH.storage.recordClear(this.problem.id, z.stars, z.misses, this.recordMode);
     this.improved = saved.improved;
+    this.lowered = saved.lowered || [];
     this.stageCleared = !stageBefore && PH.storage.stageStats(this.problem.stage, this.recordMode).complete;
     this.showSuccess();
     this.render();
@@ -623,7 +630,7 @@
     if (card) cls.push('is-filled');
     if (status === 'ng') cls.push('is-ng');
     if (status === 'ok') cls.push('is-ok');
-    let text = card ? card.text : PLACEHOLDER[s.input ? 'input' : s.kind];
+    let text = card ? card.text : PLACEHOLDER[s.input ? (s.inputKind === 'tri' ? 'tri' : s.kind === 'final' ? 'finalInput' : 'input') : s.kind];
     const draft = s.input && this.drafts[slotId];
     if (draft && draft.kind && !draft.isEmpty() && draft.value() !== z.inputs[slotId]) {
       cls.push('is-draft');
@@ -651,31 +658,54 @@
           '<div class="pz-eqline">' + self.blank(s.id) + '<span class="pl-no">……' + proof.lines[i].no + '</span></div></li>';
       }).join('');
     }
+    // 結論が辺・角の等しさの問題（Ver.0.5）：「△＿と△＿において」を空欄にし、
+    // 合同の行は生徒が選んだ三角形で表示（STEP 1 の答えを見せない）、最後に結論の空欄
+    let intro = '<p class="proof-intro">' + esc(proof.intro) + '</p>';
+    let concl = '<p class="proof-concl">' + esc(proof.conclusion) + '</p>';
+    if (z.hasFinal) {
+      intro = '<div class="pz-introline">' +
+        (z.type === 'build' ? this.blank('t1') + '<span>と</span>' + this.blank('t2') : this.blank('tri')) +
+        '<span>において</span></div>';
+      const ans = z.triangleAnswer();
+      concl = '<p class="proof-concl is-mid">' + (ans ? esc('△' + ans[0].join('') + '≡△' + ans[1].join('')) : '△＿＿＿≡△＿＿＿') + '</p>' +
+        '<div class="proof-final">' +
+          '<p class="proof-final-lead">したがって、</p>' +
+          (z.type === 'fill'
+            ? '<p class="proof-final-reason"><span class="pz-fixed-reason">' + esc(z.slot('fe').fixed.text) + '、</span></p>'
+            : '<div class="pz-finalline">' + this.blank('fr') + '<span>、</span></div>') +
+          '<div class="pz-finalline">' + this.blank('fe') + '</div>' +
+        '</div>';
+    }
     this.ref('proof').innerHTML =
-      '<p class="proof-intro">' + esc(proof.intro) + '</p>' +
+      intro +
       '<ol class="pz-lines">' + rows + '</ol>' +
       '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
       '<div class="pz-condline">' + this.blank('cond') + '<span>ので、</span></div>' +
-      '<p class="proof-concl">' + esc(proof.conclusion) + '</p>';
+      concl;
   };
 
   PuzzleView.prototype.renderTray = function () {
     const z = this.puzzle;
     const s = z.slot(z.active);
     const current = z.placed[z.active];
-    const kindName = { eq: '等式', reason: '理由', cond: '合同条件' }[s.kind];
+    const kindName = KIND_NAME[s.kind];
     this.ref('tray').hidden = !this.trayOpen;
     this.root.classList.toggle('tray-open', this.trayOpen);
     const box = this.ref('cards');
     if (s.input) {
-      // チャレンジ：等式カードは出さず、数学キーパッドで入力する
+      // チャレンジ：等式カードは出さず、数学キーパッドで入力する（三角形の欄は三角形を入力）
+      const guide = s.inputKind === 'tri' ? '証明する2つの三角形を、対応する頂点の順に入力しよう！'
+        : s.kind === 'final' ? '合同から導く結論の等式を入力しよう！' : '等しい辺（角）を入力しよう！';
       this.ref('trayHead').innerHTML = '<span class="pz-tray-target">' + esc(s.label) + '</span>' +
-        '<span class="pz-tray-note">等しい辺（角）を入力しよう！</span>';
+        '<span class="pz-tray-note">' + guide + '</span>';
       box.className = 'pz-cards kind-input';
       box.innerHTML = this.trayOpen ? PH.mathKeypad.render(this.draftFor(s.id)) : '';
     } else {
+      const t1 = s.kind === 'tri2' && z.cardIn('t1');
       this.ref('trayHead').innerHTML = '<span class="pz-tray-target">' + esc(s.label) + '</span>' +
-        '<span class="pz-tray-note">に入れる' + kindName + 'をタップ</span>';
+        '<span class="pz-tray-note">' + (t1
+          ? esc(t1.text) + ' の頂点 ' + esc(t1.tri.join('・')) + ' に対応する順に並んだ三角形をタップ'
+          : 'に入れる' + kindName + 'をタップ') + '</span>';
       const cards = z.cardsForActive();
       box.className = 'pz-cards kind-' + s.kind;
       box.innerHTML = cards.map(function (c) {
@@ -686,7 +716,6 @@
     const btn = this.ref('checkBtn');
     btn.disabled = empty > 0;
     btn.textContent = empty > 0 ? '答え合わせ（あと' + empty + 'か所）' : '答え合わせ';
-    this.root.querySelector('[data-act="undo"]').disabled = !current;
 
     const fb = this.ref('feedback');
     const res = z.result;
@@ -704,7 +733,7 @@
     }
   };
 
-  // そのレベルの全15問をクリアしているときの案内（レベルは自動では変えない）
+  // そのレベルの全問をクリアしているときの案内（レベルは自動では変えない）
   PuzzleView.prototype.levelGuide = function () {
     const mode = this.recordMode;
     const all = PH.problems.every(function (p) { return PH.storage.getProblem(p.id, mode).cleared; });
@@ -730,6 +759,12 @@
     const hasNext = list.indexOf(p) < list.length - 1;
     const nextStage = PH.getStage(p.stage + 1);
     const rows = z.evaluateRows();
+    // 結論が辺・角の等しさの問題：生徒が選んだ三角形（対応は正しい）で「において」と合同の行を書く
+    const ans = z.triangleAnswer();
+    const intro = ans ? '△' + ans[0].join('') + 'と△' + ans[1].join('') + 'において' : proof.intro;
+    const congruence = ans ? '△' + ans[0].join('') + '≡△' + ans[1].join('') : proof.conclusion;
+    const f = z.evaluateFinal();
+    const finalHtml = f ? PH.finalProofHtml(proof, f.reasonCard && f.reasonCard.text, f.eqCard && f.eqCard.text) : '';
     const lines = rows.map(function (r, i) {
       return '<li class="proof-line">' +
         '<button class="pl-reason" data-proof-reason="' + r.evidence.id + '">' + esc(r.reason.text) + '</button>' +
@@ -764,16 +799,21 @@
         (this.stageCleared
           ? '<div class="stage-clear-banner"><span class="scb-title">STAGE CLEAR！</span><span class="scb-sub">証明パズル STAGE ' + stage.id + '「' + esc(stage.title) + '」をすべてクリアしたよ！</span></div>'
           : '') +
+        (this.lowered.length
+          ? '<p class="result-guide">' + this.lowered.map(function (lv) { return '<b>' + esc(PH.getPuzzleLevel(lv).label) + '</b>'; }).join('・') +
+            ' のこの問題も ★★★ になったよ！</p>'
+          : '') +
         guide + this.levelGuide() +
         '<div class="result-body">' +
           '<div class="card proof-sheet">' +
             '<h2 class="proof-title">完成した証明</h2>' +
             '<p class="small-note">式や理由をタップすると、図の場所が光るよ</p>' +
-            '<p class="proof-intro">' + esc(proof.intro) + '</p>' +
+            '<p class="proof-intro">' + esc(intro) + '</p>' +
             '<ol class="proof-lines">' + lines + '</ol>' +
             '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
             '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +
-            '<p class="proof-concl">' + esc(proof.conclusion) + '</p>' +
+            '<p class="proof-concl' + (f ? ' is-mid' : '') + '">' + esc(congruence) + '</p>' +
+            finalHtml +
           '</div>' +
           '<div class="card points explain">' +
             '<h3>💡 今回のポイント</h3>' +

@@ -111,7 +111,7 @@
           '<div class="card figure-card" data-ref="figureCard">' +
             '<div class="mode-badge" data-ref="modeBadge"></div>' +
             '<svg class="figure" data-ref="svg" role="group" aria-label="問題の図"></svg>' +
-            '<button class="tri-btn" data-act="tri-check" aria-pressed="false">△ 三角形を確認</button>' +
+            '<button class="tri-btn" data-act="tri-check" aria-pressed="false" data-ref="triBtn">△ 三角形を確認</button>' +
             '<div class="pop-msg" data-ref="popMsg" aria-hidden="true"></div>' +
           '</div>' +
           '<div class="toolbar" role="toolbar" aria-label="操作">' +
@@ -170,9 +170,11 @@
   };
 
   PlayController.prototype.handleClick = function (e) {
-    const t = e.target.closest('[data-key],[data-act],[data-mode],[data-reason],[data-cond],[data-tool],[data-ev],[data-proof-reason]');
+    const t = e.target.closest('[data-key],[data-tri],[data-vx],[data-act],[data-mode],[data-reason],[data-cond],[data-tool],[data-ev],[data-proof-reason]');
     if (!t || t.disabled) return;
     if (t.hasAttribute('data-key')) return this.tapFromFigure(t, e.clientX, e.clientY);
+    if (t.hasAttribute('data-tri')) return this.tapTriangleFromFigure(t, e.clientX, e.clientY);
+    if (t.hasAttribute('data-vx')) return this.pressVertex(t.getAttribute('data-vx'));
     if (t.hasAttribute('data-mode')) return this.setMode(t.getAttribute('data-mode'));
     if (t.hasAttribute('data-reason')) return this.selectReason(t.getAttribute('data-reason'));
     if (t.hasAttribute('data-cond')) return this.selectCondition(t.getAttribute('data-cond'));
@@ -192,7 +194,110 @@
       case 'confirm': return this.confirm();
       case 'confirm-cond': return this.confirmCondition();
       case 'clear-marks': return this.clearMarks();
+      case 'tri-back': return this.triAction('back');
+      case 'tri-clear': return this.triAction('clear');
+      case 'confirm-tri': return this.confirmTriangles();
+      case 'confirm-final': return this.confirmFinal();
+      case 'final-flash': return this.flashFinal();
     }
+  };
+
+  // ---- 三角形を選ぶ（Ver.0.5：STEP 1） ------------------------------------------
+
+  // 三角形の内側のタップ。重なった三角形があれば「どの三角形を選びますか？」
+  PlayController.prototype.tapTriangleFromFigure = function (target, clientX, clientY) {
+    const fig = this.problem.figure;
+    let list = [target.getAttribute('data-tri').split('')];
+    const svg = this.ref('svg');
+    const ctm = svg && svg.getScreenCTM && svg.getScreenCTM();
+    if (ctm && clientX != null) {
+      const q = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+      const found = PH.geometry.triangleCandidates(fig, q);
+      if (found.length) list = found;
+    }
+    const self = this;
+    if (list.length <= 1) return this.tapTriangle(list[0]);
+    PH.chooser.open({
+      title: 'どの三角形を選びますか？',
+      options: list.map(function (t) { return { value: t, label: triName(t) }; }),
+      onChoose: function (t) { self.tapTriangle(t); },
+    });
+  };
+
+  PlayController.prototype.tapTriangle = function (tri) {
+    const r = this.game.tapTriangle(tri);
+    if (r.type !== 'ignored') {
+      PH.sound.play('tap');
+      this.say(null);
+    }
+    this.render();
+  };
+
+  PlayController.prototype.pressVertex = function (v) {
+    if (this.game.pressVertex(v)) {
+      PH.sound.play('tap');
+      this.say(null);
+      this.render();
+    }
+  };
+
+  PlayController.prototype.triAction = function (what) {
+    const g = this.game;
+    const ok = what === 'back' ? g.backVertex() : g.clearTriangles();
+    if (ok) {
+      PH.sound.play('tap');
+      this.say(null);
+      this.render();
+    }
+  };
+
+  // 「この2つで証明する」
+  PlayController.prototype.confirmTriangles = function () {
+    const g = this.game;
+    const r = g.confirmTriangles();
+    if (r.status === 'incomplete') return;
+    if (r.ok) {
+      PH.sound.play('get');
+      PH.hints.hide(doc.getElementById('hint-popup'));
+      this.setTriCheck(false);
+      this.popMessage('三角形が決まった！');
+      this.say(triName(g.triangles[0]) + 'と' + triName(g.triangles[1]) + 'で証明しよう！ 次は3つの根拠を見つけよう。', 'ok');
+    } else {
+      const text = {
+        order: '三角形は見つけられたね！ 頂点の対応順を確認しよう！',
+        same: '同じ三角形を2つ選んでいるよ。ちがう2つの三角形を選ぼう！',
+      }[r.status] || 'この2つの三角形で、結論を導けるかな？ 対応する辺・角に注目しよう！';
+      this.say(text, 'ng');
+      PH.sound.play(r.miss ? 'wrong' : 'soft');
+      this.shake = true;
+    }
+    this.render();
+  };
+
+  // ---- 合同から結論を導く（Ver.0.5：STEP 4） -------------------------------------
+
+  PlayController.prototype.confirmFinal = function () {
+    const g = this.game;
+    const r = g.confirmFinal();
+    if (r.status === 'incomplete') return;
+    if (r.status === 'correct') return this.cleared();
+    const what = this.problem.finalStep.relationType === 'angle' ? '角' : '辺';
+    const text = {
+      'wrong-reason': '等しい' + what + 'は選べたね！ 合同な図形の性質を使って、理由をもう一度考えよう。',
+      'not-goal': '正しい関係だけれど、問題で求められている結論ではないよ。結論をもう一度確認しよう！',
+      evidence: 'それは合同を示すのに使った関係だよ。合同から導く結論を選ぼう！',
+    }[r.status] || 'その2つは、合同な三角形で対応しているかな？ 結論をもう一度確認しよう！';
+    this.say(text, r.miss ? 'ng' : 'info');
+    PH.sound.play(r.miss ? 'wrong' : 'soft');
+    if (r.miss) this.shake = true;
+    this.render();
+  };
+
+  // 完成した証明の最終結論のタップ：結論の辺・角を光らせる
+  PlayController.prototype.flashFinal = function () {
+    const p = this.problem;
+    PH.sound.play('tap');
+    this.flash(p.finalStep.items.map(function (n) { return PH.geometry.elementKey(p.figure, n); }), 1600);
   };
 
   /*
@@ -361,13 +466,23 @@
     this.flash(this.game.evidenceKeys(id), 1600, lines);
   };
 
+  // 証明する三角形がまだ決まっていない（Ver.0.5 の問題の STEP 1）。このあいだは正しい三角形を見せない
+  PlayController.prototype.trianglesHidden = function () {
+    return this.game.phase === 'triangle';
+  };
+
   // 「三角形を確認」：対象の2つの三角形を色分けし、頂点の対応を表示する
+  //  （STEP 1 の前は「三角形を探すヒント」：答えは見せずに、結論の辺・角に注目させる）
   PlayController.prototype.setTriCheck = function (on) {
     this.triCheck = !!on;
     const popup = doc.getElementById('tri-popup');
     if (this.triCheck) {
       PH.hints.hide(doc.getElementById('hint-popup'));
-      this.fillTriPopup(popup);
+      if (this.trianglesHidden()) {
+        this.fillTriSearchPopup(popup);
+        const p = this.problem;
+        this.flash(p.finalStep.items.map(function (n) { return PH.geometry.elementKey(p.figure, n); }), 1800);
+      } else this.fillTriPopup(popup);
       popup.hidden = false;
       popup.classList.remove('pop');
       void popup.offsetWidth;
@@ -381,9 +496,22 @@
     this.renderFigures();
   };
 
+  PlayController.prototype.fillTriSearchPopup = function (popup) {
+    const items = this.problem.finalStep.items;
+    const name = function (n) { return PH.geometry.isAngleName(n) ? n : '辺' + n; };
+    popup.querySelector('.hint-level').textContent = '△ 三角形を探すヒント';
+    popup.querySelector('.tri-body').innerHTML =
+      '<ul class="tri-search">' +
+        '<li>結論の' + esc(name(items[0])) + 'は、どの三角形にふくまれているかな？</li>' +
+        '<li>もう1つの' + esc(name(items[1])) + 'と対応させられる三角形を探そう！</li>' +
+      '</ul>' +
+      '<p class="tri-note">三角形が決まると、ここで2つの三角形と対応する頂点を確認できるよ。</p>';
+  };
+
   PlayController.prototype.fillTriPopup = function (popup) {
     const p = this.problem;
     const t1 = p.triangles[0], t2 = p.triangles[1];
+    popup.querySelector('.hint-level').textContent = '△ 証明する三角形';
     const pairs = [0, 1, 2].map(function (k) {
       return '<span class="vx-pair"><span class="vx-chip vx-' + k + '">' + esc(t1[k]) + '</span>↔<span class="vx-chip vx-' + k + '">' + esc(t2[k]) + '</span></span>';
     }).join('');
@@ -480,6 +608,22 @@
       this.render();
       return;
     }
+    if (r.final) {
+      // 合同成立。まだクリアではなく、合同から結論を導く（STEP 4）
+      PH.sound.play('get');
+      PH.hints.hide(doc.getElementById('hint-popup'));
+      this.popMessage('合同成立！');
+      this.say('合同成立！ あと一歩で証明完成！ ' + PH.congruenceText(this.problem) + ' から、結論を導こう！', 'ok');
+      this.focusPanel = true;
+      this.render();
+      return;
+    }
+    this.cleared();
+  };
+
+  // 証明完成：記録して完成画面へ
+  PlayController.prototype.cleared = function () {
+    const g = this.game;
     PH.sound.play('success');
     PH.hints.hide(doc.getElementById('hint-popup'));
     this.setTriCheck(false);
@@ -577,23 +721,29 @@
     }
     const card = this.ref('figureCard');
     card.className = 'card figure-card mode-' + g.mode;
-    const badge = { side: '', angle: '∠ 角選択：角の内側をタップ', mark: '🖍️ 印つけ：下書き用（判定なし）', erase: '🧽 消す：印をタップ' }[g.mode];
+    const badge = { side: '', angle: '∠ 角選択：角の内側をタップ', mark: '🖍️ 印つけ：下書き用（判定なし）', erase: '🧽 消す：印をタップ', tri: '△ 三角形の内側をタップ' }[g.mode];
     const mb = this.ref('modeBadge');
     mb.textContent = badge;
     mb.hidden = !badge;
+    // 「三角形を確認」のボタン：STEP 1 の前は「三角形を探すヒント」（正しい三角形は見せない）
+    const tb = this.ref('triBtn');
+    if (tb) tb.textContent = this.trianglesHidden() ? '△ 三角形を探すヒント' : '△ 三角形を確認';
     PH.renderer.render(this.ref('svg'), this.problem, {
       selection: g.selection,
       flash: this.flashKeys,
       autoMarks: g.autoMarks(),
       userMarks: g.userMarks,
       flashLines: this.flashLines,
-      triangles: this.triCheck ? 'check' : false,
+      // 合同が成立したら（STEP 4）2つの三角形を色分けして表示する
+      triangles: this.triCheck && !this.trianglesHidden() ? 'check' : g.phase === 'final',
+      triSel: g.phase === 'triangle' ? g.triSel : null,
       interactive: true,
-      // 辺選択では辺だけ、角選択では角だけ、印つけでは選んだ印の種類だけ、消すでは両方がタップに反応する
+      // 辺選択では辺だけ、角選択では角だけ、印つけでは選んだ印の種類だけ、消すでは両方、三角形選択では三角形がタップに反応する
       hit: g.mode === 'erase' ? { seg: true, ang: true }
         : g.mode === 'mark' ? { seg: g.markTool.kind === 'seg', ang: g.markTool.kind === 'ang' }
+        : g.mode === 'tri' ? { tri: true }
         : { seg: g.mode === 'side', ang: g.mode === 'angle' },
-      angleGuide: g.mode === 'angle' && g.phase === 'collect',
+      angleGuide: g.mode === 'angle' && (g.phase === 'collect' || g.phase === 'final'),
     });
   };
 
@@ -602,8 +752,54 @@
     this.root.querySelectorAll('.toolbar [data-mode]').forEach(function (b) {
       const m = b.getAttribute('data-mode');
       b.setAttribute('aria-pressed', String(g.mode === m));
-      b.disabled = m !== 'mark' && m !== 'erase' && g.phase !== 'collect';
+      b.disabled = m !== 'mark' && m !== 'erase' && g.phase !== 'collect' && g.phase !== 'final';
     });
+  };
+
+  // STEP の表示（結論が辺・角の等しさの問題だけ）：三角形 → 根拠 → 合同条件 → 結論
+  PlayController.prototype.stepBar = function () {
+    const g = this.game;
+    if (!g.hasFinal) return '';
+    const steps = [['triangle', '三角形'], ['collect', '根拠'], ['congruence', '合同条件'], ['final', '結論']];
+    const cur = steps.findIndex(function (s) { return s[0] === g.phase; });
+    return '<ol class="step-bar" aria-label="証明の手順">' + steps.map(function (s, i) {
+      return '<li class="' + (i < cur ? 'is-done' : i === cur ? 'is-now' : '') + '"><b>' + (i + 1) + '</b>' + s[1] + '</li>';
+    }).join('') + '</ol>';
+  };
+
+  // STEP 1：証明する三角形と頂点の対応を選ぶパネル
+  PlayController.prototype.trianglePanel = function () {
+    const g = this.game;
+    const sel = g.triSel;
+    let note;
+    if (sel.length === 0) note = 'どの2つの三角形を合同にすればよい？ 図の三角形の内側をタップしよう。';
+    else if (sel.length === 1) note = '2つ目の三角形をタップしよう。（もう一度タップで選び直し）';
+    else if (g.triMap.length < 3) note = triName(sel[0]) + 'の頂点 <b>' + esc(sel[0][g.triMap.length]) + '</b> に対応する頂点を、' + triName(sel[1]) + 'から選ぼう。';
+    else note = '頂点の対応が決まったよ。「この2つで証明する」を押そう！';
+    const slotTri = function (tri, i, letters) {
+      return '<span class="tri-slot tri-slot-' + i + (tri ? ' filled' : '') + '">△' +
+        (tri ? letters.map(function (c) { return '<span>' + esc(c || '＿') + '</span>'; }).join('') : '＿＿＿') + '</span>';
+    };
+    const second = sel[1] ? [0, 1, 2].map(function (k) { return g.triMap[k] || ''; }) : null;
+    let html = '<div class="panel-head">△ 証明する三角形を選ぼう</div>' + this.stepBar() +
+      '<p class="panel-note">' + note + '</p>' +
+      '<div class="tri-answer" aria-label="選んだ三角形">' + slotTri(sel[0], 0, sel[0] || []) + '<span class="tri-and">と</span>' +
+        slotTri(sel[1], 1, second || []) + '<span class="tri-and">において</span></div>';
+    if (sel.length === 2) {
+      html += '<div class="vx-map">' + sel[0].map(function (v, k) {
+        return '<span class="vx-pair"><span class="vx-chip vx-' + k + '">' + esc(v) + '</span>↔<span class="vx-chip ' + (g.triMap[k] ? 'vx-' + k : 'vx-empty') + '">' + esc(g.triMap[k] || '？') + '</span></span>';
+      }).join('') + '</div>' +
+      '<div class="vx-keys" role="group" aria-label="対応する頂点">' + sel[1].map(function (v) {
+        const used = g.triMap.indexOf(v) >= 0;
+        return '<button class="choice vx-key" data-vx="' + esc(v) + '"' + (used || g.triMap.length >= 3 ? ' disabled' : '') + '>' + esc(v) + '</button>';
+      }).join('') + '</div>';
+    }
+    html += '<div class="panel-actions">' +
+      '<button class="btn" data-act="tri-back"' + (g.triMap.length ? '' : ' disabled') + '>← 1つもどす</button>' +
+      '<button class="btn" data-act="tri-clear"' + (sel.length ? '' : ' disabled') + '>やり直し</button>' +
+      '<button class="btn btn-confirm" data-act="confirm-tri"' + (g.canConfirmTriangles() ? '' : ' disabled') + '>この2つで証明する</button>' +
+      '</div>' + this.feedbackHtml();
+    return html;
   };
 
   PlayController.prototype.feedbackHtml = function () {
@@ -642,9 +838,14 @@
       return;
     }
 
+    if (g.phase === 'triangle') {
+      panel.innerHTML = this.trianglePanel();
+      return;
+    }
+
     if (g.phase === 'congruence') {
-      html += '<div class="panel-head">⚖️ 合同条件を見極めよう！</div>' +
-        '<p class="panel-note">3つの根拠がそろった！ どの合同条件で <b>' + esc(this.problem.conclusion) + '</b> といえるかな？</p>' +
+      html += '<div class="panel-head">⚖️ 合同条件を見極めよう！</div>' + this.stepBar() +
+        '<p class="panel-note">3つの根拠がそろった！ どの合同条件で <b>' + esc(PH.congruenceText(this.problem)) + '</b> といえるかな？</p>' +
         '<div class="choices conds">' +
           PH.CONDITION_ORDER.map(function (id, i) {
             return '<button class="choice" data-cond="' + id + '" aria-pressed="' + (g.condition === id) + '">' +
@@ -669,8 +870,18 @@
     else if (!g.reason) note = same ? '共通な' + what + 'として選んだよ（もう一度タップで解除）。理由を選ぼう。' : '等しい理由を選ぼう。';
     else note = '「根拠を確定」を押そう！';
 
-    const head = g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
-    html += '<div class="panel-head">' + head + '</div>' +
+    // STEP 4：合同から結論を導く（等式の選び方は根拠と同じ。理由に「合同な図形の対応する〜」が加わる）
+    const final = g.phase === 'final';
+    if (final) {
+      const fw = this.problem.finalStep.relationType === 'angle' ? '角' : '辺';
+      if (n === 0) note = PH.congruenceText(this.problem) + ' が証明できた！ 結論 <b>' + esc(this.problem.conclusion) + '</b> になる2つの' + fw + 'を選ぼう。';
+      else if (n === 1) note = '2つ目の' + what + 'をタップしよう。';
+      else if (!g.reason) note = 'その2つが等しい理由を選ぼう。';
+      else note = '「証明を完成する」を押そう！';
+    }
+
+    const head = final ? '⭐ 結論を導こう！' : g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
+    html += '<div class="panel-head">' + head + '</div>' + this.stepBar() +
       '<p class="panel-note">' + note + '</p>' +
       '<div class="equation' + (n === 2 ? ' is-ready' : '') + (same ? ' is-common' : '') + '" aria-label="等式の候補">' +
         '<span class="eq-part' + (cand[0] ? ' filled' : '') + '">' + esc(cand[0] || '？') + '</span>' +
@@ -686,7 +897,9 @@
       '</div>' +
       '<div class="panel-actions">' +
         '<button class="btn" data-act="clear-sel"' + (n ? '' : ' disabled') + '>選択解除</button>' +
-        '<button class="btn btn-confirm" data-act="confirm"' + (g.canConfirm() ? '' : ' disabled') + '>根拠を確定</button>' +
+        (final
+          ? '<button class="btn btn-confirm" data-act="confirm-final"' + (g.canConfirmFinal() ? '' : ' disabled') + '>証明を完成する</button>'
+          : '<button class="btn btn-confirm" data-act="confirm"' + (g.canConfirm() ? '' : ' disabled') + '>根拠を確定</button>') +
       '</div>' + this.feedbackHtml();
     panel.innerHTML = html;
   };
@@ -767,7 +980,8 @@
             '<ol class="proof-lines">' + lines + '</ol>' +
             '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
             '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +
-            '<p class="proof-concl">' + esc(proof.conclusion) + '</p>' +
+            '<p class="proof-concl' + (proof.final ? ' is-mid' : '') + '">' + esc(proof.conclusion) + '</p>' +
+            finalProofHtml(proof) +
           '</div>' +
           '<div class="card points explain">' +
             '<h3>💡 今回のポイント</h3>' +
@@ -781,9 +995,25 @@
     this.resultBuilt = true;
   };
 
+  /*
+   * 完成した証明の最後（結論が辺・角の等しさの問題）：
+   *   したがって、 / 合同な図形の対応する辺は等しいから、 / AC＝BD（最終結論として強調）
+   * reasonText を渡すと、その理由の書き方を使う（パズルで生徒が選んだカード）
+   */
+  function finalProofHtml(proof, reasonText, conclusionText) {
+    if (!proof.final) return '';
+    return '<div class="proof-final">' +
+      '<p class="proof-final-lead">' + esc(proof.final.lead) + '</p>' +
+      '<p class="proof-final-reason"><button class="pl-reason" data-act="final-flash">' + esc(reasonText || proof.final.reason) + '、</button></p>' +
+      '<p class="proof-concl proof-goal"><button class="pl-eq" data-act="final-flash">' + esc(conclusionText || proof.final.conclusion) + '</button></p>' +
+      '</div>';
+  }
+
   // ---------------------------------------------------------------------
 
   let current = null;
+
+  PH.finalProofHtml = finalProofHtml;
 
   // 印のアイコン（証明パズルの「図に印をつける」でも使う）
   PH.markToolIcon = toolIcon;

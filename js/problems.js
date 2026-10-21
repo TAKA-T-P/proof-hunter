@@ -17,7 +17,20 @@
     vertical:      { label: '対頂角より',             short: '対頂角',   proof: '対頂角は等しいから' },
     alternate:     { label: '平行線の錯角より',       short: '錯角',     proof: '平行線の錯角は等しいから' },
     corresponding: { label: '平行線の同位角より',     short: '同位角',   proof: '平行線の同位角は等しいから' },
+    // Ver.0.5：合同を示したあとの「最終結論」専用の理由（根拠を集める段階では使えない）
+    correspondingSides:  { label: '合同な図形の対応する辺より', short: '対応する辺', proof: '合同な図形の対応する辺は等しいから', finalOnly: true },
+    correspondingAngles: { label: '合同な図形の対応する角より', short: '対応する角', proof: '合同な図形の対応する角は等しいから', finalOnly: true },
   };
+
+  // 結論の種類（Ver.0.5）。conclusionType がない問題は三角形の合同
+  PH.CONCLUSION_TYPES = ['triangleCongruence', 'equalSide', 'equalAngle'];
+  PH.conclusionType = function (p) { return p.conclusionType || 'triangleCongruence'; };
+  // 合同を示したあと、対応する辺・角の等しさを導く問題か（三角形選択・最終結論のステップがある）
+  PH.hasFinalStep = function (p) { return PH.conclusionType(p) !== 'triangleCongruence' && !!p.finalStep; };
+  // 途中で示す（または結論の）三角形の合同の表記 '△ABD≡△CBD'
+  PH.congruenceText = function (p) { return '△' + p.triangles[0].join('') + '≡△' + p.triangles[1].join(''); };
+  // 最終結論の理由（辺なら対応する辺、角なら対応する角）
+  PH.finalReasonFor = function (p) { return p.finalStep.relationType === 'angle' ? 'correspondingAngles' : 'correspondingSides'; };
 
   // 三角形の合同条件（中学数学の標準的な表現）
   PH.CONDITIONS = {
@@ -34,6 +47,7 @@
     { id: 3, title: '平行線を使いこなせ！', theme: '平行線の錯角・同位角を見つけよう！' },
     { id: 4, title: '合同条件を見極めろ！', theme: '3つの合同条件を使い分けよう！' },
     { id: 5, title: '証明マスターへの道', theme: 'いろいろな根拠を組み合わせよう！' },
+    { id: 6, title: '合同から結論を導け！', theme: 'どの三角形を合同にする？ 合同から辺・角の等しさを証明しよう！' },
   ];
 
   // 合同条件を選ぶときのヒント（問題データから呼び出す共通文）
@@ -1016,6 +1030,347 @@
       ],
     },
   ];
+
+  // ==================================================================
+  // Ver.0.5 追加問題（STAGE 6）：結論が辺・角の等しさの問題
+  //   図は既存の問題の図データをそのまま共有する（座標の二重管理をしない）。
+  //   triangles は「途中で示す合同」（正解の唯一の基準）、finalStep は合同から導く最終結論。
+  //   puzzle.distractors.triangles … おてがるの「三角形の組」のダミー（'ABD/CDB' = △ABDと△CDB）
+  //   puzzle.distractors.finals    … 最終結論のカードのダミー（正しいが結論ではない関係／等しくない関係）
+  // ==================================================================
+  function figureOf(id) {
+    return PH.problems.find(function (p) { return p.id === id; }).figure;
+  }
+  function partName(n) { return /^∠/.test(n) ? n : '辺' + n; }
+
+  // 三角形を選ぶヒント（3段階目で正しい組と対応を見せるが、自動では確定しない）
+  function triangleHints(items, t1, t2) {
+    const what = items.map(partName).join('と');
+    const pairs = [0, 1, 2].map(function (i) { return t1[i] + '↔' + t2[i]; }).join('、');
+    return [
+      { text: '結論の' + what + 'は、どの三角形にふくまれているかな？' },
+      { text: '結論で等しいと示したい' + what + 'を、別々の三角形に見つけよう！', focus: items },
+      { text: '合同にする三角形の候補は △' + t1.join('') + 'と△' + t2.join('') + '。対応する頂点は ' + pairs + ' だよ。', focus: items },
+    ];
+  }
+  // 最終結論のヒント
+  function finalHints(items, kind) {
+    const what = items.map(partName).join('と');
+    const w = kind === 'angle' ? '角' : '辺';
+    return [
+      { text: '合同な三角形で、対応する辺や角にはどんな性質があるかな？' },
+      { text: '結論の' + what + 'を、合同な三角形の対応関係で確認しよう！', focus: items },
+      { text: '「合同な図形の対応する' + w + 'は等しい」という性質を使おう！', focus: items },
+    ];
+  }
+
+  PH.problems.push(
+    // ------------------------------------------------------------------
+    {
+      id: 'p16',
+      number: '16',
+      title: '合同から角の等しさを証明！',
+      difficulty: 2,
+      stage: 6,
+      statement: '四角形ABCDで、AB＝CB、AD＝CDのとき、∠BAD＝∠BCDであることを証明しよう。',
+      given: ['AB＝CB', 'AD＝CD'],
+      conclusion: '∠BAD＝∠BCD',
+      conclusionType: 'equalAngle',
+      // 途中で示す合同（対応順。A↔C、B↔B、D↔D）
+      triangles: [['A', 'B', 'D'], ['C', 'B', 'D']],
+      figure: figureOf('p01'),
+      reasons: ['given', 'common', 'vertical'],
+      evidence: [
+        { id: 'e1', items: ['AB', 'CB'], reason: 'given',  label: 'AB＝CB', mark: 1 },
+        { id: 'e2', items: ['AD', 'CD'], reason: 'given',  label: 'AD＝CD', mark: 2 },
+        { id: 'e3', items: ['BD', 'BD'], reason: 'common', label: 'BD＝BD', mark: 'common' },
+      ],
+      extraTruths: [],
+      congruence: 'SSS',
+      finalStep: { relationType: 'angle', items: ['∠BAD', '∠BCD'], reason: 'correspondingAngles', label: '∠BAD＝∠BCD' },
+      proof: { intro: '△ABDと△CBDにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['∠BAD＝∠BCD', 'AB＝AD', 'CB＝CD'],     // 結論（まだ根拠に使えない）もダミーに入れる
+          reasons: [],
+          triangles: ['ABD/CDB', 'ABD/BCD'],
+          finals: ['∠ABD＝∠CBD', '∠BAD＝∠ABD'],
+        },
+      },
+      hints: {
+        triangleSelection: triangleHints(['∠BAD', '∠BCD'], ['A', 'B', 'D'], ['C', 'B', 'D']),
+        e1: [
+          { text: '仮定に書かれていることは、そのまま根拠に使えるよ。' },
+          { text: '辺ABと辺CBに注目してみよう！', focus: ['AB', 'CB'] },
+          { text: 'AB＝CB。仮定より等しいね！', focus: ['AB', 'CB'] },
+        ],
+        e2: [
+          { text: '仮定にはもう1つ、等しい辺が書かれているよ。' },
+          { text: '辺ADと辺CDに注目してみよう！', focus: ['AD', 'CD'] },
+          { text: 'AD＝CD。仮定より等しいね！', focus: ['AD', 'CD'] },
+        ],
+        e3: [
+          { text: '2つの三角形に共通する辺はないかな？' },
+          { text: '辺BDに注目してみよう！ 同じ辺を2回タップすると「共通な辺」になるよ。', focus: ['BD'] },
+          { text: 'BD＝BD。共通な辺だから等しいね！', focus: ['BD'] },
+        ],
+        congruence: sssHints(),
+        finalStep: finalHints(['∠BAD', '∠BCD'], 'angle'),
+      },
+      explanation: '∠BADと∠BCDは、△ABDと△CBDの対応する角です。まず△ABD≡△CBDを「3組の辺がそれぞれ等しい」で証明し、合同な図形の対応する角は等しいことから結論を導きます。',
+      learningPoints: [
+        '結論の角をふくむ2つの三角形を見つける。',
+        '合同を証明してから、対応する角が等しいことを使う。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p17',
+      number: '17',
+      title: '対頂角から辺の等しさへ！',
+      difficulty: 2,
+      stage: 6,
+      statement: '線分ABと線分CDが点Oで交わっている。AO＝BO、CO＝DOのとき、AC＝BDであることを証明しよう。',
+      given: ['AO＝BO', 'CO＝DO'],
+      conclusion: 'AC＝BD',
+      conclusionType: 'equalSide',
+      triangles: [['A', 'O', 'C'], ['B', 'O', 'D']],
+      figure: figureOf('p02'),
+      reasons: ['given', 'common', 'vertical', 'alternate'],
+      evidence: [
+        { id: 'e1', items: ['AO', 'BO'], reason: 'given',      label: 'AO＝BO',      mark: 1 },
+        { id: 'e2', items: ['CO', 'DO'], reason: 'given',      label: 'CO＝DO',      mark: 2 },
+        { id: 'e3', items: ['∠AOC', '∠BOD'], reason: 'vertical', label: '∠AOC＝∠BOD', mark: 1 },
+      ],
+      extraTruths: [
+        { items: ['∠AOD', '∠BOC'], reason: 'vertical' },
+      ],
+      congruence: 'SAS',
+      finalStep: { relationType: 'side', items: ['AC', 'BD'], reason: 'correspondingSides', label: 'AC＝BD' },
+      proof: { intro: '△AOCと△BODにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['AC＝BD', 'AO＝CO', '∠OAC＝∠OBD'],
+          reasons: [],
+          triangles: ['AOC/DOB', 'AOC/OBD'],
+          finals: ['∠OAC＝∠OBD', 'AC＝CO'],
+        },
+      },
+      hints: {
+        triangleSelection: triangleHints(['AC', 'BD'], ['A', 'O', 'C'], ['B', 'O', 'D']),
+        e1: [
+          { text: '仮定に書かれていることは、そのまま根拠に使えるよ。' },
+          { text: '辺AOと辺BOに注目してみよう！', focus: ['AO', 'BO'] },
+          { text: 'AO＝BO。仮定より等しいね！', focus: ['AO', 'BO'] },
+        ],
+        e2: [
+          { text: '仮定にはもう1つ、等しい辺が書かれているよ。' },
+          { text: '辺COと辺DOに注目してみよう！', focus: ['CO', 'DO'] },
+          { text: 'CO＝DO。仮定より等しいね！', focus: ['CO', 'DO'] },
+        ],
+        e3: [
+          { text: '2本の線分が交わってできる角に注目しよう。' },
+          { text: '点Oのまわりの∠AOCと∠BODを比べてみよう！', focus: ['∠AOC', '∠BOD'] },
+          { text: '∠AOC＝∠BOD。対頂角だから等しいね！', focus: ['∠AOC', '∠BOD'] },
+        ],
+        congruence: sasHints('∠AOC', '辺AOと辺CO'),
+        finalStep: finalHints(['AC', 'BD'], 'side'),
+      },
+      explanation: '辺ACと辺BDは、△AOCと△BODの対応する辺です。対頂角を使って△AOC≡△BODを証明すれば、合同な図形の対応する辺は等しいので AC＝BD が言えます。',
+      learningPoints: [
+        '結論の辺をふくむ2つの三角形を見つける。',
+        '合同を証明してから、対応する辺が等しいことを使う。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p18',
+      number: '18',
+      title: '平行線から対応する辺へ！',
+      difficulty: 2,
+      stage: 6,
+      statement: 'AB∥CD、AB＝CDである。線分ACとBDの交点をOとするとき、AO＝COであることを証明しよう。',
+      given: ['AB∥CD', 'AB＝CD'],
+      conclusion: 'AO＝CO',
+      conclusionType: 'equalSide',
+      triangles: [['A', 'B', 'O'], ['C', 'D', 'O']],
+      figure: figureOf('p03'),
+      reasons: ['given', 'vertical', 'alternate', 'corresponding'],
+      evidence: [
+        { id: 'e1', items: ['AB', 'CD'], reason: 'given', label: 'AB＝CD', mark: 1 },
+        { id: 'e2', items: ['∠BAO', '∠DCO'], reason: 'alternate', label: '∠BAO＝∠DCO', mark: 1,
+          proofReason: 'AB∥CDより、平行線の錯角は等しいから' },
+        { id: 'e3', items: ['∠ABO', '∠CDO'], reason: 'alternate', label: '∠ABO＝∠CDO', mark: 2,
+          proofReason: 'AB∥CDより、平行線の錯角は等しいから' },
+      ],
+      extraTruths: [
+        { items: ['∠AOB', '∠COD'], reason: 'vertical' },
+        { items: ['∠AOD', '∠BOC'], reason: 'vertical' },
+      ],
+      congruence: 'ASA',
+      finalStep: { relationType: 'side', items: ['AO', 'CO'], reason: 'correspondingSides', label: 'AO＝CO' },
+      proof: { intro: '△ABOと△CDOにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['AO＝CO', 'AB＝AO', '∠BAO＝∠AOB'],
+          reasons: [],
+          triangles: ['ABO/DCO', 'ABO/COD'],
+          finals: ['BO＝DO', 'AO＝BO'],
+        },
+      },
+      hints: {
+        triangleSelection: triangleHints(['AO', 'CO'], ['A', 'B', 'O'], ['C', 'D', 'O']),
+        e1: [
+          { text: '仮定に書かれている「等しい辺」はどれかな？' },
+          { text: '辺ABと辺CDに注目してみよう！', focus: ['AB', 'CD'] },
+          { text: 'AB＝CD。仮定より等しいね！', focus: ['AB', 'CD'] },
+        ],
+        e2: [
+          { text: 'AB∥CD だから、平行線と交わる線分ACに注目しよう。' },
+          { text: '∠BAOと∠DCOを比べてみよう！', focus: ['∠BAO', '∠DCO'] },
+          { text: '∠BAO＝∠DCO。平行線の錯角だから等しいね！', focus: ['∠BAO', '∠DCO'] },
+        ],
+        e3: [
+          { text: 'AB∥CD だから、平行線と交わる線分BDにも注目しよう。' },
+          { text: '∠ABOと∠CDOを比べてみよう！', focus: ['∠ABO', '∠CDO'] },
+          { text: '∠ABO＝∠CDO。平行線の錯角だから等しいね！', focus: ['∠ABO', '∠CDO'] },
+        ],
+        congruence: asaHints('∠BAOと∠ABO', '辺AB'),
+        finalStep: finalHints(['AO', 'CO'], 'side'),
+      },
+      explanation: '辺AOと辺COは、△ABOと△CDOの対応する辺です。錯角を2組見つけて△ABO≡△CDOを証明すれば、合同な図形の対応する辺は等しいので AO＝CO（OはACの中点）が言えます。',
+      learningPoints: [
+        '結論の辺AO・COをふくむ三角形を見つける。',
+        '合同を証明してから、対応する辺が等しいことを使う。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p19',
+      number: '19',
+      title: '共通な辺から別の辺の等しさへ！',
+      difficulty: 3,
+      stage: 6,
+      statement: '四角形ABCDで、AD∥BC、AD＝CBである。対角線ACをひくとき、DC＝BAであることを証明しよう。',
+      given: ['AD∥BC', 'AD＝CB'],
+      conclusion: 'DC＝BA',
+      conclusionType: 'equalSide',
+      triangles: [['A', 'D', 'C'], ['C', 'B', 'A']],
+      figure: figureOf('p08'),
+      reasons: ['given', 'common', 'alternate', 'corresponding'],
+      evidence: [
+        { id: 'e1', items: ['AD', 'CB'], reason: 'given', label: 'AD＝CB', mark: 1 },
+        { id: 'e2', items: ['∠DAC', '∠BCA'], reason: 'alternate', label: '∠DAC＝∠BCA', mark: 1,
+          proofReason: 'AD∥BCより、平行線の錯角は等しいから' },
+        { id: 'e3', items: ['AC', 'CA'], reason: 'common', label: 'AC＝CA', mark: 'common' },
+      ],
+      extraTruths: [],
+      congruence: 'SAS',
+      finalStep: { relationType: 'side', items: ['DC', 'BA'], reason: 'correspondingSides', label: 'DC＝BA' },
+      proof: { intro: '△ADCと△CBAにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['DC＝BA', 'AD＝AC', '∠ADC＝∠DAC'],
+          reasons: ['vertical'],
+          triangles: ['ADC/ABC', 'ADC/CAB'],
+          finals: ['∠ADC＝∠CBA', 'DC＝AC'],
+        },
+      },
+      hints: {
+        triangleSelection: triangleHints(['DC', 'BA'], ['A', 'D', 'C'], ['C', 'B', 'A']),
+        e1: [
+          { text: '仮定から等しい辺を探そう。' },
+          { text: '辺ADと辺CBに注目！', focus: ['AD', 'CB'] },
+          { text: 'AD＝CB。仮定より等しいね！', focus: ['AD', 'CB'] },
+        ],
+        e2: [
+          { text: 'AD∥BCだから、平行線と交わる対角線ACに注目しよう。' },
+          { text: '∠DACと∠BCAを比べてみよう！', focus: ['∠DAC', '∠BCA'] },
+          { text: '∠DAC＝∠BCA。平行線の錯角だから等しいね！', focus: ['∠DAC', '∠BCA'] },
+        ],
+        e3: [
+          { text: '2つの三角形の両方にふくまれる辺はどれかな？' },
+          { text: '対角線ACに注目！ 同じ辺を2回タップしよう。', focus: ['AC'] },
+          { text: 'AC＝CA。共通な辺だから等しいね！', focus: ['AC'] },
+        ],
+        congruence: sasHints('∠DAC', '辺ADと辺AC'),
+        finalStep: finalHints(['DC', 'BA'], 'side'),
+      },
+      explanation: '辺DCと辺BAは、対角線ACで分けた△ADCと△CBAの対応する辺です。頂点の対応（A↔C、D↔B、C↔A）に気をつけて合同を証明すると、合同な図形の対応する辺は等しいので DC＝BA が言えます。',
+      learningPoints: [
+        '対角線で分けた2つの三角形の、頂点の対応を正しく読む。',
+        '合同を証明してから、対応する辺が等しいことを使う。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p20',
+      number: '20',
+      title: '平行四辺形型の図から角の等しさへ！',
+      difficulty: 3,
+      stage: 6,
+      statement: '四角形ABCDで、AB∥DC、AD∥BCである。対角線ACをひくとき、∠ABC＝∠CDAであることを証明しよう。',
+      given: ['AB∥DC', 'AD∥BC'],
+      conclusion: '∠ABC＝∠CDA',
+      conclusionType: 'equalAngle',
+      triangles: [['A', 'B', 'C'], ['C', 'D', 'A']],
+      figure: figureOf('p13'),
+      reasons: ['given', 'common', 'alternate', 'corresponding'],
+      evidence: [
+        { id: 'e1', items: ['∠BAC', '∠DCA'], reason: 'alternate', label: '∠BAC＝∠DCA', mark: 1,
+          parallelGroup: 1, proofReason: 'AB∥DCより、平行線の錯角は等しいから' },
+        { id: 'e2', items: ['∠BCA', '∠DAC'], reason: 'alternate', label: '∠BCA＝∠DAC', mark: 2,
+          parallelGroup: 2, proofReason: 'AD∥BCより、平行線の錯角は等しいから' },
+        { id: 'e3', items: ['AC', 'CA'], reason: 'common', label: 'AC＝CA', mark: 'common' },
+      ],
+      extraTruths: [],
+      congruence: 'ASA',
+      finalStep: { relationType: 'angle', items: ['∠ABC', '∠CDA'], reason: 'correspondingAngles', label: '∠ABC＝∠CDA' },
+      proof: { intro: '△ABCと△CDAにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['∠ABC＝∠CDA', 'AB＝AC', '∠ABC＝∠BAC'],
+          reasons: ['vertical'],
+          triangles: ['ABC/ADC', 'ABC/CAD'],
+          finals: ['AB＝CD', '∠ABC＝∠BAC'],
+        },
+      },
+      hints: {
+        triangleSelection: triangleHints(['∠ABC', '∠CDA'], ['A', 'B', 'C'], ['C', 'D', 'A']),
+        e1: [
+          { text: 'AB∥DCだから、平行線と交わる対角線ACに注目しよう。' },
+          { text: '∠BACと∠DCAを比べてみよう！', focus: ['∠BAC', '∠DCA'] },
+          { text: '∠BAC＝∠DCA。平行線の錯角だから等しいね！', focus: ['∠BAC', '∠DCA'] },
+        ],
+        e2: [
+          { text: 'もう1組の平行線AD∥BCにも注目しよう。' },
+          { text: '∠BCAと∠DACを比べてみよう！', focus: ['∠BCA', '∠DAC'] },
+          { text: '∠BCA＝∠DAC。平行線の錯角だから等しいね！', focus: ['∠BCA', '∠DAC'] },
+        ],
+        e3: [
+          { text: '2つの三角形の両方にふくまれる辺はどれかな？' },
+          { text: '対角線ACに注目！ 同じ辺を2回タップしよう。', focus: ['AC'] },
+          { text: 'AC＝CA。共通な辺だから等しいね！', focus: ['AC'] },
+        ],
+        congruence: asaHints('∠BACと∠BCA', '辺AC'),
+        finalStep: finalHints(['∠ABC', '∠CDA'], 'angle'),
+      },
+      explanation: '∠ABCと∠CDAは、対角線ACで分けた△ABCと△CDAの対応する角です。2組の平行線の錯角と共通な辺で合同を証明すると、合同な図形の対応する角は等しいので ∠ABC＝∠CDA（平行四辺形の向かい合う角は等しい）が言えます。',
+      learningPoints: [
+        '結論の角をふくむ2つの三角形と、頂点の対応を見つける。',
+        '合同を証明してから、対応する角が等しいことを使う。',
+      ],
+    }
+  );
 
   // ステージ順に並べる（同じステージ内は上に書いた順。sort は安定ソート）
   PH.problems.sort(function (a, b) { return a.stage - b.stage; });

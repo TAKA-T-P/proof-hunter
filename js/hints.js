@@ -4,6 +4,7 @@
  * 対象の選び方：
  *   根拠収集中   … 問題データの順で「まだ見つけていない根拠」の最初のもの
  *   合同条件選択 … hints.congruence
+ *   三角形の選択 … hints.triangleSelection、最終結論 … hints.finalStep（Ver.0.5。最終段階でも自動では答えを入れない）
  * 同じ対象には 1→2→3 段階の順に表示。最終段階は繰り返し表示できる（回数は増えない）。
  */
 (function (root) {
@@ -11,6 +12,8 @@
   const PH = root.PH = root.PH || {};
 
   function targetId(problem, game) {
+    if (game.phase === 'triangle') return 'triangleSelection';   // Ver.0.5：証明する三角形を選ぶ
+    if (game.phase === 'final') return 'finalStep';              // Ver.0.5：合同から結論を導く
     if (game.phase === 'congruence') return 'congruence';
     if (game.phase !== 'collect') return null;
     const next = problem.evidence.find(function (e) { return game.found.indexOf(e.id) < 0; });

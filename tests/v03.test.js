@@ -39,8 +39,8 @@ test('全問題のデータ検証（パズルのダミーカードを含む）�
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
 });
 
-test('15問すべてでパズルを作れ、正解カード・合同条件カードがそろっている', () => {
-  assert.equal(PH.problems.length, 15);
+test('全問題でパズルを作れ、正解カード・合同条件カードがそろっている', () => {
+  assert.equal(PH.problems.length, 20);
   PH.problems.forEach((p) => {
     const z = new PH.Puzzle(p);
     assert.equal(z.type, p.puzzle.type);
@@ -335,7 +335,7 @@ test('パズルの評価はハンターモードと別に保存され、Ver.0.2 
 test('壊れたパズルの保存データでもエラーにならない', () => {
   withFakeStorage(JSON.stringify({ problems: { p01: { cleared: true, bestStars: 2 } }, puzzleProblems: [1, 2], lastMode: 'x', lastPuzzleProblemId: 5 }), () => {
     assert.equal(PH.storage.getProblem('p01', 'puzzle').cleared, false);
-    assert.equal(PH.storage.reviewProblems('puzzle').length, 15);
+    assert.equal(PH.storage.reviewProblems('puzzle').length, PH.problems.length);
     assert.deepEqual(PH.storage.getLastPlay(), null);
     PH.storage.recordClear('p02', 3, 0, 'puzzle');
     assert.equal(PH.storage.getProblem('p02', 'puzzle').bestStars, 3);

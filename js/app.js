@@ -140,7 +140,7 @@
     return '<p class="level-current">現在の解答レベル：<b class="level-' + currentLevel().id + '">' + esc(currentLevel().label) + '</b></p>';
   }
 
-  // そのレベルの全15問をクリアしたときの案内（レベルは自動で変えない）
+  // そのレベルの全問をクリアしたときの案内（レベルは自動で変えない）
   function levelGuide() {
     const rm = recMode('puzzle');
     const all = PH.problems.every(function (p) { return PH.storage.getProblem(p.id, rm).cleared; });
@@ -222,6 +222,11 @@
         art: '<svg viewBox="0 0 200 120"><rect x="8" y="30" width="58" height="56" rx="8" class="h-slot"/><rect x="71" y="30" width="58" height="56" rx="8" class="h-slot"/><rect x="134" y="30" width="58" height="56" rx="8" class="h-slot"/><text x="37" y="63" class="h-stxt">AB＝CB</text><text x="100" y="63" class="h-stxt">AD＝CD</text><text x="163" y="63" class="h-stxt">BD＝BD</text></svg>',
       },
       {
+        title: '合同から結論を導こう！（STAGE 6）',
+        text: '結論が「AC＝BD」のような問題では、①証明する2つの三角形をタップして頂点の対応を決め、②根拠を3つ、③合同条件、④「合同な図形の対応する辺（角）は等しい」で結論を導くよ。',
+        art: '<svg viewBox="0 0 200 120"><polygon points="20,100 60,20 95,100" class="h-tri1"/><polygon points="105,100 140,20 180,100" class="h-tri2"/><text x="60" y="80" class="h-btxt">1</text><text x="140" y="80" class="h-btxt">2</text><text x="100" y="114" class="h-btxt">A↔D・B↔E・C↔F</text></svg>',
+      },
+      {
         title: '証明成功！',
         text: '完成した証明文を確認しよう！ ミスやヒントが少ないほど、★が増えるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="104" rx="8" class="h-paper"/><line x1="45" y1="30" x2="150" y2="30" class="h-rule"/><line x1="45" y1="48" x2="135" y2="48" class="h-rule"/><line x1="45" y1="66" x2="145" y2="66" class="h-rule"/><text x="100" y="98" class="h-star">★★★</text></svg>',
@@ -252,6 +257,11 @@
         title: 'チャレンジはキーパッドで入力！',
         text: '「辺の等式」を選んで、A → B → C → D と押すと AB＝CD（＝ は自動で入るよ）。角は「角の等式」を選んで A → B → C → D → E → F で ∠ABC＝∠DEF。最後に「決定」！',
         art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="28" rx="8" class="h-paper"/><text x="100" y="28" class="h-kp-disp">AB＝C＿</text><rect x="20" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="37" y="64" class="h-btxt">A</text><rect x="62" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="79" y="64" class="h-btxt">B</text><rect x="104" y="46" width="34" height="26" rx="6" class="h-btn h-on"/><text x="121" y="64" class="h-btxt">C</text><rect x="146" y="46" width="34" height="26" rx="6" class="h-btn h-on"/><text x="163" y="64" class="h-btxt">D</text><rect x="20" y="80" width="40" height="26" rx="6" class="h-btn"/><text x="40" y="98" class="h-btxt">←</text><rect x="66" y="80" width="40" height="26" rx="6" class="h-btn"/><text x="86" y="98" class="h-btxt">消す</text><rect x="112" y="80" width="68" height="26" rx="6" class="h-btn h-on"/><text x="146" y="98" class="h-btxt">決定</text></svg>',
+      },
+      {
+        title: '合同から結論を導く問題（STAGE 6）',
+        text: '最初に「△＿と△＿において」の三角形を、頂点の対応がそろうように答えよう（チャレンジは △ABC と △DEF のようにキーパッドで入力）。最後に「合同な図形の対応する辺（角）は等しいから」で結論を答えるよ。',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="14" width="80" height="26" rx="8" class="h-btn h-on"/><text x="50" y="32" class="h-btxt">△ABC</text><text x="100" y="32" class="h-btxt">と</text><rect x="110" y="14" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="32" class="h-btxt">△DEF</text><rect x="15" y="56" width="170" height="24" rx="8" class="h-btn"/><text x="100" y="73" class="h-btxt">対応する辺は等しいから</text><rect x="55" y="88" width="90" height="24" rx="8" class="h-btn h-on"/><text x="100" y="105" class="h-btxt">AC＝DF</text></svg>',
       },
       {
         title: '証明を完成させよう！',
