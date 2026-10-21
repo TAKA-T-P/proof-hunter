@@ -171,6 +171,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .h-finger { font-size: 26px; }
 .h-btn { fill: #fff; stroke: var(--line); stroke-width: 2; }
 .h-btn.h-on { fill: var(--blue); stroke: var(--blue); }
+.h-btn.h-on.h-confirm { fill: var(--red); stroke: var(--red); }
 .h-btxt { font-size: 13px; font-weight: 700; text-anchor: middle; fill: var(--ink); }
 .h-on + .h-btxt { fill: #fff; }
 .h-slot { fill: var(--gold-soft); stroke: var(--gold); stroke-width: 2.5; }
@@ -804,6 +805,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .chooser-title { margin: 0; font-weight: 900; color: var(--navy); text-align: center; }
 .chooser-options { display: flex; gap: 8px; }
 .chooser-option { flex: 1; min-height: 48px; font-size: 1.3rem; font-weight: 900; border-color: var(--blue-600); color: var(--blue); }
+.chooser.is-text .chooser-option { font-size: 1rem; white-space: nowrap; padding-left: 4px; padding-right: 4px; }
 .chooser-cancel { min-height: 36px; font-size: .85rem; color: var(--muted); }
 
 /* =====================================================================

@@ -91,9 +91,10 @@
 
   // ---- ステージ選択・問題一覧・復習（モード共通） ------------------------------
 
+  // 獲得した星は ★、未獲得の星は ☆（塗りつぶしなし）
   function starsHtml(rec) {
-    if (!rec.cleared) return '<span class="dim" aria-label="未クリア">★★★</span>';
-    return '★'.repeat(rec.bestStars) + '<span class="dim">' + '★'.repeat(3 - rec.bestStars) + '</span>';
+    if (!rec.cleared) return '<span class="dim" aria-label="未クリア">☆☆☆</span>';
+    return '★'.repeat(rec.bestStars) + '<span class="dim">' + '☆'.repeat(3 - rec.bestStars) + '</span>';
   }
 
   // 問題選択画面の見出し（戻るボタンの行き先と題名）とモードの色
@@ -109,9 +110,7 @@
   function problemCard(mode, p, showStage) {
     const rec = PH.storage.getProblem(p.id, recMode(mode));
     const diff = '★'.repeat(p.difficulty) + '<span class="dim">' + '★'.repeat(Math.max(0, 3 - p.difficulty)) + '</span>';
-    const best = rec.cleared
-      ? '<span class="best-stars">' + '★'.repeat(rec.bestStars) + '<span class="dim">' + '★'.repeat(3 - rec.bestStars) + '</span></span>'
-      : '<span class="best-stars dim">★★★</span>';
+    const best = '<span class="best-stars">' + starsHtml(rec) + '</span>';
     return '<li><a class="problem-card' + (rec.cleared ? ' is-cleared' : '') + '" href="' + MODES[mode].play(p.id) + '">' +
       '<span class="pc-no">問題<b>' + esc(p.number) + '</b></span>' +
       '<span class="pc-body">' +
@@ -256,7 +255,7 @@
       {
         title: 'チャレンジはキーパッドで入力！',
         text: '「辺の等式」を選んで、A → B → C → D と押すと AB＝CD（＝ は自動で入るよ）。角は「角の等式」を選んで A → B → C → D → E → F で ∠ABC＝∠DEF。最後に「決定」！',
-        art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="28" rx="8" class="h-paper"/><text x="100" y="28" class="h-kp-disp">AB＝C＿</text><rect x="20" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="37" y="64" class="h-btxt">A</text><rect x="62" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="79" y="64" class="h-btxt">B</text><rect x="104" y="46" width="34" height="26" rx="6" class="h-btn h-on"/><text x="121" y="64" class="h-btxt">C</text><rect x="146" y="46" width="34" height="26" rx="6" class="h-btn h-on"/><text x="163" y="64" class="h-btxt">D</text><rect x="20" y="80" width="40" height="26" rx="6" class="h-btn"/><text x="40" y="98" class="h-btxt">←</text><rect x="66" y="80" width="40" height="26" rx="6" class="h-btn"/><text x="86" y="98" class="h-btxt">消す</text><rect x="112" y="80" width="68" height="26" rx="6" class="h-btn h-on"/><text x="146" y="98" class="h-btxt">決定</text></svg>',
+        art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="28" rx="8" class="h-paper"/><text x="100" y="28" class="h-kp-disp">AB＝C＿</text><rect x="20" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="37" y="64" class="h-btxt">A</text><rect x="62" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="79" y="64" class="h-btxt">B</text><rect x="104" y="46" width="34" height="26" rx="6" class="h-btn h-on"/><text x="121" y="64" class="h-btxt">C</text><rect x="146" y="46" width="34" height="26" rx="6" class="h-btn h-on"/><text x="163" y="64" class="h-btxt">D</text><rect x="20" y="80" width="40" height="26" rx="6" class="h-btn"/><text x="40" y="98" class="h-btxt">←</text><rect x="66" y="80" width="40" height="26" rx="6" class="h-btn"/><text x="86" y="98" class="h-btxt">消す</text><rect x="112" y="80" width="68" height="26" rx="6" class="h-btn h-on h-confirm"/><text x="146" y="98" class="h-btxt">決定</text></svg>',
       },
       {
         title: '合同から結論を導く問題（STAGE 6）',

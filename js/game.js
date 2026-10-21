@@ -209,7 +209,7 @@
     return this.phase === 'triangle' && this.triSel.length === 2 && this.triMap.length === 3;
   };
 
-  // 「この2つで証明する」：正しければ根拠の収集へ。誤りはミス1回（同じ誤答の再判定では増やさない）
+  // 「決定」（この2つの三角形で証明する）：正しければ根拠の収集へ。誤りはミス1回（同じ誤答の再判定では増やさない）
   Game.prototype.confirmTriangles = function () {
     if (!this.canConfirmTriangles()) return { status: 'incomplete', ok: false, miss: false };
     const t1 = this.triSel[0], t2 = this.triMap.slice();

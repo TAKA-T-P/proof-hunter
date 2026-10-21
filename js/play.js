@@ -251,7 +251,7 @@
     }
   };
 
-  // 「この2つで証明する」
+  // 「決定」：この2つの三角形で証明する
   PlayController.prototype.confirmTriangles = function () {
     const g = this.game;
     const r = g.confirmTriangles();
@@ -522,7 +522,8 @@
         '<figure><figcaption class="tri-cap tri-cap-1">' + triName(t2) + '</figcaption>' + miniTriangle(p.figure, t2, 1) + '</figure>' +
       '</div>' +
       '<div class="tri-map"><span class="tri-map-label">対応する頂点</span>' + pairs + '</div>' +
-      '<p class="tri-note">結論 <b>' + esc(p.conclusion) + '</b> の文字の順番が、頂点の対応を表しているよ。同じ色の頂点どうしが対応するよ。</p>';
+      '<p class="tri-note">' + (PH.hasFinalStep(p) ? '合同の式 <b>' + esc(PH.congruenceText(p)) + '</b>' : '結論 <b>' + esc(p.conclusion) + '</b>') +
+        ' の文字の順番が、頂点の対応を表しているよ。同じ色の頂点どうしが対応するよ。</p>';
   };
 
   PlayController.prototype.popMessage = function (text) {
@@ -581,7 +582,10 @@
         this.say('等しい' + what + 'は見つけられたね！ でも、理由をもう一度考えてみよう。', 'ng');
         break;
       case 'from-conclusion':
-        this.say('それは' + p.conclusion + 'が証明できたら言えることだよ！ 結論はまだ根拠に使えないよ。', 'ng');
+        // 対応する辺・角が等しいと言えるのは、合同を証明してから（STAGE 6 では最終結論ではなく途中の合同を示す）
+        this.say(PH.hasFinalStep(p)
+          ? 'それは' + PH.congruenceText(p) + 'が証明できたら言えることだよ！ 合同はまだ証明できていないので、根拠には使えないよ。'
+          : 'それは' + p.conclusion + 'が証明できたら言えることだよ！ 結論はまだ根拠に使えないよ。', 'ng');
         break;
       case 'not-common': {
         this.say('その' + what + 'は、' + triName(p.triangles[0]) + 'と' + triName(p.triangles[1]) + 'の両方にふくまれているかな？ 共通な' + what + 'ではないみたい。', 'ng');
@@ -775,7 +779,7 @@
     if (sel.length === 0) note = 'どの2つの三角形を合同にすればよい？ 図の三角形の内側をタップしよう。';
     else if (sel.length === 1) note = '2つ目の三角形をタップしよう。（もう一度タップで選び直し）';
     else if (g.triMap.length < 3) note = triName(sel[0]) + 'の頂点 <b>' + esc(sel[0][g.triMap.length]) + '</b> に対応する頂点を、' + triName(sel[1]) + 'から選ぼう。';
-    else note = '頂点の対応が決まったよ。「この2つで証明する」を押そう！';
+    else note = '頂点の対応が決まったよ。「決定」を押そう！';
     const slotTri = function (tri, i, letters) {
       return '<span class="tri-slot tri-slot-' + i + (tri ? ' filled' : '') + '">△' +
         (tri ? letters.map(function (c) { return '<span>' + esc(c || '＿') + '</span>'; }).join('') : '＿＿＿') + '</span>';
@@ -795,9 +799,9 @@
       }).join('') + '</div>';
     }
     html += '<div class="panel-actions">' +
-      '<button class="btn" data-act="tri-back"' + (g.triMap.length ? '' : ' disabled') + '>← 1つもどす</button>' +
-      '<button class="btn" data-act="tri-clear"' + (sel.length ? '' : ' disabled') + '>やり直し</button>' +
-      '<button class="btn btn-confirm" data-act="confirm-tri"' + (g.canConfirmTriangles() ? '' : ' disabled') + '>この2つで証明する</button>' +
+      '<button class="btn" data-act="tri-back"' + (g.triMap.length ? '' : ' disabled') + ' aria-label="1つもどす">←</button>' +
+      '<button class="btn" data-act="tri-clear"' + (sel.length ? '' : ' disabled') + ' aria-label="選んだ三角形を消す">消す</button>' +
+      '<button class="btn btn-confirm" data-act="confirm-tri"' + (g.canConfirmTriangles() ? '' : ' disabled') + ' aria-label="この2つの三角形で証明する">決定</button>' +
       '</div>' + this.feedbackHtml();
     return html;
   };

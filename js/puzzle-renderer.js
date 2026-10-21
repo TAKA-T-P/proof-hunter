@@ -278,6 +278,7 @@
       title: '解答レベルを変更する',
       message: '解答形式を変更すると、今の解答内容はリセットされます。変更しますか？',
       options: others.map(function (l) { return { value: l.id, label: l.label }; }),
+      textOptions: true,
       onChoose: function (id) {
         PH.storage.setPuzzleLevel(id);
         self.nav.reload();       // 新しい形式で最初から（ミス・ヒント・印もリセット。保存ずみの最高評価は変わらない）

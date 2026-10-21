@@ -231,7 +231,7 @@
     html += '<div class="kp-ops">' +
       '<button class="kp-op" data-kp="back"' + (kp.isEmpty() ? ' disabled' : '') + ' aria-label="1文字消す">←</button>' +
       '<button class="kp-op" data-kp="clear"' + (kp.isEmpty() ? ' disabled' : '') + '>消す</button>' +
-      '<button class="btn btn-primary kp-decide" data-kp="decide"' + (kp.complete() ? '' : ' disabled') + '>決定</button>' +
+      '<button class="btn btn-confirm kp-decide" data-kp="decide"' + (kp.complete() ? '' : ' disabled') + '>決定</button>' +
       '</div>';
     return html;
   }

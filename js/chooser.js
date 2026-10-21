@@ -1,7 +1,8 @@
 /*
  * chooser.js — 「どちらに印をつけますか？」のような、候補から1つを選ぶ小さなポップアップ（両モード共通）
  *
- * PH.chooser.open({ title, message?, options: [{ value, label }], onChoose(value) })
+ * PH.chooser.open({ title, message?, options: [{ value, label }], onChoose(value), textOptions? })
+ *   textOptions: true … 選択肢が長い文字（「スタンダード」など）のとき、改行しない小さめの文字で表示
  * キャンセル（ボタン・外側のタップ・Esc）では何もしない。
  */
 (function (root) {
@@ -48,6 +49,8 @@
     const el = ensure();
     current = opts;
     el.querySelector('.chooser-title').textContent = opts.title;
+    // 文字の長い選択肢（解答レベル名など）は、改行しないよう小さめの文字にする
+    el.classList.toggle('is-text', !!opts.textOptions);
     const msg = el.querySelector('.chooser-message');
     msg.textContent = opts.message || '';
     msg.hidden = !opts.message;
