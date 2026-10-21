@@ -89,9 +89,26 @@ button:disabled { cursor: default; }
 /* ---- タイトル ---------------------------------------------------------- */
 body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4ed8 55%, #3b82f6 100%); }
 .screen-title {
+  position: relative;
   min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
   color: #fff; text-align: center;
 }
+/* 左上：あそびかた（？）、右上：効果音（スピーカー） */
+.title-corner {
+  position: fixed; top: calc(10px + env(safe-area-inset-top)); z-index: 2;
+  display: grid; place-items: center; width: 46px; height: 46px; padding: 0;
+  border: 2px solid rgba(255,255,255,.55); border-radius: 50%; background: rgba(255,255,255,.14); color: #fff;
+  transition: background .15s, transform .08s;
+}
+.title-corner-left { left: calc(12px + env(safe-area-inset-left)); }
+.title-corner-right { right: calc(12px + env(safe-area-inset-right)); }
+.title-corner:hover { background: rgba(255,255,255,.26); }
+.title-corner:active { transform: scale(.94); }
+.title-corner svg { width: 26px; height: 26px; }
+.title-corner .ic-ring { fill: none; stroke: currentColor; stroke-width: 2; }
+.title-corner .ic-line { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.title-corner .ic-dot, .title-corner .ic-fill { fill: currentColor; }
+.title-corner.is-off { color: #bfdbfe; border-color: rgba(255,255,255,.3); }
 .title-box { width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .title-emblem svg { width: 180px; height: auto; }
 .em-tri1 { fill: rgba(255,255,255,.18); stroke: #fff; stroke-width: 3; stroke-linejoin: round; }
@@ -110,6 +127,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .screen-title .btn-primary:hover { background: var(--blue-50); color: var(--navy); }
 .screen-title .btn-ghost { color: #dbeafe; margin-top: 6px; }
 .version { margin-top: 28px; font-size: .85rem; color: #bfdbfe; }
+.copyright { margin: 6px 0 0; font-size: .68rem; color: rgba(219, 234, 254, .55); letter-spacing: .02em; }
 
 /* ---- ページ見出し ------------------------------------------------------- */
 .page-header, .play-header {

@@ -14,6 +14,11 @@
 
     <!-- タイトル画面 -->
     <section id="screen-title" class="screen screen-title" hidden>
+      <!-- 左上：あそびかた（？）、右上：効果音ON/OFF（スピーカー） -->
+      <button class="title-corner title-corner-left" data-go="#/howto" aria-label="あそびかた" title="あそびかた">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" class="ic-ring"/><path d="M9.2 9.3a2.9 2.9 0 1 1 4.1 2.6c-.9.4-1.3 1-1.3 1.9v.6" class="ic-line"/><circle cx="12" cy="17.4" r="1.25" class="ic-dot"/></svg>
+      </button>
+      <button class="title-corner title-corner-right" data-sound-toggle aria-pressed="true" aria-label="効果音 ON" title="効果音 ON"></button>
       <div class="title-box">
         <div class="title-emblem" aria-hidden="true">
           <svg viewBox="0 0 160 120">
@@ -46,11 +51,10 @@
         </div>
         <div class="title-buttons">
           <button class="btn btn-gold btn-big" id="btn-continue" hidden>つづきから<span class="cont-sub"></span></button>
-          <button class="btn btn-big" data-go="#/howto">あそびかた</button>
         </div>
-        <button class="btn btn-small btn-ghost" data-sound-toggle aria-pressed="true">🔊 効果音 ON</button>
       </div>
       <footer class="version">Ver.0.6</footer>
+      <p class="copyright">©2026 T.TAKEMOTO / KEC Glows</p>
     </section>
 
     <!-- ステージ選択・ステージの問題一覧・苦手な問題（js/app.js が中身を作る） -->

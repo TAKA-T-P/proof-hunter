@@ -85,11 +85,24 @@
     renderSoundButtons();
   }
 
+  // 効果音ボタン：スピーカーのアイコン（ON は音の波、OFF は ×）
+  const SPEAKER = '<path d="M3.5 9.2h3.6L12 5v14l-4.9-4.2H3.5z" class="ic-fill"/>';
+  const SOUND_ICON = {
+    on: '<svg viewBox="0 0 24 24" aria-hidden="true">' + SPEAKER +
+      '<path d="M15.2 9.2a4 4 0 0 1 0 5.6M17.8 6.6a7.6 7.6 0 0 1 0 10.8" class="ic-line"/></svg>',
+    off: '<svg viewBox="0 0 24 24" aria-hidden="true">' + SPEAKER +
+      '<path d="M15.5 9.5l5 5M20.5 9.5l-5 5" class="ic-line"/></svg>',
+  };
+
   function renderSoundButtons() {
     const on = PH.storage.getSound();
     doc.querySelectorAll('[data-sound-toggle]').forEach(function (b) {
+      const label = on ? '効果音 ON' : '効果音 OFF';
       b.setAttribute('aria-pressed', String(on));
-      b.textContent = on ? '🔊 効果音 ON' : '🔈 効果音 OFF';
+      b.setAttribute('aria-label', label);
+      b.setAttribute('title', label);
+      b.classList.toggle('is-off', !on);
+      b.innerHTML = SOUND_ICON[on ? 'on' : 'off'];
     });
   }
 
