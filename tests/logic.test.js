@@ -147,9 +147,9 @@ test('問題01をミスなしで最後まで進めると★3', () => {
   const g = new PH.Game(p01);
   assert.equal(play(g, 'AB', 'CB', 'given').status, 'correct');
   assert.equal(play(g, 'CD', 'AD', 'given').status, 'correct');
-  g.setMode('common');
   g.tap(k(p01, 'BD'));
-  assert.equal(g.reason, 'common');
+  g.tap(k(p01, 'BD'));
+  g.selectReason('common');
   assert.equal(g.confirmEvidence().status, 'correct');
   assert.equal(g.phase, 'congruence');
   g.selectCondition('SSS');
@@ -203,7 +203,9 @@ test('印つけから「解答にもどる」と直前の辺選択/角選択に�
   const g = new PH.Game(p02);
   g.setMode('angle');
   g.setMode('mark');
+  g.setMarkTool('ang', 2);
   g.tap(k(p02, '∠OAC'));
+  g.setMarkTool('seg', 1);
   g.tap(k(p02, 'AC'));
   assert.equal(Object.keys(g.userMarks).length, 2);
   g.setMode('answer');
@@ -232,12 +234,67 @@ test('辺選択で同じ辺を2回タップすると共通な辺の候補、3回
   assert.equal(g3.confirmEvidence().status, 'not-common');
 });
 
-test('角は同じ角を2回タップすると選択解除', () => {
+// 共通な角を使う問題（今後の拡張用のサンプル）: AB＝AC、AD＝AE、∠Aが共通 → △ABE≡△ACD
+const commonAngleProblem = {
+  id: 'tca', triangles: [['A', 'B', 'E'], ['A', 'C', 'D']],
+  figure: {
+    viewBox: [0, 0, 400, 340],
+    points: { A: { x: 200, y: 30 }, B: { x: 80, y: 310 }, C: { x: 320, y: 310 }, D: { x: 140, y: 170 }, E: { x: 260, y: 170 } },
+    lines: [['A', 'D', 'B'], ['A', 'E', 'C']],
+    segments: ['AD', 'DB', 'AE', 'EC', 'BE', 'CD'],
+    angles: ['BAC', 'ADC', 'AEB'],
+  },
+  reasons: ['given', 'vertical'],
+  evidence: [
+    { id: 'e1', items: ['AB', 'AC'], reason: 'given', label: 'AB＝AC', mark: 1 },
+    { id: 'e2', items: ['∠BAE', '∠CAD'], reason: 'commonAngle', label: '∠BAE＝∠CAD', mark: 'common' },
+    { id: 'e3', items: ['AE', 'AD'], reason: 'given', label: 'AE＝AD', mark: 2 },
+  ],
+  extraTruths: [], congruence: 'SAS', hints: {},
+};
+
+test('角も同じ角を2回タップで共通な角の候補、3回目で選択解除', () => {
+  const g = new PH.Game(commonAngleProblem);
+  const a = k(commonAngleProblem, '∠BAC');
+  // 一直線上の点で名前が違っても同じ角
+  assert.equal(a, k(commonAngleProblem, '∠DAE'));
+  g.setMode('angle');
+  g.tap(a);
+  g.tap(a);
+  assert.deepEqual(g.selection, [a, a]);
+  assert.ok(g.availableReasons().includes('commonAngle'));
+  assert.ok(!g.availableReasons().includes('common'));
+  g.tap(a);
+  assert.deepEqual(g.selection, []);
+  g.tap(a);
+  g.tap(a);
+  g.selectReason('given');
+  assert.equal(g.confirmEvidence().status, 'wrong-reason');
+  g.selectReason('commonAngle');
+  assert.equal(g.confirmEvidence().status, 'correct');
+  assert.equal(g.autoMarks()[a], 'common');
+  assert.equal(val.deriveCondition(commonAngleProblem, commonAngleProblem.evidence), 'SAS');
+});
+
+test('共通でない角を共通な角にすると不正解', () => {
   const g = new PH.Game(p02);
   g.setMode('angle');
   g.tap(k(p02, '∠AOC'));
   g.tap(k(p02, '∠AOC'));
-  assert.deepEqual(g.selection, []);
+  g.selectReason('commonAngle');
+  assert.equal(g.confirmEvidence().status, 'not-common');
+});
+
+test('印つけでは選んだ種類（辺の印/角の印）の要素にだけ印がつく', () => {
+  const g = new PH.Game(p02);
+  g.setMode('mark');
+  assert.equal(g.markTool.kind, 'seg');
+  assert.equal(g.tap(k(p02, '∠AOC')).type, 'ignored');
+  assert.equal(g.tap(k(p02, 'AO')).type, 'mark');
+  g.setMarkTool('ang', 1);
+  assert.equal(g.tap(k(p02, 'BO')).type, 'ignored');
+  assert.equal(g.tap(k(p02, '∠AOC')).type, 'mark');
+  assert.equal(Object.keys(g.userMarks).length, 2);
 });
 
 test('同じ要素の再タップで選択解除・確定前は判定しない', () => {

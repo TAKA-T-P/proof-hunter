@@ -13,6 +13,7 @@
   PH.REASONS = {
     given:         { label: '仮定より',               short: '仮定より', proof: '仮定より' },
     common:        { label: '共通な辺だから',         short: '共通な辺', proof: '共通な辺だから' },
+    commonAngle:   { label: '共通な角だから',         short: '共通な角', proof: '共通な角だから' },
     vertical:      { label: '対頂角だから',           short: '対頂角',   proof: '対頂角は等しいから' },
     alternate:     { label: '平行線の錯角だから',     short: '錯角',     proof: '平行線の錯角は等しいから' },
     corresponding: { label: '平行線の同位角だから',   short: '同位角',   proof: '平行線の同位角は等しいから' },
@@ -73,7 +74,7 @@
         ],
         e3: [
           { text: '2つの三角形に共通する辺はないかな？' },
-          { text: '辺BDに注目してみよう！「共通な辺」ボタンを使うよ。', focus: ['BD'] },
+          { text: '辺BDに注目してみよう！ 同じ辺を2回タップすると「共通な辺」になるよ。', focus: ['BD'] },
           { text: 'BD＝BD。共通な辺だから等しいね！', focus: ['BD'] },
         ],
         congruence: [

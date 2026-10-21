@@ -68,6 +68,8 @@ button:disabled { cursor: default; }
 .btn:disabled { opacity: .45; }
 .btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
 .btn-primary:hover:not(:disabled) { background: var(--navy); border-color: var(--navy); }
+.btn-confirm { background: var(--red); border-color: var(--red); color: #fff; }
+.btn-confirm:hover:not(:disabled) { background: #b91c1c; border-color: #b91c1c; }
 .btn-gold { background: var(--gold); border-color: var(--gold); color: #3b2a00; }
 .btn-big { min-height: 46px; font-size: 1.15rem; width: 100%; }
 .btn-small { min-height: 32px; padding: 2px 12px; font-size: .9rem; }
@@ -221,7 +223,6 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 
 .figure-card { position: relative; padding: 4px; background: #fff; border-width: 3px; transition: border-color .2s; }
 .figure-card.mode-angle { border-color: #fbbf24; }
-.figure-card.mode-common { border-color: #34d399; }
 .figure-card.mode-mark { border-color: #60a5fa; border-style: dashed; }
 .figure-card.mode-erase { border-color: #fb923c; border-style: dashed; }
 .mode-badge {
@@ -259,6 +260,11 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .under-sector.is-selected { fill: rgba(250, 204, 21, .5); }
 .under-ray.is-selected { stroke: #fde047; stroke-width: 10; stroke-linecap: round; }
 .sel-arc { fill: none; stroke: #ca8a04; stroke-width: 3.5; }
+/* 同じ辺・角を2回選んだ（共通）ときは赤 */
+.under-seg.is-selected.is-common { stroke: #ef4444; }
+.under-sector.is-selected.is-common { fill: rgba(239, 68, 68, .4); }
+.under-ray.is-selected.is-common { stroke: #fca5a5; }
+.sel-arc.is-common { stroke: #b91c1c; }
 .ang-guide { fill: none; stroke: #f59e0b; stroke-width: 3.5; stroke-dasharray: 5 4; opacity: .85; }
 .is-flash { animation: flash .55s ease-in-out 2 alternate; }
 .under-seg.is-flash, .under-ray.is-flash { stroke: #34d399; }
@@ -317,6 +323,8 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
   font-size: 1.45rem; font-weight: 800; color: #94a3b8; background: #fff; border: 2px solid var(--line);
 }
 .eq-part.filled { color: var(--ink); border-color: #facc15; }
+.equation.is-common { border-color: #ef4444; background: var(--red-soft); }
+.equation.is-common .eq-part.filled { border-color: #ef4444; color: #b91c1c; }
 .eq-sign { font-size: 1.4rem; font-weight: 800; }
 .reasons-label { font-size: .8rem; font-weight: 700; color: var(--muted); margin-bottom: 2px; }
 .choices { display: grid; gap: 6px; }

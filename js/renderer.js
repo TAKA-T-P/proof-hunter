@@ -58,6 +58,12 @@
       g.tickLines(item.p1, item.p2, mark, 16, 6).forEach(function (s) {
         line(s.a, s.b, { class: 'mark-tick ' + cls }, group);
       });
+    } else if (mark === 'common') {
+      // 共通な角：円弧と「共通」の文字
+      el('path', { d: g.arcPath(item.vertex, item.from, item.to, 22), class: 'mark-arc ' + cls }, group);
+      const at = g.vec.add(item.vertex, g.vec.mul(g.bisector(item.vertex, item.from, item.to), 40));
+      const t = el('text', { x: at.x, y: at.y, class: 'mark-common-text ' + cls }, group);
+      t.textContent = '共通';
     } else {
       for (let i = 0; i < mark; i++) {
         el('path', { d: g.arcPath(item.vertex, item.from, item.to, 20 + i * 5), class: 'mark-arc ' + cls }, group);
@@ -100,8 +106,10 @@
       }
     }
     flash.forEach(function (k) { if (els.byKey[k]) underlay(els.byKey[k], 'is-flash'); });
+    // 同じ要素を2回選んだ（共通な辺・角）ときは赤で表示
+    const sameTwice = selection.length === 2 && selection[0] === selection[1];
     selection.forEach(function (k, i) {
-      if (els.byKey[k] && selection.indexOf(k) === i) underlay(els.byKey[k], 'is-selected');
+      if (els.byKey[k] && selection.indexOf(k) === i) underlay(els.byKey[k], sameTwice ? 'is-selected is-common' : 'is-selected');
     });
 
     // 3. 図形の線
@@ -117,7 +125,7 @@
     }
     selection.forEach(function (k) {
       const a = els.byKey[k];
-      if (a && a.kind === 'ang') el('path', { d: g.arcPath(a.vertex, a.from, a.to, SELECT_RADIUS), class: 'sel-arc' }, ga);
+      if (a && a.kind === 'ang') el('path', { d: g.arcPath(a.vertex, a.from, a.to, SELECT_RADIUS), class: sameTwice ? 'sel-arc is-common' : 'sel-arc' }, ga);
     });
 
     // 5. 印（自動表示を優先、生徒の印は内部的に別管理）

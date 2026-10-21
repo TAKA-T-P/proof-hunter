@@ -81,7 +81,7 @@
         '<button class="head-btn" data-act="home" aria-label="ホームに戻る"><span class="ico">⌂</span><span class="lbl">ホーム</span></button>' +
         '<div class="play-title"><span class="play-no">問題' + esc(p.number) + '</span><span class="play-name">' + esc(p.title) + '</span></div>' +
         '<div class="counter" aria-live="polite"><span class="counter-label">根拠</span><b data-ref="count">0</b><span>/' + p.evidence.length + '</span></div>' +
-        '<button class="head-btn head-restart" data-act="restart" aria-label="最初からやり直す"><span class="ico">↺</span><span class="lbl">最初から</span></button>' +
+        '<button class="head-btn head-hint" data-act="hint" aria-label="ヒント"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
       '</header>' +
       // スマホ縦画面: .play-stage（図＋ボタン）を上に固定し、.play-scroll（問題文・解答欄）だけスクロール
       // PC・横画面: .play-scroll は display: contents になり、グリッドで2カラム配置
@@ -95,10 +95,10 @@
           '<div class="toolbar" role="toolbar" aria-label="操作">' +
             '<button class="tool" data-mode="side"><span class="ico ico-glyph">／</span><span class="lbl">辺選択</span></button>' +
             '<button class="tool" data-mode="angle"><span class="ico ico-glyph">∠</span><span class="lbl">角選択</span></button>' +
-            '<button class="tool" data-mode="common"><span class="ico">🔗</span><span class="lbl">共通な辺</span></button>' +
             '<button class="tool" data-mode="mark"><span class="ico">🖍️</span><span class="lbl">印つけ</span></button>' +
             '<button class="tool" data-mode="erase"><span class="ico">🧽</span><span class="lbl">消す</span></button>' +
             '<button class="tool" data-act="hint"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
+            '<button class="tool" data-act="restart"><span class="ico">↺</span><span class="lbl">最初から</span></button>' +
           '</div>' +
         '</div>' +
         '<div class="play-scroll" data-ref="scroll">' +
@@ -213,7 +213,8 @@
 
   PlayController.prototype.selectTool = function (v) {
     const parts = v.split(':');
-    this.game.markTool[parts[0]] = Number(parts[1]);
+    this.game.setMarkTool(parts[0], Number(parts[1]));
+    this.say(null);
     PH.sound.play('tap');
     this.render();
   };
@@ -320,7 +321,7 @@
         this.say('それは' + p.conclusion + 'が証明できたら言えることだよ！ 結論はまだ根拠に使えないよ。', 'ng');
         break;
       case 'not-common': {
-        this.say('その辺は、' + triName(p.triangles[0]) + 'と' + triName(p.triangles[1]) + 'の両方にふくまれているかな？ 共通な辺ではないみたい。', 'ng');
+        this.say('その' + what + 'は、' + triName(p.triangles[0]) + 'と' + triName(p.triangles[1]) + 'の両方にふくまれているかな？ 共通な' + what + 'ではないみたい。', 'ng');
         break;
       }
       default:
@@ -373,7 +374,7 @@
     this.ref('body').hidden = clear;
     this.ref('result').hidden = !clear;
     this.ref('count').textContent = String(g.found.length);
-    this.root.querySelectorAll('.head-restart').forEach(function (b) { b.hidden = clear; });
+    this.root.querySelectorAll('.head-hint').forEach(function (b) { b.disabled = clear; });
     if (clear) {
       if (!this.resultBuilt) this.buildResult();
       this.renderFigures();
@@ -406,7 +407,7 @@
     }
     const card = this.ref('figureCard');
     card.className = 'card figure-card mode-' + g.mode;
-    const badge = { side: '', angle: '∠ 角選択：角の内側をタップ', common: '🔗 共通な辺：辺を1本タップ', mark: '🖍️ 印つけ：下書き用（判定なし）', erase: '🧽 消す：印をタップ' }[g.mode];
+    const badge = { side: '', angle: '∠ 角選択：角の内側をタップ', mark: '🖍️ 印つけ：下書き用（判定なし）', erase: '🧽 消す：印をタップ' }[g.mode];
     const mb = this.ref('modeBadge');
     mb.textContent = badge;
     mb.hidden = !badge;
@@ -416,8 +417,10 @@
       autoMarks: g.autoMarks(),
       userMarks: g.userMarks,
       interactive: true,
-      // 辺選択・共通な辺では辺だけ、角選択では角だけ、印つけ・消すでは両方がタップに反応する
-      hit: { seg: g.mode !== 'angle', ang: g.mode === 'angle' || g.mode === 'mark' || g.mode === 'erase' },
+      // 辺選択では辺だけ、角選択では角だけ、印つけでは選んだ印の種類だけ、消すでは両方がタップに反応する
+      hit: g.mode === 'erase' ? { seg: true, ang: true }
+        : g.mode === 'mark' ? { seg: g.markTool.kind === 'seg', ang: g.markTool.kind === 'ang' }
+        : { seg: g.mode === 'side', ang: g.mode === 'angle' },
       angleGuide: g.mode === 'angle' && g.phase === 'collect',
     });
   };
@@ -444,15 +447,15 @@
     if (g.mode === 'mark' || g.mode === 'erase') {
       if (g.mode === 'mark') {
         html += '<div class="panel-head">🖍️ 印つけモード</div>' +
-          '<p class="panel-note">図の辺や角をタップして印をつけよう。印は考えを整理するための下書きで、正誤判定はしないよ。</p>' +
+          '<p class="panel-note">印の種類を1つ選ぼう。「辺の印」なら辺だけ、「角の印」なら角だけに印をつけられるよ。印は下書き用で、正誤判定はしないよ。</p>' +
           '<div class="palette">' +
             '<div class="palette-row"><span class="palette-label">辺の印</span>' +
               MARK_TOOLS.filter(function (t) { return t[0] === 'seg'; }).map(function (t) {
-                return '<button class="tool-mark" data-tool="seg:' + t[1] + '" aria-pressed="' + (g.markTool.seg === t[1]) + '" aria-label="辺の印 ' + t[1] + '本線">' + toolIcon('seg', t[1]) + '</button>';
+                return '<button class="tool-mark" data-tool="seg:' + t[1] + '" aria-pressed="' + (g.markTool.kind === 'seg' && g.markTool.n === t[1]) + '" aria-label="辺の印 ' + t[1] + '本線">' + toolIcon('seg', t[1]) + '</button>';
               }).join('') + '</div>' +
             '<div class="palette-row"><span class="palette-label">角の印</span>' +
               MARK_TOOLS.filter(function (t) { return t[0] === 'ang'; }).map(function (t) {
-                return '<button class="tool-mark" data-tool="ang:' + t[1] + '" aria-pressed="' + (g.markTool.ang === t[1]) + '" aria-label="角の印 円弧' + t[1] + '本">' + toolIcon('ang', t[1]) + '</button>';
+                return '<button class="tool-mark" data-tool="ang:' + t[1] + '" aria-pressed="' + (g.markTool.kind === 'ang' && g.markTool.n === t[1]) + '" aria-label="角の印 円弧' + t[1] + '本">' + toolIcon('ang', t[1]) + '</button>';
               }).join('') + '</div>' +
           '</div>';
       } else {
@@ -482,23 +485,22 @@
       return;
     }
 
-    const common = g.mode === 'common';
     const what = g.mode === 'angle' ? '角' : '辺';
     const cand = g.candidate();
     const n = g.selection.length;
+    const same = g.isSameTwice();
     let note;
-    if (common) note = n ? '理由を確認して「根拠を確定」を押そう。' : '2つの三角形に共通している辺を1本タップしよう。';
-    else if (n === 0) note = g.mode === 'angle'
-      ? '等しいと思う角を、角の内側をタップして選ぼう。辺を選ぶときは「辺選択」へ。'
+    if (n === 0) note = g.mode === 'angle'
+      ? '等しいと思う角を、角の内側をタップして選ぼう（共通な角は同じ角を2回）。辺を選ぶときは「辺選択」へ。'
       : '等しいと思う辺をタップしよう（共通な辺は同じ辺を2回）。角を選ぶときは「角選択」へ。';
-    else if (n === 1) note = '等しいと思う2つ目の' + what + 'をタップしよう。' + (what === '辺' ? '同じ辺をもう一度タップすると共通な辺になるよ。' : '');
-    else if (!g.reason) note = '等しい理由を選ぼう。';
+    else if (n === 1) note = '等しいと思う2つ目の' + what + 'をタップしよう。同じ' + what + 'をもう一度タップすると共通な' + what + 'になるよ。';
+    else if (!g.reason) note = same ? '共通な' + what + 'として選んだよ（もう一度タップで解除）。理由を選ぼう。' : '等しい理由を選ぼう。';
     else note = '「根拠を確定」を押そう！';
 
-    const head = common ? '🔗 共通な辺をさがそう' : g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
+    const head = g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
     html += '<div class="panel-head">' + head + '</div>' +
       '<p class="panel-note">' + note + '</p>' +
-      '<div class="equation' + (n === 2 ? ' is-ready' : '') + '" aria-label="等式の候補">' +
+      '<div class="equation' + (n === 2 ? ' is-ready' : '') + (same ? ' is-common' : '') + '" aria-label="等式の候補">' +
         '<span class="eq-part' + (cand[0] ? ' filled' : '') + '">' + esc(cand[0] || '？') + '</span>' +
         '<span class="eq-sign">＝</span>' +
         '<span class="eq-part' + (cand[1] ? ' filled' : '') + '">' + esc(cand[1] || '？') + '</span>' +
@@ -512,7 +514,7 @@
       '</div>' +
       '<div class="panel-actions">' +
         '<button class="btn" data-act="clear-sel"' + (n ? '' : ' disabled') + '>選択解除</button>' +
-        '<button class="btn btn-primary" data-act="confirm"' + (g.canConfirm() ? '' : ' disabled') + '>根拠を確定</button>' +
+        '<button class="btn btn-confirm" data-act="confirm"' + (g.canConfirm() ? '' : ' disabled') + '>根拠を確定</button>' +
       '</div>' + this.feedbackHtml();
     panel.innerHTML = html;
   };

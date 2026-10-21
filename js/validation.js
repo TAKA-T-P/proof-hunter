@@ -175,7 +175,8 @@
           if (!els.byKey[k]) errors.push(e.ev.id + ': 図で選択できない要素 ' + k);
         });
         if (!PH.REASONS[e.ev.reason]) errors.push(e.ev.id + ': 未定義の理由 ' + e.ev.reason);
-        const reasonsOffered = problem.reasons.concat(e.keys[0] === e.keys[1] ? ['common'] : []);
+        const same = e.keys[0] === e.keys[1];
+        const reasonsOffered = problem.reasons.concat(same ? [e.keys[0].slice(0, 3) === 'ang' ? 'commonAngle' : 'common'] : []);
         if (reasonsOffered.indexOf(e.ev.reason) < 0) errors.push(e.ev.id + ': 理由が選択肢にない');
         if (!(problem.hints && problem.hints[e.ev.id] && problem.hints[e.ev.id].length)) errors.push(e.ev.id + ': ヒントがない');
       });

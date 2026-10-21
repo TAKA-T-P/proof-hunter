@@ -2,7 +2,7 @@
  * game.js — 問題進行・根拠収集（DOMに依存しない状態管理）
  *
  * phase : 'collect'（根拠収集） → 'congruence'（合同条件選択） → 'clear'（証明完成）
- * mode  : 'side'（辺選択） / 'angle'（角選択） / 'common'（共通な辺） / 'mark'（印つけ） / 'erase'（印を消す）
+ * mode  : 'side'（辺選択） / 'angle'（角選択） / 'mark'（印つけ） / 'erase'（印を消す）
  *         辺選択では辺だけ、角選択では角だけがタップに反応する（頂点付近の誤選択を防ぐ）。
  */
 (function (root) {
@@ -33,7 +33,7 @@
     this.hintsUsed = 0;
     this.hintLevels = {};        // 根拠ID → 表示済みヒント段階
     this.userMarks = {};         // 要素キー → 印の本数（生徒がつけた印）
-    this.markTool = { seg: 1, ang: 1 };
+    this.markTool = { kind: 'seg', n: 1 };   // 印つけ：辺の印か角の印のどちらか一方と、その本数
     this.condition = null;       // 選択中の合同条件
     this.stars = 0;
   };
@@ -50,15 +50,12 @@
   const MODE_KIND = { side: 'seg', angle: 'ang' };
 
   Game.prototype.isAnswering = function () {
-    return this.mode === 'side' || this.mode === 'angle' || this.mode === 'common';
+    return this.mode === 'side' || this.mode === 'angle';
   };
 
   Game.prototype.setMode = function (mode) {
-    if (mode === 'common' && this.phase !== 'collect') return false;
-    // 同じボタンをもう一度押すと（共通な辺・印つけ・消す）解答に戻る。'answer' は直前の辺選択/角選択
+    // 同じボタンをもう一度押すと（印つけ・消す）解答に戻る。'answer' は直前の辺選択/角選択
     if (mode === 'answer' || (mode === this.mode && !MODE_KIND[mode])) mode = this.answerMode;
-    // 「共通な辺」に入る・出るときは選択をやり直す
-    if ((this.mode === 'common') !== (mode === 'common')) this.clearSelection();
     if (MODE_KIND[mode]) {
       // 辺選択⇔角選択：選択中のものと種類が違えば選び直し
       if (this.selection.length && this.selectionKind() !== MODE_KIND[mode]) this.clearSelection();
@@ -79,7 +76,10 @@
     if (!el) return { type: 'ignored' };
 
     if (this.mode === 'mark') {
-      const n = el.kind === 'seg' ? this.markTool.seg : this.markTool.ang;
+      if (el.kind !== this.markTool.kind) {
+        return { type: 'ignored', message: el.kind === 'ang' ? '角に印をつけるときは「角の印」を選ぼう。' : '辺に印をつけるときは「辺の印」を選ぼう。' };
+      }
+      const n = this.markTool.n;
       if (this.userMarks[key] === n) {
         delete this.userMarks[key];
         return { type: 'unmark' };
@@ -98,23 +98,12 @@
 
     if (this.phase !== 'collect') return { type: 'ignored' };
 
-    if (this.mode === 'common') {
-      if (el.kind !== 'seg') return { type: 'ignored', message: '「共通な辺」では、辺をタップしよう。' };
-      if (this.selection[0] === key) {
-        this.clearSelection();
-        return { type: 'deselect' };
-      }
-      this.selection = [key, key];
-      this.reason = 'common';
-      return { type: 'select' };
-    }
-
     // 辺選択・角選択
     if (el.kind !== MODE_KIND[this.mode]) {
       return { type: 'ignored', message: el.kind === 'ang' ? '角を選ぶときは「角選択」に切り替えよう。' : '辺を選ぶときは「辺選択」に切り替えよう。' };
     }
-    // 同じ辺を2回タップ → 「BD＝BD」（共通な辺）の候補、3回目で選択解除
-    if (el.kind === 'seg' && this.selection.length === 1 && this.selection[0] === key) {
+    // 同じ辺・角を2回タップ → 「BD＝BD」「∠A＝∠A」（共通）の候補、3回目で選択解除
+    if (this.selection.length === 1 && this.selection[0] === key) {
       this.selection.push(key);
       this.reason = null;
       return { type: 'select' };
@@ -132,14 +121,17 @@
     return { type: 'select' };
   };
 
-  // 同じ要素が2つ選ばれている（共通な辺の候補）
+  // 同じ要素が2つ選ばれている（共通な辺・共通な角の候補）
   Game.prototype.isSameTwice = function () {
     return this.selection.length === 2 && this.selection[0] === this.selection[1];
   };
 
   Game.prototype.availableReasons = function () {
     const list = this.problem.reasons.slice();
-    if ((this.mode === 'common' || this.isSameTwice()) && list.indexOf('common') < 0) list.splice(1, 0, 'common');
+    if (this.isSameTwice()) {
+      const id = this.selectionKind() === 'ang' ? 'commonAngle' : 'common';
+      if (list.indexOf(id) < 0) list.splice(1, 0, id);
+    }
     return list;
   };
 
@@ -169,7 +161,6 @@
       case 'correct':
         this.found.push(r.evidence.id);
         this.clearSelection();
-        if (this.mode === 'common') this.mode = this.answerMode = 'side';
         if (this.found.length === this.total()) {
           this.phase = 'congruence';
           r.complete = true;
@@ -213,6 +204,12 @@
       this.hintsUsed++;
     }
     return h;
+  };
+
+  Game.prototype.setMarkTool = function (kind, n) {
+    if (kind !== 'seg' && kind !== 'ang') return false;
+    this.markTool = { kind: kind, n: n };
+    return true;
   };
 
   Game.prototype.clearUserMarks = function () { this.userMarks = {}; };
