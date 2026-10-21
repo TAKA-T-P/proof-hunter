@@ -471,7 +471,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 
 /* スマホ縦画面: 上半分（タイトルバー・図・ボタン）を固定し、下半分だけスクロール */
 @media (max-width: 899px) and (orientation: portrait) {
-  body[data-screen="play"] { overflow: hidden; }
+  body[data-screen="play"], body[data-screen="puzzle"] { overflow: hidden; }
   .screen-play {
     height: 100vh; height: 100dvh;
     padding: 0;
@@ -518,6 +518,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
   .result-meta .sep { display: none; }
   .result-meta span:not(.sep) { width: 100%; }
   .result-banner .best { margin: 2px 0 0; font-size: .66rem; }
+  .result-banner.is-puzzle .result-title { font-size: .9rem; white-space: nowrap; }
   .result-actions .btn { min-height: 32px; padding: 1px 6px; font-size: .78rem; border-radius: 10px; }
   .result-scroll {
     flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
@@ -649,6 +650,137 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .explain-text { margin: 0 0 4px; font-weight: 700; }
 .explain h4 { margin: 4px 0 0; font-size: .85rem; color: var(--muted); }
 .result-guide { margin: 0; padding: 6px 12px; border-radius: 10px; background: var(--blue-50); color: var(--navy); font-weight: 700; }
+
+/* =====================================================================
+   Ver.0.3：モード選択・証明パズル
+   ===================================================================== */
+
+:root { --purple: #6d28d9; --purple-soft: #f3e8ff; }
+
+/* タイトル：モード選択カード */
+.mode-cards { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+.mode-card {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; text-align: left;
+  border: 3px solid #fff; border-radius: 16px; background: #fff; color: var(--navy);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, .25); transition: transform .08s;
+}
+.mode-card:active { transform: scale(.98); }
+.mode-card.mode-puzzle { border-color: #ddd6fe; color: var(--purple); }
+.mode-ico { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; font-size: 1.8rem; background: var(--blue-50); }
+.mode-puzzle .mode-ico { background: var(--purple-soft); }
+.mode-text { display: flex; flex-direction: column; min-width: 0; }
+.mode-name { font-size: 1.2rem; font-weight: 900; }
+.mode-desc { font-size: .82rem; font-weight: 700; color: var(--muted); line-height: 1.4; }
+.cont-sub { display: block; font-size: .72rem; font-weight: 700; }
+#btn-continue { flex-direction: column; gap: 0; line-height: 1.2; }
+
+/* あそびかた：モードのタブ */
+.howto-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+.howto-tab { flex: 1; min-height: 38px; border: 2px solid var(--line); border-radius: 10px; background: #fff; font-weight: 800; }
+.howto-tab[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+.h-blank { fill: #fef9c3; stroke: var(--gold); stroke-width: 2.5; stroke-dasharray: 5 3; }
+.h-blank2 { fill: #fff; stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 5 3; }
+
+/* モードの色分け（パズルは紫） */
+.mode-lead { margin: 0 0 8px; font-size: .9rem; }
+#screen-select[data-mode="puzzle"] .page-header,
+.screen-puzzle .play-header { background: var(--purple); }
+#screen-select[data-mode="puzzle"] .sc-no { background: #4c1d95; }
+.pz-type {
+  display: inline-block; padding: 0 8px; border-radius: 99px; font-size: .72rem; font-weight: 800;
+  background: var(--purple-soft); color: var(--purple); margin-right: 6px; white-space: nowrap;
+}
+.play-header .pz-type { flex: none; background: rgba(255, 255, 255, .2); color: #fff; font-size: .78rem; padding: 2px 10px; }
+.pz-type-build { background: #fde68a; color: #713f12; }
+.play-header .pz-type-build { background: #fde68a; color: #713f12; }
+
+/* 証明パズル：レイアウト（基本は1カラム、幅900px以上で2カラム） */
+.pz-body { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "scroll" "tray"; }
+.pz-top { grid-area: top; display: flex; gap: 10px; align-items: stretch; }
+.pz-figure { flex: 1; min-width: 0; padding: 4px; display: flex; align-items: center; justify-content: center; }
+.pz-figure .figure { max-height: 260px; }
+.pz-cond { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.pz-scroll { grid-area: scroll; min-width: 0; }
+.pz-statement { margin: 0 0 6px; font-size: .85rem; color: var(--muted); }
+.pz-tray { grid-area: tray; padding: 6px 12px; }
+@media (min-width: 900px) {
+  .pz-body {
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "top scroll" "top tray";
+    align-items: start;
+  }
+  .pz-top { flex-direction: column; position: sticky; top: 70px; }
+  .pz-figure .figure { max-height: 52vh; }
+  .pz-tray { position: sticky; bottom: 8px; }
+}
+
+/* 証明文と空欄 */
+.pz-proof { padding: 6px 16px; font-size: 1.02rem; line-height: 1.6; }
+.pz-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pz-row { display: flex; flex-direction: column; gap: 3px; }
+.pz-row-no { font-size: .78rem; font-weight: 900; color: var(--purple); }
+.pz-row-body { display: flex; flex-direction: column; gap: 3px; padding-left: .6em; border-left: 3px solid var(--purple-soft); }
+.pz-fixed-reason { font-weight: 700; }
+.pz-eqline { display: flex; align-items: center; gap: 4px; padding-left: 1.2em; }
+.pz-condline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.pz-blank {
+  min-height: 36px; min-width: 7.5em; padding: 2px 10px; border-radius: 10px;
+  border: 2px dashed #94a3b8; background: #fff; color: #94a3b8; font-weight: 800; font-size: 1rem; text-align: left;
+  transition: background .15s, border-color .15s;
+}
+.pz-blank.kind-reason { width: 100%; font-size: .92rem; }
+.pz-blank.kind-cond { flex: 1 1 14em; font-size: .92rem; }
+.pz-blank.is-filled { border-style: solid; border-color: #93c5fd; background: var(--blue-50); color: var(--ink); }
+.pz-blank.is-active { border-style: solid; border-color: var(--gold); background: #fffbeb; box-shadow: 0 0 0 3px rgba(245, 179, 1, .35); }
+.pz-blank.is-ok { border-color: #34d399; background: var(--green-soft); }
+.pz-blank.is-ng { border-style: solid; border-color: var(--red); background: var(--red-soft); color: #991b1b; }
+.pz-blank.is-ng.is-active { box-shadow: 0 0 0 3px rgba(220, 38, 38, .3); }
+
+/* カード一覧 */
+.pz-tray-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; font-size: .82rem; color: var(--muted); }
+.pz-tray-target { font-weight: 900; color: var(--purple); font-size: .92rem; }
+.pz-cards { display: grid; gap: 6px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pz-cards.kind-reason, .pz-cards.kind-cond { grid-template-columns: minmax(0, 1fr); }
+.pz-card {
+  min-height: 38px; padding: 2px 8px; border: 2px solid var(--line); border-radius: 10px; background: #fff;
+  font-weight: 800; font-size: .98rem; line-height: 1.3;
+}
+.pz-cards.kind-reason .pz-card, .pz-cards.kind-cond .pz-card { text-align: left; font-size: .9rem; }
+.pz-card:active { transform: scale(.97); }
+.pz-card.is-current { background: var(--purple); border-color: var(--purple); color: #fff; }
+.pz-actions { display: flex; gap: 6px; margin-top: 6px; }
+.pz-actions .btn { min-height: 36px; padding: 2px 8px; font-size: .85rem; }
+.pz-actions .btn-confirm { flex: 1.6; }
+.pz-actions .btn:not(.btn-confirm) { flex: 1; white-space: nowrap; }
+@media (max-width: 420px) { .pz-actions .btn { font-size: .78rem; padding: 2px 6px; } }
+.pz-feedback:empty { display: none; }
+.pz-msgs { margin: 6px 0 0; padding: 4px 10px 4px 22px; border-radius: 10px; background: var(--red-soft); color: #991b1b; font-size: .85rem; font-weight: 700; }
+.pz-msg-info { margin: 6px 0 0; padding: 4px 10px; border-radius: 10px; background: var(--blue-50); color: var(--navy); font-size: .85rem; font-weight: 700; }
+.result-banner.is-puzzle { background: linear-gradient(135deg, #4c1d95, var(--purple)); }
+
+/* スマホ縦画面：上（図・仮定・結論）と下（カード）を固定し、証明文だけスクロール */
+@media (max-width: 899px) and (orientation: portrait) {
+  .pz-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0; }
+  .pz-top {
+    flex: none; gap: 6px; padding: 4px 12px; background: var(--bg);
+    border-bottom: 1px solid var(--line); box-shadow: 0 3px 8px rgba(30, 58, 138, .08); position: relative; z-index: 1;
+  }
+  .pz-figure { flex: none; width: 42%; padding: 2px; }
+  .pz-figure .figure { max-height: 22vh; max-height: 22dvh; }
+  .pz-figure .pt-label { font-size: 32px; }
+  .pz-cond { padding: 4px 8px; }
+  .pz-cond .cond-row { flex-wrap: wrap; gap: 4px; }
+  .pz-cond .cond-text { font-size: .88rem; }
+  .pz-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 6px 12px; }
+  .pz-statement { font-size: .78rem; }
+  .pz-proof { padding: 4px 12px; font-size: .95rem; }
+  .pz-tray {
+    flex: none; max-height: 46vh; max-height: 46dvh; overflow-y: auto; margin: 0;
+    border-radius: 16px 16px 0 0; border-width: 2px 0 0; box-shadow: 0 -4px 12px rgba(30, 58, 138, .12);
+    padding: 6px 12px calc(8px + env(safe-area-inset-bottom));
+  }
+}
 
 /* 小さい画面 */
 @media (max-width: 380px) {

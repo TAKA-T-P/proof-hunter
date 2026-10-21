@@ -94,6 +94,8 @@
       extraTruths: [],
       congruence: 'SSS',
       proof: { intro: '△ABDと△CBDにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'fill', distractors: { equations: ['AB＝AD', 'CB＝CD', 'AD＝BD'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定に書かれていることは、そのまま根拠に使えるよ。' },
@@ -161,6 +163,8 @@
       ],
       congruence: 'SAS',
       proof: { intro: '△AOCと△BODにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'fill', distractors: { equations: ['AO＝CO', 'BO＝DO', '∠AOC＝∠AOD', '∠OAC＝∠OBD'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定に書かれていることは、そのまま根拠に使えるよ。' },
@@ -230,6 +234,8 @@
       ],
       congruence: 'ASA',
       proof: { intro: '△ABOと△CDOにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'fill', distractors: { equations: ['AB＝AO', 'AO＝CO', '∠BAO＝∠AOB'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定に書かれている「等しい辺」はどれかな？' },
@@ -297,6 +303,8 @@
       extraTruths: [],
       congruence: 'SSS',
       proof: { intro: '△ABCと△DCBにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'fill', distractors: { equations: ['AB＝AC', 'AC＝BC', 'AB＝DB'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定に書かれている等しい辺から探してみよう。' },
@@ -355,6 +363,8 @@
       extraTruths: [],
       congruence: 'SAS',
       proof: { intro: '△ABCと△ADCにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'fill', distractors: { equations: ['AB＝AC', 'BC＝AC', '∠ABC＝∠BAC', '∠ACB＝∠ACD'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定から等しい辺を探そう。' },
@@ -417,6 +427,8 @@
       ],
       congruence: 'SAS',
       proof: { intro: '△ABOと△DCOにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'fill', distractors: { equations: ['AO＝BO', 'AB＝AO', '∠AOB＝∠AOC', '∠OAB＝∠ODC'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定から等しい辺を探そう。' },
@@ -477,6 +489,8 @@
       ],
       congruence: 'ASA',
       proof: { intro: '△ABOと△DCOにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'fill', distractors: { equations: ['AB＝AO', 'BO＝CO', '∠AOB＝∠AOC', '∠OBA＝∠OCD'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定から等しい辺を探そう。' },
@@ -536,6 +550,8 @@
       extraTruths: [],
       congruence: 'SAS',
       proof: { intro: '△ADCと△CBAにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'build', distractors: { equations: ['AD＝AC', 'AB＝DC', '∠ADC＝∠DAC'], reasons: ['vertical'] } },
       hints: {
         e1: [
           { text: '仮定から等しい辺を探そう。' },
@@ -602,6 +618,8 @@
       ],
       congruence: 'ASA',
       proof: { intro: '△ABCと△DCEにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'build', distractors: { equations: ['AB＝BC', 'AC＝CE', 'AB＝DC', '∠ABC＝∠ACB', '∠BAC＝∠DCE'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定から等しい辺を探そう。' },
@@ -663,6 +681,8 @@
       extraTruths: [],
       congruence: 'SAS',
       proof: { intro: '△ABCと△DFEにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'build', distractors: { equations: ['AB＝DE', 'AC＝DF', 'BC＝FE', '∠ABC＝∠FDE'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定から等しい辺を探そう。' },
@@ -720,6 +740,8 @@
       extraTruths: [],
       congruence: 'ASA',
       proof: { intro: '△ABCと△ADCにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'build', distractors: { equations: ['∠BAC＝∠BCA', '∠BAC＝∠DCA', 'AB＝AD', 'AB＝CB'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定には等しい角が書かれているよ。「角選択」で探そう。' },
@@ -778,6 +800,8 @@
       extraTruths: [],
       congruence: 'SSS',
       proof: { intro: '△ABMと△ACMにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'build', distractors: { equations: ['AB＝AM', 'BM＝AM', '∠ABM＝∠ACM'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定から等しい辺を探そう。' },
@@ -839,6 +863,8 @@
       extraTruths: [],
       congruence: 'ASA',
       proof: { intro: '△ABCと△CDAにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'build', distractors: { equations: ['AB＝AC', 'AB＝CD', '∠ABC＝∠BAC'], reasons: ['vertical'] } },
       hints: {
         e1: [
           { text: 'AB∥DCだから、平行線と交わる対角線ACに注目しよう。' },
@@ -898,6 +924,8 @@
       extraTruths: [],
       congruence: 'SAS',
       proof: { intro: '△ABEと△ACDにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'build', distractors: { equations: ['AD＝AB', 'AE＝EC', 'BE＝CD', '∠ABE＝∠ACD'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定から等しい辺を探そう。' },
@@ -961,6 +989,8 @@
       ],
       congruence: 'ASA',
       proof: { intro: '△ABOと△DCOにおいて' },
+      // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
+      puzzle: { type: 'build', distractors: { equations: ['AO＝BO', 'AB＝CD', '∠BAO＝∠ABO'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定から等しい辺を探そう。' },

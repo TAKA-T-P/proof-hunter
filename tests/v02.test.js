@@ -210,7 +210,7 @@ test('Ver.0.1 の保存データを引き継ぎ、ステージのクリア数・
     // 保存すると旧データを残したまま version が付く
     PH.storage.recordClear('p04', 1, 5);
     const saved = JSON.parse(mem[PH.storage.KEY]);
-    assert.equal(saved.version, 2);
+    assert.ok(saved.version >= 2);
     assert.equal(saved.problems.p01.bestStars, 3);
     assert.equal(saved.problems.p04.bestStars, 1);
   });

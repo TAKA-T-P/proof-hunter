@@ -2,12 +2,17 @@
  * app.js — 画面管理・アプリ起動
  *
  * 画面はURLのハッシュで切り替える（ブラウザの「戻る」でも状態が崩れない）。
- *   #/            タイトル
- *   #/select      ステージ選択（＋苦手な問題に挑戦）
- *   #/stage/<n>   ステージの問題一覧
- *   #/review      苦手な問題（未クリア・★★以下）
- *   #/howto       あそびかた
- *   #/play/<id>   問題プレイ（開くたびに新しい状態で開始）
+ *   #/                       タイトル・モード選択
+ *   #/select                 ハンターモード：ステージ選択（＋苦手な問題に挑戦）
+ *   #/stage/<n>              ハンターモード：ステージの問題一覧
+ *   #/review                 ハンターモード：苦手な問題（未クリア・★★以下）
+ *   #/play/<id>              ハンターモード：プレイ（開くたびに新しい状態で開始）
+ *   #/puzzle                 証明パズル：ステージ選択（＋苦手な問題に挑戦）
+ *   #/puzzle/stage/<n>       証明パズル：ステージの問題一覧
+ *   #/puzzle/review          証明パズル：苦手な問題
+ *   #/puzzle/play/<id>       証明パズル：プレイ
+ *   #/howto  #/howto/puzzle  あそびかた（ハンター／パズル）
+ * 記録・評価はモードごとに別々（storage.js の mode 引数）。
  */
 (function (root) {
   'use strict';
@@ -21,7 +26,25 @@
     });
   }
 
-  const SCREENS = ['title', 'select', 'howto', 'play'];
+  // モードごとのURLと表示名
+  const MODES = {
+    hunter: {
+      name: 'ハンターモード',
+      select: '#/select',
+      stage: function (n) { return '#/stage/' + n; },
+      review: '#/review',
+      play: function (id) { return '#/play/' + id; },
+    },
+    puzzle: {
+      name: '証明パズル',
+      select: '#/puzzle',
+      stage: function (n) { return '#/puzzle/stage/' + n; },
+      review: '#/puzzle/review',
+      play: function (id) { return '#/puzzle/play/' + id; },
+    },
+  };
+
+  const SCREENS = ['title', 'select', 'howto', 'play', 'puzzle'];
 
   function show(name) {
     SCREENS.forEach(function (s) {
@@ -40,9 +63,14 @@
   // ---- タイトル ----------------------------------------------------------
 
   function renderTitle() {
-    const last = PH.storage.getLastProblem();
+    const last = PH.storage.getLastPlay();
     const cont = $('#btn-continue');
-    cont.hidden = !(PH.storage.hasHistory() && last && PH.getProblem(last));
+    const problem = last && PH.getProblem(last.id);
+    cont.hidden = !problem;
+    if (problem) {
+      cont.querySelector('.cont-sub').textContent =
+        (last.mode === 'puzzle' ? '証明パズル' : 'ハンター') + '・問題' + problem.number;
+    }
     renderSoundButtons();
   }
 
@@ -54,34 +82,38 @@
     });
   }
 
-  // ---- ステージ選択・問題一覧・復習 ----------------------------------------
+  // ---- ステージ選択・問題一覧・復習（モード共通） ------------------------------
 
   function starsHtml(rec) {
     if (!rec.cleared) return '<span class="dim" aria-label="未クリア">★★★</span>';
     return '★'.repeat(rec.bestStars) + '<span class="dim">' + '★'.repeat(3 - rec.bestStars) + '</span>';
   }
 
-  // 問題選択画面の見出し（戻るボタンの行き先と題名）
-  function setSelectHeader(title, backHash, backLabel) {
+  // 問題選択画面の見出し（戻るボタンの行き先と題名）とモードの色
+  function setSelectHeader(mode, title, backHash, backLabel) {
     const back = $('#select-back');
     back.setAttribute('data-go', backHash);
     back.querySelector('.lbl').textContent = backLabel;
     back.querySelector('.ico').textContent = backHash === '#/' ? '⌂' : '◀';
     $('#select-title').textContent = title;
+    $('#screen-select').setAttribute('data-mode', mode);
   }
 
-  function problemCard(p, showStage) {
-    const rec = PH.storage.getProblem(p.id);
+  function problemCard(mode, p, showStage) {
+    const rec = PH.storage.getProblem(p.id, mode);
     const diff = '★'.repeat(p.difficulty) + '<span class="dim">' + '★'.repeat(Math.max(0, 3 - p.difficulty)) + '</span>';
     const best = rec.cleared
       ? '<span class="best-stars">' + '★'.repeat(rec.bestStars) + '<span class="dim">' + '★'.repeat(3 - rec.bestStars) + '</span></span>'
       : '<span class="best-stars dim">★★★</span>';
-    return '<li><a class="problem-card' + (rec.cleared ? ' is-cleared' : '') + '" href="#/play/' + p.id + '">' +
+    const typeTag = mode === 'puzzle'
+      ? '<span class="pz-type pz-type-' + p.puzzle.type + '">' + (p.puzzle.type === 'build' ? '組み立て' : '穴埋め') + '</span>'
+      : '';
+    return '<li><a class="problem-card' + (rec.cleared ? ' is-cleared' : '') + '" href="' + MODES[mode].play(p.id) + '">' +
       '<span class="pc-no">問題<b>' + esc(p.number) + '</b></span>' +
       '<span class="pc-body">' +
         (showStage ? '<span class="pc-stage">STAGE ' + p.stage + '</span>' : '') +
         '<span class="pc-title">' + esc(p.title) + '</span>' +
-        '<span class="pc-meta"><span class="pc-diff" aria-label="難易度' + p.difficulty + '">難易度 ' + diff + '</span></span>' +
+        '<span class="pc-meta">' + typeTag + '<span class="pc-diff" aria-label="難易度' + p.difficulty + '">難易度 ' + diff + '</span></span>' +
       '</span>' +
       '<span class="pc-status">' +
         '<span class="pc-badge">' + (rec.cleared ? 'クリア' : '未クリア') + '</span>' +
@@ -91,15 +123,19 @@
     '</a></li>';
   }
 
-  function renderStageList() {
-    setSelectHeader('ステージをえらぶ', '#/', 'ホーム');
-    const review = PH.storage.reviewProblems().length;
+  function renderStageList(mode) {
+    const M = MODES[mode];
+    setSelectHeader(mode, (mode === 'puzzle' ? '証明パズル｜' : '') + 'ステージをえらぶ', '#/', 'ホーム');
+    const review = PH.storage.reviewProblems(mode).length;
     $('#select-body').innerHTML =
-      '<button class="review-btn" data-go="#/review">🔁 苦手な問題に挑戦！<span class="review-count">' +
+      '<p class="mode-lead">' + (mode === 'puzzle'
+        ? '🧩 <b>証明パズル</b>：カードを組み合わせて、証明文を完成させよう！'
+        : '🔍 <b>ハンターモード</b>：図をタップして、3つの根拠を探し出せ！') + '</p>' +
+      '<button class="review-btn" data-go="' + M.review + '">🔁 苦手な問題に挑戦！<span class="review-count">' +
         (review ? '復習 ' + review + '問' : '復習なし') + '</span></button>' +
       '<ul class="stage-list">' + PH.STAGES.map(function (st) {
-        const stat = PH.storage.stageStats(st.id);
-        return '<li><a class="stage-card' + (stat.complete ? ' is-complete' : '') + '" href="#/stage/' + st.id + '">' +
+        const stat = PH.storage.stageStats(st.id, mode);
+        return '<li><a class="stage-card' + (stat.complete ? ' is-complete' : '') + '" href="' + M.stage(st.id) + '">' +
           '<span class="sc-no">STAGE<b>' + st.id + '</b></span>' +
           '<span class="sc-body">' +
             '<span class="sc-title">' + esc(st.title) + '</span>' +
@@ -114,118 +150,168 @@
         '</a></li>';
       }).join('') + '</ul>' +
       '<p class="select-note">どのステージ・どの問題からでも挑戦できるよ。ミス0・ヒント0でクリアすると ★★★！</p>';
-    renderSoundButtons();
   }
 
-  function renderStage(stage) {
-    setSelectHeader('STAGE ' + stage.id + '｜' + stage.title, '#/select', 'ステージ');
-    const stat = PH.storage.stageStats(stage.id);
+  function renderStage(mode, stage) {
+    setSelectHeader(mode, (mode === 'puzzle' ? 'パズル ' : '') + 'STAGE ' + stage.id + '｜' + stage.title, MODES[mode].select, 'ステージ');
+    const stat = PH.storage.stageStats(stage.id, mode);
     $('#select-body').innerHTML =
       '<div class="stage-intro"><p>' + esc(stage.theme) + '</p>' +
         '<p class="stage-intro-stat">クリア ' + stat.cleared + '/' + stat.total + '問 ・ ★ ' + stat.stars + '/' + stat.maxStars +
         (stat.complete ? ' <span class="sc-badge">STAGE CLEAR</span>' : '') + '</p></div>' +
-      '<ul class="problem-list">' + stat.problems.map(function (p) { return problemCard(p, false); }).join('') + '</ul>';
-    renderSoundButtons();
+      '<ul class="problem-list">' + stat.problems.map(function (p) { return problemCard(mode, p, false); }).join('') + '</ul>';
   }
 
-  function renderReview() {
-    setSelectHeader('苦手な問題に挑戦！', '#/select', 'ステージ');
-    const list = PH.storage.reviewProblems();
+  function renderReview(mode) {
+    setSelectHeader(mode, (mode === 'puzzle' ? 'パズル：' : '') + '苦手な問題に挑戦！', MODES[mode].select, 'ステージ');
+    const list = PH.storage.reviewProblems(mode);
     $('#select-body').innerHTML = list.length
       ? '<p class="select-note">まだクリアしていない問題と、★★以下の問題だよ。★★★をめざそう！</p>' +
-        '<ul class="problem-list">' + list.map(function (p) { return problemCard(p, true); }).join('') + '</ul>'
+        '<ul class="problem-list">' + list.map(function (p) { return problemCard(mode, p, true); }).join('') + '</ul>'
       : '<div class="card review-empty"><p class="review-empty-title">復習する問題はありません！</p><p>すべて★★★をめざそう！ すばらしい！</p>' +
-        '<button class="btn btn-primary" data-go="#/select">ステージ選択へ</button></div>';
-    renderSoundButtons();
+        '<button class="btn btn-primary" data-go="' + MODES[mode].select + '">ステージ選択へ</button></div>';
   }
 
-  // ---- あそびかた --------------------------------------------------------
+  // ---- あそびかた（モード別） -----------------------------------------------
 
-  const HOWTO = [
-    {
-      title: '証明ハンターって？',
-      text: '図形に隠された3つの根拠を見つけ、証明を完成させるゲーム！',
-      art: '<svg viewBox="0 0 200 120"><polygon points="40,20 10,100 90,100" class="h-tri1"/><polygon points="120,20 110,100 190,100" class="h-tri2"/><circle cx="150" cy="45" r="22" class="h-lens"/><line x1="166" y1="61" x2="186" y2="81" class="h-handle"/></svg>',
-    },
-    {
-      title: '等しい辺や角をタップ！',
-      text: '図をよく見て、等しいと思う辺や角を2つ選ぼう！ 角は、角の内側をタップするよ。',
-      art: '<svg viewBox="0 0 200 120"><polygon points="100,12 30,105 170,105" class="h-tri"/><line x1="100" y1="12" x2="30" y2="105" class="h-sel"/><line x1="100" y1="12" x2="170" y2="105" class="h-sel"/><text x="44" y="50" class="h-txt">AB</text><text x="140" y="50" class="h-txt">AC</text><text x="88" y="78" class="h-finger">👆</text></svg>',
-    },
-    {
-      title: '理由を選んで根拠ゲット！',
-      text: '「仮定より」「共通な辺より」など、正しい理由を選んで「根拠を確定」！',
-      art: '<svg viewBox="0 0 200 120"><rect x="20" y="10" width="160" height="28" rx="8" class="h-btn h-on"/><text x="100" y="29" class="h-btxt">仮定より</text><rect x="20" y="46" width="160" height="28" rx="8" class="h-btn"/><text x="100" y="65" class="h-btxt">共通な辺より</text><rect x="20" y="82" width="160" height="28" rx="8" class="h-btn"/><text x="100" y="101" class="h-btxt">対頂角より</text></svg>',
-    },
-    {
-      title: '3つの根拠を集めよう！',
-      text: '3つの根拠がそろったら、合同条件を選ぼう！',
-      art: '<svg viewBox="0 0 200 120"><rect x="8" y="30" width="58" height="56" rx="8" class="h-slot"/><rect x="71" y="30" width="58" height="56" rx="8" class="h-slot"/><rect x="134" y="30" width="58" height="56" rx="8" class="h-slot"/><text x="37" y="63" class="h-stxt">AB＝CB</text><text x="100" y="63" class="h-stxt">AD＝CD</text><text x="163" y="63" class="h-stxt">BD＝BD</text></svg>',
-    },
-    {
-      title: '証明成功！',
-      text: '完成した証明文を確認しよう！ ミスやヒントが少ないほど、★が増えるよ。',
-      art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="104" rx="8" class="h-paper"/><line x1="45" y1="30" x2="150" y2="30" class="h-rule"/><line x1="45" y1="48" x2="135" y2="48" class="h-rule"/><line x1="45" y1="66" x2="145" y2="66" class="h-rule"/><text x="100" y="98" class="h-star">★★★</text></svg>',
-    },
-  ];
+  const HOWTO = {
+    hunter: [
+      {
+        title: '証明ハンターって？',
+        text: '図形に隠された3つの根拠を見つけ、証明を完成させるゲーム！',
+        art: '<svg viewBox="0 0 200 120"><polygon points="40,20 10,100 90,100" class="h-tri1"/><polygon points="120,20 110,100 190,100" class="h-tri2"/><circle cx="150" cy="45" r="22" class="h-lens"/><line x1="166" y1="61" x2="186" y2="81" class="h-handle"/></svg>',
+      },
+      {
+        title: '等しい辺や角をタップ！',
+        text: '図をよく見て、等しいと思う辺や角を2つ選ぼう！ 角は、角の内側をタップするよ。',
+        art: '<svg viewBox="0 0 200 120"><polygon points="100,12 30,105 170,105" class="h-tri"/><line x1="100" y1="12" x2="30" y2="105" class="h-sel"/><line x1="100" y1="12" x2="170" y2="105" class="h-sel"/><text x="44" y="50" class="h-txt">AB</text><text x="140" y="50" class="h-txt">AC</text><text x="88" y="78" class="h-finger">👆</text></svg>',
+      },
+      {
+        title: '理由を選んで根拠ゲット！',
+        text: '「仮定より」「共通な辺より」など、正しい理由を選んで「根拠を確定」！',
+        art: '<svg viewBox="0 0 200 120"><rect x="20" y="10" width="160" height="28" rx="8" class="h-btn h-on"/><text x="100" y="29" class="h-btxt">仮定より</text><rect x="20" y="46" width="160" height="28" rx="8" class="h-btn"/><text x="100" y="65" class="h-btxt">共通な辺より</text><rect x="20" y="82" width="160" height="28" rx="8" class="h-btn"/><text x="100" y="101" class="h-btxt">対頂角より</text></svg>',
+      },
+      {
+        title: '3つの根拠を集めよう！',
+        text: '3つの根拠がそろったら、合同条件を選ぼう！',
+        art: '<svg viewBox="0 0 200 120"><rect x="8" y="30" width="58" height="56" rx="8" class="h-slot"/><rect x="71" y="30" width="58" height="56" rx="8" class="h-slot"/><rect x="134" y="30" width="58" height="56" rx="8" class="h-slot"/><text x="37" y="63" class="h-stxt">AB＝CB</text><text x="100" y="63" class="h-stxt">AD＝CD</text><text x="163" y="63" class="h-stxt">BD＝BD</text></svg>',
+      },
+      {
+        title: '証明成功！',
+        text: '完成した証明文を確認しよう！ ミスやヒントが少ないほど、★が増えるよ。',
+        art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="104" rx="8" class="h-paper"/><line x1="45" y1="30" x2="150" y2="30" class="h-rule"/><line x1="45" y1="48" x2="135" y2="48" class="h-rule"/><line x1="45" y1="66" x2="145" y2="66" class="h-rule"/><text x="100" y="98" class="h-star">★★★</text></svg>',
+      },
+    ],
+    puzzle: [
+      {
+        title: '図と仮定・結論を確認しよう！',
+        text: '上の図と、仮定（使える情報）・結論（証明するゴール）をよく見よう。',
+        art: '<svg viewBox="0 0 200 120"><polygon points="50,15 15,100 85,100" class="h-tri1"/><rect x="100" y="28" width="90" height="22" rx="6" class="h-btn h-on"/><text x="145" y="44" class="h-btxt">仮定</text><rect x="100" y="64" width="90" height="22" rx="6" class="h-btn"/><text x="145" y="80" class="h-btxt">結論</text></svg>',
+      },
+      {
+        title: '証明の空欄を見つけよう！',
+        text: '証明文の中の空欄をタップすると、その空欄が選ばれるよ。最初の空欄は自動で選ばれているよ。',
+        art: '<svg viewBox="0 0 200 120"><rect x="20" y="10" width="160" height="100" rx="8" class="h-paper"/><line x1="35" y1="30" x2="120" y2="30" class="h-rule"/><rect x="45" y="44" width="90" height="20" rx="5" class="h-blank"/><line x1="35" y1="80" x2="110" y2="80" class="h-rule"/><rect x="45" y="88" width="90" height="16" rx="5" class="h-blank2"/><text x="140" y="62" class="h-finger">👆</text></svg>',
+      },
+      {
+        title: '正しいカードをタップして入れよう！',
+        text: '下のカードをタップすると、選んだ空欄に入って、次の空欄へ進むよ。入れたカードは何度でも変えられるよ。',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="14" width="85" height="26" rx="8" class="h-btn h-on"/><text x="52" y="32" class="h-btxt">AB＝CB</text><rect x="105" y="14" width="85" height="26" rx="8" class="h-btn"/><text x="147" y="32" class="h-btxt">BD＝BD</text><rect x="10" y="50" width="85" height="26" rx="8" class="h-btn"/><text x="52" y="68" class="h-btxt">AB＝AD</text><rect x="105" y="50" width="85" height="26" rx="8" class="h-btn"/><text x="147" y="68" class="h-btxt">AD＝CD</text><text x="40" y="104" class="h-finger">👆</text></svg>',
+      },
+      {
+        title: '理由と等式の組み合わせを確認しよう！',
+        text: '「組み立て」では、理由と等式をセットで選ぶよ。等式が合っていても、理由がちがうと正解にならないよ。',
+        art: '<svg viewBox="0 0 200 120"><rect x="15" y="16" width="170" height="24" rx="8" class="h-btn h-on"/><text x="100" y="33" class="h-btxt">共通な辺だから</text><rect x="45" y="48" width="110" height="24" rx="8" class="h-btn"/><text x="100" y="65" class="h-btxt">BD＝BD</text><text x="100" y="100" class="h-star">✓</text></svg>',
+      },
+      {
+        title: '証明を完成させよう！',
+        text: 'すべて埋めたら「答え合わせ」！ まちがえた所は赤くなるので、そこだけ直してもう一度答え合わせしよう。',
+        art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="104" rx="8" class="h-paper"/><line x1="45" y1="30" x2="150" y2="30" class="h-rule"/><line x1="45" y1="48" x2="135" y2="48" class="h-rule"/><line x1="45" y1="66" x2="145" y2="66" class="h-rule"/><text x="100" y="98" class="h-star">★★★</text></svg>',
+      },
+    ],
+  };
+  let howtoMode = 'hunter';
   let howtoPage = 0;
 
   function renderHowto() {
-    const page = HOWTO[howtoPage];
+    const pages = HOWTO[howtoMode];
+    const page = pages[howtoPage];
+    doc.querySelectorAll('[data-howto-tab]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-howto-tab') === howtoMode));
+    });
     $('#howto-art').innerHTML = page.art;
     $('#howto-title').textContent = (howtoPage + 1) + '. ' + page.title;
     $('#howto-text').textContent = page.text;
-    $('#howto-dots').innerHTML = HOWTO.map(function (_, i) {
+    $('#howto-dots').innerHTML = pages.map(function (_, i) {
       return '<span class="dot' + (i === howtoPage ? ' on' : '') + '"></span>';
     }).join('');
     $('#howto-prev').disabled = howtoPage === 0;
-    const last = howtoPage === HOWTO.length - 1;
+    const last = howtoPage === pages.length - 1;
     $('#howto-next').textContent = last ? 'はじめる！' : 'つぎへ ▶';
   }
 
   // ---- ルーティング -------------------------------------------------------
 
+  function playNav(mode, problem) {
+    const M = MODES[mode];
+    return {
+      home: function () { go('#/'); },
+      list: function () { go(M.stage(problem.stage)); },
+      stages: function () { go(M.select); },
+      // 次の問題は同じステージの中で進む。ステージ最後なら次のステージの一覧へ
+      next: function () {
+        const list = PH.stageProblems(problem.stage);
+        const nxt = list[list.indexOf(problem) + 1];
+        go(nxt ? M.play(nxt.id) : M.stage(problem.stage));
+      },
+      nextStage: function () {
+        go(PH.getStage(problem.stage + 1) ? M.stage(problem.stage + 1) : M.select);
+      },
+    };
+  }
+
   function route() {
-    const parts = location.hash.replace(/^#\/?/, '').split('/');
+    let parts = location.hash.replace(/^#\/?/, '').split('/');
+    let mode = 'hunter';
+    if (parts[0] === 'puzzle') {
+      mode = 'puzzle';
+      parts = parts.slice(1);
+      if (!parts[0]) parts = ['select'];
+    }
     const name = parts[0];
     PH.play.unmount();
+    PH.puzzleView.unmount();
+    doc.title = '証明ハンター';
+
     if (name === 'select') {
-      renderStageList();
+      renderStageList(mode);
       show('select');
     } else if (name === 'stage' && PH.getStage(parts[1])) {
-      renderStage(PH.getStage(parts[1]));
+      renderStage(mode, PH.getStage(parts[1]));
       show('select');
     } else if (name === 'review') {
-      renderReview();
+      renderReview(mode);
       show('select');
-    } else if (name === 'howto') {
+    } else if (name === 'howto' && mode === 'hunter') {
+      howtoMode = parts[1] === 'puzzle' ? 'puzzle' : 'hunter';
       howtoPage = 0;
       renderHowto();
       show('howto');
     } else if (name === 'play' && PH.getProblem(parts[1])) {
       const problem = PH.getProblem(parts[1]);
-      show('play');
-      PH.play.mount(doc.getElementById('screen-play'), problem, {
-        home: function () { go('#/'); },
-        list: function () { go('#/stage/' + problem.stage); },
-        stages: function () { go('#/select'); },
-        // 次の問題は同じステージの中で進む。ステージ最後なら次のステージの一覧へ
-        next: function () {
-          const list = PH.stageProblems(problem.stage);
-          const nxt = list[list.indexOf(problem) + 1];
-          go(nxt ? '#/play/' + nxt.id : '#/stage/' + problem.stage);
-        },
-        nextStage: function () {
-          go(PH.getStage(problem.stage + 1) ? '#/stage/' + (problem.stage + 1) : '#/select');
-        },
-      });
-      doc.title = '問題' + problem.number + ' ' + problem.title + '｜証明ハンター';
-      return;
+      if (mode === 'puzzle') {
+        show('puzzle');
+        PH.puzzleView.mount(doc.getElementById('screen-puzzle'), problem, playNav('puzzle', problem));
+        doc.title = '証明パズル 問題' + problem.number + '｜証明ハンター';
+      } else {
+        show('play');
+        PH.play.mount(doc.getElementById('screen-play'), problem, playNav('hunter', problem));
+        doc.title = '問題' + problem.number + ' ' + problem.title + '｜証明ハンター';
+      }
     } else {
       renderTitle();
       show('title');
     }
-    doc.title = '証明ハンター';
   }
 
   function init() {
@@ -244,13 +330,15 @@
         PH.sound.play('tap');
         renderSoundButtons();
       } else if (t.id === 'btn-continue') {
+        const last = PH.storage.getLastPlay();
+        if (!last) return;
         PH.sound.play('tap');
-        go('#/play/' + PH.storage.getLastProblem());
+        go(MODES[last.mode].play(last.id));
       } else if (t.id === 'howto-prev') {
         if (howtoPage > 0) { howtoPage--; renderHowto(); }
       } else if (t.id === 'howto-next') {
-        if (howtoPage < HOWTO.length - 1) { howtoPage++; renderHowto(); }
-        else go('#/select');
+        if (howtoPage < HOWTO[howtoMode].length - 1) { howtoPage++; renderHowto(); }
+        else go(MODES[howtoMode].select);
       } else if (t.id === 'hint-close') {
         PH.hints.hide(doc.getElementById('hint-popup'));
       } else if (t.id === 'tri-close') {

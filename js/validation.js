@@ -112,6 +112,23 @@
     return { status: 'wrong-equation', miss: true, kind: kind };
   }
 
+  // 等式（キー2つ）がこの問題の根拠のどれにあたるか。左右・表記の違いは同一視。なければ null
+  function matchEvidence(problem, keys) {
+    const eq = equationKey(keys[0], keys[1]);
+    const hit = compiled(problem).evidence.find(function (e) { return e.eq === eq; });
+    return hit ? hit.ev : null;
+  }
+
+  // 根拠ではない等式の種類：'irrelevant'（正しいが今回は使わない）/ 'from-conclusion' / 'not-common' / 'wrong-equation'
+  function equationStatus(problem, keys) {
+    if (matchEvidence(problem, keys)) return 'evidence';
+    const eq = equationKey(keys[0], keys[1]);
+    if (compiled(problem).extras.some(function (e) { return e.eq === eq; })) return 'irrelevant';
+    if (classifyPair(problem, keys)) return 'from-conclusion';
+    if (keys[0] === keys[1]) return 'not-common';
+    return 'wrong-equation';
+  }
+
   /*
    * 根拠の組から合同条件を導く。
    *   'SSS' 3組の辺 / 'SAS' 2組の辺とその間の角 / 'ASA' 1組の辺とその両端の角 / null 不成立
@@ -292,6 +309,22 @@
 
       const derived = deriveCondition(problem, problem.evidence);
       if (derived !== problem.congruence) errors.push('合同条件が根拠と一致しない: ' + derived + ' / ' + problem.congruence);
+
+      // 証明パズルのデータ：形式と、ダミーカードが「正しい関係」になっていないか
+      const pz = problem.puzzle;
+      if (!pz || (pz.type !== 'fill' && pz.type !== 'build')) errors.push('puzzle.type が無効');
+      const dist = (pz && pz.distractors) || {};
+      (dist.equations || []).forEach(function (label) {
+        const items = String(label).split('＝');
+        if (items.length !== 2) { errors.push('ダミーの等式の形式が不正: ' + label); return; }
+        const keys = keysOf(fig, items);
+        const st = equationStatus(problem, keys);
+        if (st === 'evidence' || st === 'irrelevant') errors.push('ダミーが正しい関係になっている: ' + label);
+        if (st === 'wrong-equation' && nearlyEqual(measure(fig, items[0]), measure(fig, items[1]))) {
+          errors.push('ダミーが図の上で等しく見える（まぎらわしい）: ' + label);
+        }
+      });
+      (dist.reasons || []).forEach(function (r) { if (!PH.REASONS[r]) errors.push('ダミーの理由が未定義: ' + r); });
     } catch (err) {
       errors.push(String(err && err.message || err));
     }
@@ -318,6 +351,8 @@
     correspondingParts: correspondingParts,
     classifyPair: classifyPair,
     checkEvidence: checkEvidence,
+    matchEvidence: matchEvidence,
+    equationStatus: equationStatus,
     deriveCondition: deriveCondition,
     checkCongruence: checkCongruence,
     verifyProblem: verifyProblem,
