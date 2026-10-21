@@ -627,7 +627,8 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 }
 
 /* ステージクリアの演出 */
-/* 「STAGE CLEAR！」は文字数が多いので小さめにし、スマホ縦画面でも1行に収める */
+/* 「STAGE CLEAR！」「証明パズル完成！」は文字数が多いので小さめにし、スマホ縦画面でも1行に収める */
+.success-overlay.is-puzzle .success-text { font-size: clamp(1.8rem, 9vw, 3.6rem); white-space: nowrap; }
 .success-overlay.is-stage .success-text { font-size: clamp(1.8rem, 9vw, 3.6rem); white-space: nowrap; letter-spacing: .02em; }
 .success-overlay.is-stage .success-concl { font-size: clamp(.95rem, 4.6vw, 1.6rem); white-space: nowrap; }
 .success-overlay.is-stage .success-text { color: #fde68a; -webkit-text-stroke: 2px var(--navy); text-shadow: 0 4px 0 var(--navy), 0 0 26px rgba(253, 224, 71, .95); }
@@ -749,7 +750,16 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .pz-cards.kind-reason .pz-card, .pz-cards.kind-cond .pz-card { text-align: left; font-size: .9rem; }
 .pz-card:active { transform: scale(.97); }
 .pz-card.is-current { background: var(--purple); border-color: var(--purple); color: #fff; }
+.pz-checkbar { margin-top: 8px; }
 .pz-actions { display: flex; gap: 6px; margin-top: 6px; }
+.pz-msg-guide { margin: 0; font-size: .82rem; color: var(--muted); text-align: center; }
+.pz-tray-head { justify-content: space-between; align-items: center; flex-wrap: nowrap; }
+.pz-tray-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.pz-tray-close { flex: none; width: 36px; height: 32px; margin: -4px -6px -4px 0; border: 0; background: none; font-size: 1.4rem; color: var(--muted); }
+.pz-tray-actions { display: flex; justify-content: flex-end; margin-top: 6px; }
+.pz-tray-actions .btn { min-height: 32px; padding: 1px 12px; font-size: .8rem; }
+.pz-tray:not([hidden]) { animation: tray-in .18s ease-out; }
+@keyframes tray-in { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
 .pz-actions .btn { min-height: 36px; padding: 2px 8px; font-size: .85rem; }
 .pz-actions .btn-confirm { flex: 1.6; }
 .pz-actions .btn:not(.btn-confirm) { flex: 1; white-space: nowrap; }

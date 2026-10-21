@@ -35,6 +35,7 @@
     this.timers = [];
     this.resultBuilt = false;
     this.stageCleared = false;
+    this.trayOpen = false;      // カードの領域（解答欄をタップしたときだけ出す）
     this.build();
     this.onClick = this.handleClick.bind(this);
     this.onResize = this.renderFigure.bind(this);
@@ -69,16 +70,20 @@
         '<div class="pz-scroll" data-ref="scroll">' +
           '<p class="pz-statement">' + esc(p.statement) + '</p>' +
           '<div class="card proof-sheet pz-proof" data-ref="proof"></div>' +
-        '</div>' +
-        '<div class="card pz-tray" data-ref="tray">' +
-          '<div class="pz-tray-head" data-ref="trayHead"></div>' +
-          '<div class="pz-cards" data-ref="cards"></div>' +
-          '<div class="pz-actions">' +
-            '<button class="btn" data-act="undo">取り消す</button>' +
-            '<button class="btn" data-act="reset">すべてリセット</button>' +
-            '<button class="btn btn-confirm" data-act="check" data-ref="checkBtn">答え合わせ</button>' +
+          '<div class="pz-checkbar" data-ref="checkbar">' +
+            '<div class="pz-feedback" data-ref="feedback" aria-live="polite"></div>' +
+            '<div class="pz-actions">' +
+              '<button class="btn" data-act="reset">すべてリセット</button>' +
+              '<button class="btn btn-confirm" data-act="check" data-ref="checkBtn">答え合わせ</button>' +
+            '</div>' +
           '</div>' +
-          '<div class="pz-feedback" data-ref="feedback" aria-live="polite"></div>' +
+        '</div>' +
+        // カードの領域：解答欄をタップしたときだけ出し、カードを選ぶと隠す
+        '<div class="card pz-tray" data-ref="tray" hidden>' +
+          '<div class="pz-tray-head"><div class="pz-tray-title" data-ref="trayHead"></div>' +
+            '<button class="pz-tray-close" data-act="close-tray" aria-label="閉じる">×</button></div>' +
+          '<div class="pz-cards" data-ref="cards"></div>' +
+          '<div class="pz-tray-actions"><button class="btn" data-act="undo">この空欄を取り消す</button></div>' +
         '</div>' +
       '</div>' +
       '<div class="result" data-ref="result" hidden></div>';
@@ -115,24 +120,34 @@
       case 'next-stage': return this.nav.nextStage();
       case 'hint': return this.hint();
       case 'undo': return this.undo();
+      case 'close-tray': return this.setTray(false);
       case 'reset': return this.resetCards();
       case 'check': return this.check();
       case 'restart': return this.restart();
     }
   };
 
+  // カードの領域の表示・非表示
+  PuzzleView.prototype.setTray = function (open) {
+    this.trayOpen = !!open;
+    this.render();
+    if (this.trayOpen) this.revealActive();
+  };
+
+  // 解答欄をタップ → その空欄を選び、カードの領域を出す
   PuzzleView.prototype.selectSlot = function (id) {
     if (this.puzzle.selectSlot(id)) {
       PH.sound.play('tap');
-      this.render();
+      PH.hints.hide(doc.getElementById('hint-popup'));
+      this.setTray(true);
     }
   };
 
+  // カードを選ぶ → 空欄に入れて、カードの領域を隠す（選択は次の空欄へ進む）
   PuzzleView.prototype.placeCard = function (id) {
     if (this.puzzle.place(id)) {
       PH.sound.play('tap');
-      this.render();
-      this.revealActive();
+      this.setTray(false);
     }
   };
 
@@ -146,6 +161,7 @@
   PuzzleView.prototype.resetCards = function () {
     if (this.puzzle.clearAll()) {
       PH.sound.play('tap');
+      this.trayOpen = false;
       this.render();
       this.ref('scroll').scrollTop = 0;
     }
@@ -157,6 +173,7 @@
     this.stageCleared = false;
     this.flashKeys = [];
     this.flashLines = [];
+    this.trayOpen = false;
     PH.hints.hide(doc.getElementById('hint-popup'));
     PH.storage.setLastProblem(this.problem.id, 'puzzle');
     this.render();
@@ -210,6 +227,7 @@
     const h = z.useHint();
     PH.sound.play('tap');
     PH.hints.show(doc.getElementById('hint-popup'), h, z.hintsUsed);
+    this.trayOpen = false;
     if (h) {
       if (h.slotId) z.selectSlot(h.slotId);
       if (h.focus.length) this.flash(h.focus, 1800);
@@ -222,14 +240,14 @@
     const z = this.puzzle;
     const r = z.check();
     if (r.status === 'incomplete' || r.status === 'done') return;
+    this.trayOpen = false;
     if (r.status === 'wrong') {
       PH.sound.play('wrong');
       this.render();
-      const tray = this.ref('tray');
-      tray.classList.remove('shake');
-      void tray.offsetWidth;
-      tray.classList.add('shake');
-      this.revealActive();
+      const bar = this.ref('checkbar');
+      bar.classList.remove('shake');
+      void bar.offsetWidth;
+      bar.classList.add('shake');
       return;
     }
     PH.sound.play('success');
@@ -355,6 +373,7 @@
     this.ref('trayHead').innerHTML = '<span class="pz-tray-target">' + esc(s.label) + '</span>' +
       '<span class="pz-tray-note">に入れる' + kindName + 'をタップ</span>';
     const cards = z.cardsForActive();
+    this.ref('tray').hidden = !this.trayOpen;
     const box = this.ref('cards');
     box.className = 'pz-cards kind-' + s.kind;
     box.innerHTML = cards.map(function (c) {
@@ -369,7 +388,9 @@
     const fb = this.ref('feedback');
     const res = z.result;
     if (!res) {
-      fb.innerHTML = '';
+      fb.innerHTML = empty > 0
+        ? '<p class="pz-msg-guide">解答欄をタップして、カードを選ぼう。</p>'
+        : '<p class="pz-msg-guide">すべて埋まったよ。「答え合わせ」を押そう！</p>';
     } else {
       const open = res.messages.filter(function (m) { return res.slotStatus[m.slotId] === 'ng'; });
       fb.innerHTML = open.length
