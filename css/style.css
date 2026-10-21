@@ -435,17 +435,21 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 
 /* 証明完成 */
 .result { display: flex; flex-direction: column; gap: 12px; }
+/* 上：図＋（結果カード・ボタン）、下：証明文・解説 */
+.result-top { display: flex; gap: 12px; align-items: stretch; }
+.result-figure { flex: 1.3; min-width: 0; padding: 4px; display: flex; align-items: center; justify-content: center; }
+.result-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.result-scroll { display: flex; flex-direction: column; gap: 12px; }
+.result-body { display: grid; gap: 12px; }
+@media (min-width: 900px) { .result-body { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; } }
 .result-banner {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center; padding: 4px 12px; border-radius: var(--radius); color: #fff;
   background: linear-gradient(135deg, var(--navy), var(--blue-600));
 }
 .result-title { font-size: 1.8rem; font-weight: 900; color: #fde68a; }
 .result-stars { font-size: 2.2rem; color: var(--gold); letter-spacing: .1em; line-height: 1.2; text-shadow: 0 0 10px rgba(245,179,1,.6); }
-.result-meta { font-size: .9rem; }
-.best { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 99px; background: var(--gold); color: #3b2a00; font-weight: 800; }
-.result-grid { display: grid; gap: 12px; }
-@media (min-width: 900px) { .result-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: start; } }
-.result-figure { padding: 4px; }
+.result-meta { font-size: .9rem; display: flex; flex-wrap: wrap; justify-content: center; }
 .small-note { margin: 4px 0 0; font-size: .78rem; color: var(--muted); text-align: center; }
 .proof-sheet {
   padding: 6px 18px; font-size: 1.05rem; line-height: 1.7;
@@ -462,8 +466,8 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .points { padding: 4px 16px; }
 .points h3 { margin: 0 0 4px; font-size: .95rem; color: var(--navy); }
 .points ul { margin: 0; padding-left: 1.2em; font-size: .92rem; }
-.result-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.result-actions .btn { flex: 1 1 140px; }
+.result-actions { display: flex; flex-direction: column; gap: 6px; }
+.result-actions .btn { width: 100%; }
 
 /* スマホ縦画面: 上半分（タイトルバー・図・ボタン）を固定し、下半分だけスクロール */
 @media (max-width: 899px) and (orientation: portrait) {
@@ -497,9 +501,27 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
     flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
     padding: 6px 16px calc(16px + env(safe-area-inset-bottom));
   }
-  .screen-play .result {
-    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-    padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
+  .screen-play .result { flex: 1; min-height: 0; overflow: hidden; gap: 0; }
+  .result-top {
+    flex: none; gap: 8px; padding: 4px 12px;
+    border-bottom: 1px solid var(--line); background: var(--bg);
+    box-shadow: 0 3px 8px rgba(30, 58, 138, .08); position: relative; z-index: 1;
+  }
+  .result-figure { flex: 1; padding: 2px; }
+  .result-top .figure.mini { max-height: 38vh; max-height: 38dvh; }
+  .result-top .pt-label { font-size: 30px; }
+  .result-side { flex: none; width: 132px; gap: 6px; }
+  .result-banner { padding: 4px 6px; }
+  .result-title { font-size: 1.05rem; }
+  .result-stars { font-size: 1.35rem; letter-spacing: .04em; }
+  .result-meta { font-size: .68rem; line-height: 1.35; }
+  .result-meta .sep { display: none; }
+  .result-meta span:not(.sep) { width: 100%; }
+  .result-banner .best { margin: 2px 0 0; font-size: .66rem; }
+  .result-actions .btn { min-height: 32px; padding: 1px 6px; font-size: .78rem; border-radius: 10px; }
+  .result-scroll {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    gap: 8px; padding: 6px 16px calc(16px + env(safe-area-inset-bottom));
   }
 }
 

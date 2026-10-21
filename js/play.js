@@ -297,6 +297,8 @@
     root.scrollTo(0, 0);
     this.ref('scroll').scrollTop = 0;
     this.ref('result').scrollTop = 0;
+    const rs = this.ref('resultScroll');
+    if (rs) rs.scrollTop = 0;
   };
 
   PlayController.prototype.flash = function (keys, ms, lines) {
@@ -709,41 +711,48 @@
         : '<p class="result-guide">これで最後のステージの最後の問題だよ。ステージ選択から、★★★をめざして挑戦しよう！</p>';
     }
 
+    // スマホ縦画面：.result-top（図・結果カード・ボタン）を固定し、.result-scroll（証明文・解説）だけスクロール
     this.ref('result').innerHTML =
-      (this.stageCleared
-        ? '<div class="stage-clear-banner"><span class="scb-title">STAGE CLEAR！</span><span class="scb-sub">STAGE ' + stage.id + '「' + esc(stage.title) + '」の問題をすべてクリアしたよ！</span></div>'
-        : '') +
-      '<div class="result-banner">' +
-        '<div class="result-title">証明成功！</div>' +
-        '<div class="result-stars" aria-label="評価 星' + g.stars + 'つ">' + starsText(g.stars) + '</div>' +
-        '<div class="result-meta">ミス ' + g.misses + '回 ・ ヒント ' + g.hintsUsed + '回' +
-          (this.improved ? ' <span class="best">ベスト更新！</span>' : '') + '</div>' +
-      '</div>' +
-      '<div class="result-grid">' +
-        '<div class="card result-figure"><svg class="figure mini" data-ref="miniSvg" aria-label="証明した図"></svg>' +
-          '<p class="small-note">証明の式や理由をタップすると、図の場所が光るよ</p></div>' +
-        '<div class="card proof-sheet">' +
-          '<h2 class="proof-title">完成した証明</h2>' +
-          '<p class="proof-intro">' + esc(proof.intro) + '</p>' +
-          '<ol class="proof-lines">' + lines + '</ol>' +
-          '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
-          '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +
-          '<p class="proof-concl">' + esc(proof.conclusion) + '</p>' +
+      '<div class="result-top">' +
+        '<div class="card result-figure"><svg class="figure mini" data-ref="miniSvg" aria-label="証明した図"></svg></div>' +
+        '<div class="result-side">' +
+          '<div class="result-banner">' +
+            '<div class="result-title">証明成功！</div>' +
+            '<div class="result-stars" aria-label="評価 星' + g.stars + 'つ">' + starsText(g.stars) + '</div>' +
+            '<div class="result-meta"><span>ミス ' + g.misses + '回</span><span class="sep">・</span><span>ヒント ' + g.hintsUsed + '回</span></div>' +
+            (this.improved ? '<span class="best">ベスト更新！</span>' : '') +
+          '</div>' +
+          '<div class="result-actions">' +
+            '<button class="btn" data-act="restart">↺ もう一度</button>' +
+            (hasNext ? '<button class="btn btn-primary" data-act="next">次の問題 ▶</button>' : '') +
+            (!hasNext && nextStage ? '<button class="btn btn-primary" data-act="next-stage">次のステージ ▶</button>' : '') +
+            '<button class="btn" data-act="stages">ステージ選択</button>' +
+          '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="card points explain">' +
-        '<h3>💡 今回のポイント</h3>' +
-        '<p class="explain-text">' + esc(p.explanation) + '</p>' +
-        '<h4>学習のポイント</h4><ul>' +
-          p.learningPoints.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') +
-        '</ul>' +
-      '</div>' +
-      guide +
-      '<div class="result-actions">' +
-        '<button class="btn" data-act="restart">↺ もう一度挑戦</button>' +
-        (hasNext ? '<button class="btn btn-primary" data-act="next">次の問題へ ▶</button>' : '') +
-        (!hasNext && nextStage ? '<button class="btn btn-primary" data-act="next-stage">次のステージへ ▶</button>' : '') +
-        '<button class="btn" data-act="stages">ステージ選択へ</button>' +
+      '<div class="result-scroll" data-ref="resultScroll">' +
+        (this.stageCleared
+          ? '<div class="stage-clear-banner"><span class="scb-title">STAGE CLEAR！</span><span class="scb-sub">STAGE ' + stage.id + '「' + esc(stage.title) + '」の問題をすべてクリアしたよ！</span></div>'
+          : '') +
+        guide +
+        '<div class="result-body">' +
+          '<div class="card proof-sheet">' +
+            '<h2 class="proof-title">完成した証明</h2>' +
+            '<p class="small-note">式や理由をタップすると、図の場所が光るよ</p>' +
+            '<p class="proof-intro">' + esc(proof.intro) + '</p>' +
+            '<ol class="proof-lines">' + lines + '</ol>' +
+            '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
+            '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +
+            '<p class="proof-concl">' + esc(proof.conclusion) + '</p>' +
+          '</div>' +
+          '<div class="card points explain">' +
+            '<h3>💡 今回のポイント</h3>' +
+            '<p class="explain-text">' + esc(p.explanation) + '</p>' +
+            '<h4>学習のポイント</h4><ul>' +
+              p.learningPoints.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') +
+            '</ul>' +
+          '</div>' +
+        '</div>' +
       '</div>';
     this.resultBuilt = true;
   };
