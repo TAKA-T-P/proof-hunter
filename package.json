@@ -1,0 +1,10 @@
+{
+  "name": "proof-hunter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "証明ハンター — 図形に隠された3つの根拠を探し出せ！",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "npx --yes http-server -p 8080 -c-1 ."
+  }
+}

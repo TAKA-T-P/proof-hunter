@@ -1,0 +1,6 @@
+# 参考資料（アプリには不要・公開しない）
+証明問題サンプル/
+
+node_modules/
+.DS_Store
+Thumbs.db

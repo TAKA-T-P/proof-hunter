@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>証明ハンター</title>
+  <meta name="description" content="図形に隠された3つの根拠を探し出せ！ 中学数学の合同の証明を、図形をタップしながらゲーム感覚で練習できるWebアプリ。">
+  <meta name="theme-color" content="#1d4ed8">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231d4ed8'/%3E%3Cpolygon points='32,10 10,52 54,52' fill='none' stroke='%23fcd34d' stroke-width='5' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-screen="title">
+  <main id="app">
+
+    <!-- タイトル画面 -->
+    <section id="screen-title" class="screen screen-title" hidden>
+      <div class="title-box">
+        <div class="title-emblem" aria-hidden="true">
+          <svg viewBox="0 0 160 120">
+            <polygon points="80,10 20,105 80,80" class="em-tri1"/>
+            <polygon points="80,10 140,105 80,80" class="em-tri2"/>
+            <line x1="80" y1="10" x2="80" y2="80" class="em-common"/>
+            <circle cx="118" cy="38" r="20" class="em-lens"/>
+            <line x1="132" y1="52" x2="150" y2="70" class="em-handle"/>
+          </svg>
+        </div>
+        <h1 class="title-logo">証明ハンター</h1>
+        <p class="title-sub">図形に隠された3つの根拠を探し出せ！</p>
+        <div class="title-buttons">
+          <button class="btn btn-primary btn-big" data-go="#/select">はじめる</button>
+          <button class="btn btn-gold btn-big" id="btn-continue" hidden>つづきから</button>
+          <button class="btn btn-big" data-go="#/howto">あそびかた</button>
+        </div>
+        <button class="btn btn-small btn-ghost" data-sound-toggle aria-pressed="true">🔊 効果音 ON</button>
+      </div>
+      <footer class="version">Ver.0.1</footer>
+    </section>
+
+    <!-- 問題選択画面 -->
+    <section id="screen-select" class="screen screen-select" hidden>
+      <header class="page-header">
+        <button class="head-btn" data-go="#/" aria-label="タイトルに戻る"><span class="ico">⌂</span><span class="lbl">ホーム</span></button>
+        <h1 class="page-title">問題をえらぶ</h1>
+        <button class="btn btn-small btn-ghost" data-sound-toggle aria-pressed="true">🔊 効果音 ON</button>
+      </header>
+      <ul id="problem-list" class="problem-list"></ul>
+      <p class="select-note">どの問題からでも挑戦できるよ。ミス0・ヒント0でクリアすると ★★★！</p>
+    </section>
+
+    <!-- あそびかた -->
+    <section id="screen-howto" class="screen screen-howto" hidden>
+      <header class="page-header">
+        <button class="head-btn" data-go="#/" aria-label="タイトルに戻る"><span class="ico">⌂</span><span class="lbl">ホーム</span></button>
+        <h1 class="page-title">あそびかた</h1>
+        <span></span>
+      </header>
+      <div class="card howto-card">
+        <div class="howto-art" id="howto-art" aria-hidden="true"></div>
+        <h2 class="howto-title" id="howto-title"></h2>
+        <p class="howto-text" id="howto-text"></p>
+        <div class="howto-dots" id="howto-dots" aria-hidden="true"></div>
+        <div class="howto-nav">
+          <button class="btn" id="howto-prev">◀ もどる</button>
+          <button class="btn btn-primary" id="howto-next">つぎへ ▶</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 問題プレイ画面（js/play.js が中身を作る） -->
+    <section id="screen-play" class="screen screen-play" hidden></section>
+  </main>
+
+  <!-- ヒント（図形を隠さない下部ポップアップ） -->
+  <div id="hint-popup" class="hint-popup" role="status" aria-live="polite" hidden>
+    <div class="hint-head">
+      <span class="hint-level">ヒント</span>
+      <button class="hint-close" id="hint-close" aria-label="ヒントを閉じる">×</button>
+    </div>
+    <p class="hint-text"></p>
+    <p class="hint-count"></p>
+  </div>
+
+  <!-- 証明成功の演出（操作をさえぎらない） -->
+  <div id="success-overlay" class="success-overlay" aria-hidden="true" hidden>
+    <div class="success-burst"></div>
+    <div class="success-text">証明成功！</div>
+    <div class="success-concl"></div>
+  </div>
+
+  <script src="js/problems.js"></script>
+  <script src="js/geometry.js"></script>
+  <script src="js/validation.js"></script>
+  <script src="js/hints.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/play.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
