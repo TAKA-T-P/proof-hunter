@@ -10,7 +10,7 @@
   const PH = root.PH = root.PH || {};
 
   const config = {
-    criteriaVersion: 1,          // 認定基準のバージョン（暫定版）
+    criteriaVersion: 2,          // 認定基準のバージョン（暫定版。2：誤答は時間ペナルティ、段位は正解数で判定）
     timeLimitMs: 120000,         // 制限時間 120秒
     countdown: ['3', '2', '1', 'START！'],
     countdownStepMs: 650,        // カウントダウン1つの長さ
@@ -19,12 +19,15 @@
     selectZoneCount: 10,         // 1〜10問目：セレクトゾーン（すべて選択式）
     inputRatio: 0.6,             // 11問目以降（チャレンジゾーン）：記号入力の問題の割合
     // 解答箇所の数の割合（1か所 70%・2か所 25%・3か所 5%）
-    blankWeights: { 1: 0.7, 2: 0.25, 3: 0.05 },
+    // 解答箇所の数の割合。テンポを上げるため、解答箇所は1つだけ（2〜3か所の問題は出さない）
+    blankWeights: { 1: 1 },
     // 序盤は易しい問題から（n 問目までの難易度の上限）
     difficultyCaps: [{ upTo: 3, max: 1 }, { upTo: 10, max: 2 }],
     recentAvoid: 12,             // 直近この問数に出た問題は、なるべく出さない
     feedbackMs: 300,             // 正解・不正解の表示時間
-    missWeight: 0.5,             // 有効正解数 = 正解数 − ミス数 × 0.5
+    // 誤答（パスをふくむ）のペナルティ：n 回目の誤答で制限時間を 4×n 秒へらす（4秒、8秒、12秒…とだんだん重くなる）
+    penaltyStepMs: 4000,
+    missWeight: 0,               // 正解数からの減点はしない（有効正解数 ＝ 正解数）
     reviewLimit: 40,             // 振り返り用に保存する誤答の上限（直近1回分）
     combos: [
       { n: 3, text: 'NICE！' },
@@ -65,7 +68,11 @@
     ],
   };
 
-  // 有効正解数（小数第1位まで。0未満にならない）
+  // n 回目の誤答のペナルティ（ミリ秒）と、m 回誤答したときの合計
+  function penaltyFor(n) { return n > 0 ? config.penaltyStepMs * n : 0; }
+  function totalPenalty(m) { return m > 0 ? config.penaltyStepMs * m * (m + 1) / 2 : 0; }
+
+  // 有効正解数（段位の判定に使う数。missWeight が 0 なら正解数そのもの。0未満にならない）
   function effectiveScore(correct, misses) {
     const v = Math.max(0, correct - misses * config.missWeight);
     return Math.round(v * 10) / 10;
@@ -105,6 +112,8 @@
   PH.rank = {
     config: config,
     effectiveScore: effectiveScore,
+    penaltyFor: penaltyFor,
+    totalPenalty: totalPenalty,
     gradeFor: gradeFor,
     gradeByRank: gradeByRank,
     nextGrade: nextGrade,

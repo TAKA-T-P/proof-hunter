@@ -73,7 +73,7 @@ function result(over) {
 // ---- 22-1 問題生成 ---------------------------------------------------------------
 
 test('既存20問からミニ問題を生成でき、IDが重複しない', () => {
-  assert.ok(ALL.length >= 200, String(ALL.length));
+  assert.ok(ALL.length >= 120, String(ALL.length));
   assert.equal(new Set(ALL.map((q) => q.id)).size, ALL.length);
   // すべての元問題が使われている（同じ内容の問題はまとめるが、各問題から1つ以上）
   const sources = new Set(ALL.map((q) => q.sourceId));
@@ -89,15 +89,61 @@ test('既存20問からミニ問題を生成でき、IDが重複しない', () =
   });
 });
 
-test('問題の種類が偏りすぎない（カテゴリ・解答箇所の数・記号入力）', () => {
+test('問題の種類が偏りすぎない。解答箇所はどれも1つで、「対応する頂点」だけを問う問題はない', () => {
   const by = (f) => ALL.reduce((m, q) => { m[f(q)] = (m[f(q)] || 0) + 1; return m; }, {});
   const cats = by((q) => q.category);
-  RQ.CATEGORIES.forEach((c) => assert.ok(cats[c] >= 10, c + ': ' + cats[c]));
-  const blanks = by((q) => q.blanks);
-  assert.ok(blanks[1] > 0 && blanks[2] > 0 && blanks[3] > 0, JSON.stringify(blanks));
+  RQ.CATEGORIES.forEach((c) => assert.ok(cats[c] >= 5, c + ': ' + cats[c]));
+  ALL.forEach((q) => {
+    assert.equal(q.blanks, 1, q.id);
+    if (q.choice) assert.equal(q.choice.blanks.length, 1, q.id);
+    assert.ok(!['vertex', 'vertexMulti', 'reasonMulti'].includes(q.type), q.id);
+  });
+  // 対応する辺・角（合同からの結論）と三角形は引き続き出る
+  assert.ok(ALL.some((q) => q.type === 'part' && q.typeLabel.includes('辺')));
+  assert.ok(ALL.some((q) => q.type === 'part' && q.typeLabel.includes('角')));
+  assert.ok(ALL.some((q) => q.type === 'triangle'));
   const input = ALL.filter((q) => q.input);
   assert.ok(input.length >= 50, String(input.length));
   assert.deepEqual([...new Set(input.map((q) => q.category))].sort(), ['corr', 'eq', 'final']);
+});
+
+test('「〇〇より、＿＿」の問題は、選択肢がなくても答えが1つに決まるものだけ', () => {
+  const eqs = ALL.filter((q) => q.type === 'equation');
+  assert.ok(eqs.length >= 10);
+  eqs.forEach((q) => {
+    const p = PH.getProblem(q.sourceId);
+    const ev = p.evidence.find((e) => q.id.endsWith('-' + e.id));
+    const shown = { reason: ev.reason, text: ev.proofReason || PH.REASONS[ev.reason].proof, specific: !!ev.proofReason };
+    const same = p.evidence.filter((e) => PH.puzzleUtil.reasonAccepts(shown, e));
+    assert.equal(same.length, 1, q.id + ' ' + q.ask);
+  });
+  // 仮定が2つある問題の「仮定より」は出ない（p01・p05）。p05 は「対頂角より」が出る
+  assert.equal(RQ.byId('p01-eq-e1'), null);
+  assert.equal(RQ.byId('p05-eq-e1'), null);
+  assert.ok(RQ.byId('p05-eq-e3'));
+  assert.match(RQ.byId('p05-eq-e3').ask, /^対頂角は等しいから/);
+  // 錯角が2組ある問題（p03）の「錯角より」、別の錯角が extraTruths にある問題（p15）の「錯角より」も出ない
+  assert.equal(RQ.byId('p03-eq-e2'), null);
+  assert.equal(RQ.byId('p15-eq-e2'), null);
+  // 仮定の等式が1つだけなら「仮定より」も出る（p03：仮定は AB∥CD、AB＝CD）
+  assert.ok(RQ.byId('p03-eq-e1'));
+});
+
+test('合同条件の問題は、根拠を並べずに図と仮定・結論を表示する', () => {
+  const conds = ALL.filter((q) => q.type === 'condition');
+  assert.ok(conds.length >= 10);
+  conds.forEach((q) => {
+    const p = PH.getProblem(q.sourceId);
+    assert.equal(q.figure, p.id);
+    assert.equal(q.lines[0], '仮定：' + p.given.join('、'));
+    assert.equal(q.lines[1], '結論：' + PH.congruenceText(p));
+    // 根拠の等式（仮定にないもの）は問題文に書かない
+    p.evidence.filter((ev) => ev.reason !== 'given').forEach((ev) => {
+      assert.ok(!q.lines.concat([q.ask]).join(' ').includes(ev.label), q.id + ' ' + ev.label);
+    });
+  });
+  const p12 = RQ.byId('p12-cond');
+  assert.deepEqual(p12.lines, ['仮定：AB＝AC、Mは辺BCの中点', '結論：△ABM≡△ACM']);
 });
 
 // 選択肢の正しさを、生成とは別の方法で判定する
@@ -183,17 +229,18 @@ test('記号入力：正しい別表記を正解にし、数学的に正しく�
   const common = byId('p01-eq-e3');
   ['BD=BD', 'DB=BD', 'BD=DB', 'db=bd'].forEach((v) => assert.equal(common.input.check(v), true, v));
   assert.equal(common.input.check('AB=CB'), false);
-  // 仮定より：仮定のどちらの等式でも正解（左右の入れかえも可）
-  const given = byId('p01-eq-e1');
-  ['AB=CB', 'CB=AB', 'BA=BC', 'AD=CD', 'DC=DA'].forEach((v) => assert.equal(given.input.check(v), true, v));
-  ['AB=AD', 'BD=BD', 'AB=CD'].forEach((v) => assert.equal(given.input.check(v), false, v));
+  // 仮定より（p03 は仮定の等式が1つ）：左右の入れかえ・辺の向きは正解
+  const given = byId('p03-eq-e1');
+  ['AB=CD', 'CD=AB', 'BA=DC'].forEach((v) => assert.equal(given.input.check(v), true, v));
+  ['AB=AO', 'AO=CO'].forEach((v) => assert.equal(given.input.check(v), false, v));
   // 対頂角（p02）：∠AOC＝∠BOD、∠COA＝∠DOB、∠BOD＝∠AOC
   const vert = byId('p02-eq-e3');
   ['∠AOC=∠BOD', '∠COA=∠DOB', '∠BOD=∠AOC'].forEach((v) => assert.equal(vert.input.check(v), true, v));
   assert.equal(vert.input.check('∠AOD=∠BOC'), false);                    // 正しいが今回は使わない関係（extraTruths）
   // 一直線上の点による角の別名（p03：O は AC 上なので ∠BAO＝∠BAC）
-  const alias = byId('p03-eq-e2');
-  ['∠BAO=∠DCO', '∠BAC=∠DCA', '∠OAB=∠OCD'].forEach((v) => assert.equal(alias.input.check(v), true, v));
+  const alias = ALL.find((q) => q.type === 'part' && q.sourceId === 'p03' && q.input.keypad.fixedLeft === '∠BAO');
+  ['∠BAO=∠DCO', '∠BAO=∠DCA', '∠BAO=∠ACD', '∠BAO=∠OCD'].forEach((v) => assert.equal(alias.input.check(v), true, v));
+  assert.equal(alias.input.check('∠BAO=∠CDO'), false);
   // 合同から等しい辺（左辺は固定）：向きは問わない
   const part = ALL.find((q) => q.type === 'part' && q.input.keypad.fixedLeft === 'AB' && q.sourceId === 'p01');
   assert.equal(part.input.check('AB=CB'), true);
@@ -245,8 +292,7 @@ test('1〜10問目は選択式、11問目以降は設定した割合で記号入
         total++;
         if (c.mode === 'input') input++;
       }
-      if (c.no <= 3) { assert.equal(c.q.difficulty, 1, 'Q' + c.no); assert.equal(c.blanks.length, 1); }   // 序盤は易しく
-      if (c.no <= 10) assert.ok(c.blanks.length <= 2, 'Q' + c.no);
+      if (c.no <= 3) assert.equal(c.q.difficulty, 1, 'Q' + c.no);   // 序盤は易しく
       if (c.mode === 'input') assert.equal(c.blanks.length, 1);
     });
   }
@@ -254,15 +300,10 @@ test('1〜10問目は選択式、11問目以降は設定した割合で記号入
   assert.ok(Math.abs(ratio - CFG.inputRatio) < 0.1, 'input ratio ' + ratio.toFixed(2));
 });
 
-test('解答箇所の数の割合は、おおむね 1か所70%・2か所25%・3か所5%（チャレンジゾーンの選択式）', () => {
-  const cnt = { 1: 0, 2: 0, 3: 0 };
-  for (let seed = 1; seed <= 60; seed++) {
-    sequence(seed, 40).out.filter((c) => c.no > 10 && c.mode === 'choice').forEach((c) => { cnt[c.blanks.length]++; });
+test('出題される問題は、どれも解答箇所が1つ', () => {
+  for (let seed = 1; seed <= 30; seed++) {
+    sequence(seed, 40).out.forEach((c) => assert.equal(c.blanks.length, 1, 'seed ' + seed + ' Q' + c.no));
   }
-  const sum = cnt[1] + cnt[2] + cnt[3];
-  assert.ok(Math.abs(cnt[1] / sum - 0.7) < 0.08, JSON.stringify(cnt));
-  assert.ok(Math.abs(cnt[2] / sum - 0.25) < 0.08, JSON.stringify(cnt));
-  assert.ok(cnt[3] > 0 && cnt[3] / sum < 0.12, JSON.stringify(cnt));
 });
 
 test('同じ問題を短時間に出さない・同じ元問題が続かない・カテゴリが偏らない', () => {
@@ -273,8 +314,9 @@ test('同じ問題を短時間に出さない・同じ元問題が続かない�
     let same = 0;
     for (let i = 1; i < out.length; i++) if (out[i].q.sourceId === out[i - 1].q.sourceId) same++;
     assert.ok(same <= 2, 'seed ' + seed + ' 同じ元問題の連続 ' + same);
-    // 最初の10問で5つのカテゴリがすべて出る
-    assert.equal(new Set(out.slice(0, 10).map((c) => c.q.category)).size, 5, 'seed ' + seed);
+    // 最初の10問で、等しい辺・角／理由／合同条件／合同からの結論 がすべて出る（証明する三角形は難しいので11問目から）
+    assert.deepEqual([...new Set(out.slice(0, 10).map((c) => c.q.category))].sort(), ['cond', 'eq', 'final', 'reason'], 'seed ' + seed);
+    assert.ok(out.slice(10).some((c) => c.q.category === 'corr'), 'seed ' + seed);
   }
 });
 
@@ -363,30 +405,22 @@ test('正解で正解数+1、不正解でミス+1、パスでミス+1（正解�
   assert.ok(g.wrongs[0].correctAnswer && g.wrongs[0].explain && g.wrongs[0].sourceId);
 });
 
-test('複数の解答箇所：すべて正しいときだけ1問正解。一部だけ正しくてもミスは1回。選択途中は判定しない', () => {
-  const multi = ALL.filter((q) => q.blanks === 2 && q.choice);
-  const g = new PH.RankGame({ seed: 10, pool: multi });
+test('（進行のしくみ）解答箇所が複数の問題を渡しても、すべて正しいときだけ1問正解・ミスは1回', () => {
+  // 生成される問題は解答箇所1つだけだが、進行のしくみ（rank-game.js）は複数にも対応している
+  const a = RQ.byId('p02-rs-e1'), b = RQ.byId('p02-rs-e3');
+  const two = Object.assign({}, a, { id: 'two', blanks: 2, choice: { blanks: [a.choice.blanks[0], b.choice.blanks[0]] } });
+  const g = new PH.RankGame({ seed: 10, pool: [two] });
   g.start(0);
   const c = g.current;
   assert.equal(c.blanks.length, 2);
-  // 1つ目だけ選んだ段階では判定しない
   assert.equal(g.choose(0, c.blanks[0].answer, 1).status, 'selected');
   assert.equal(g.submit(2).status, 'incomplete');
   assert.equal(g.misses, 0);
-  // 2つ目をまちがえて確定 → ミスは1回だけ
   g.choose(1, c.blanks[1].choices.find((x) => x.id !== c.blanks[1].answer).id, 3);
   assert.equal(g.submit(4).status, 'wrong');
   assert.equal(g.misses, 1);
-  assert.equal(g.correct, 0);
-  // 両方正しければ1問正解（2問分ではない）
   assert.equal(answerRight(g, 5).status, 'correct');
   assert.equal(g.correct, 1);
-  // 3か所の問題
-  const three = ALL.filter((q) => q.blanks === 3 && q.choice);
-  const h = new PH.RankGame({ seed: 11, pool: three });
-  h.start(0);
-  assert.equal(answerRight(h, 1).status, 'correct');
-  assert.equal(h.correct, 1);
 });
 
 test('記号入力：未入力は判定しない。正しい別表記は正解', () => {
@@ -403,11 +437,11 @@ test('記号入力：未入力は判定しない。正しい別表記は正解',
 });
 
 test('理由・合同条件・頂点の対応を正しく判定する', () => {
-  ['reason', 'condition', 'vertex', 'finalReason'].forEach((type) => {
+  ['reason', 'condition', 'finalReason', 'part', 'triangle'].forEach((type) => {
     const pool = ALL.filter((q) => q.type === type);
     const g = new PH.RankGame({ seed: 13, pool: pool });
     g.start(0);
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 8; i++) {
       assert.equal(g.current.q.type, type);
       if (i % 2) assert.equal(answerWrong(g, i).status, 'wrong', type);
       else assert.equal(answerRight(g, i).status, 'correct', type);
@@ -417,11 +451,42 @@ test('理由・合同条件・頂点の対応を正しく判定する', () => {
 
 // ---- 22-5 段位 -------------------------------------------------------------------
 
-test('有効正解数 = 正解数 − ミス数 × 0.5（0未満にならない）', () => {
-  assert.equal(R.effectiveScore(15, 4), 13);
-  assert.equal(R.effectiveScore(14, 3), 12.5);
-  assert.equal(R.effectiveScore(2, 10), 0);
-  assert.equal(R.effectiveScore(0, 0), 0);
+test('段位は正解数で決まる（ミスによる減点はない）', () => {
+  assert.equal(R.effectiveScore(15, 4), 15);
+  assert.equal(R.effectiveScore(0, 3), 0);
+  assert.equal(CFG.missWeight, 0);
+});
+
+test('誤答の時間ペナルティ：n 回目の誤答で制限時間が 4×n 秒へる（パスもふくむ）', () => {
+  assert.equal(R.penaltyFor(1), 4000);
+  assert.equal(R.penaltyFor(3), 12000);
+  assert.equal(R.totalPenalty(0), 0);
+  assert.equal(R.totalPenalty(3), 24000);                         // 4 + 8 + 12
+  const g = new PH.RankGame({ seed: 30 });
+  g.start(0);
+  assert.equal(g.timeLeft(10000), 110000);
+  let r = answerWrong(g, 10000);
+  assert.equal(r.penaltyMs, 4000);
+  assert.equal(g.timeLeft(10000), 106000);
+  r = g.pass(11000);
+  assert.equal(r.penaltyMs, 8000);
+  assert.equal(g.timeLeft(11000), 120000 - 12000 - 11000);
+  assert.equal(answerRight(g, 12000).penaltyMs, 0);              // 正解はペナルティなし
+  r = answerWrong(g, 13000);
+  assert.equal(r.penaltyMs, 12000);
+  assert.equal(g.limit(), 120000 - 24000);
+  assert.equal(g.penaltyMs(), 24000);
+  // ペナルティで制限時間を過ぎたら、その場で終了する
+  const h = new PH.RankGame({ seed: 31 });
+  h.start(0);
+  answerWrong(h, 115000);                                         // 残り 120−4−115 = 1秒
+  assert.equal(h.state, 'play');
+  answerWrong(h, 115500);                                         // さらに −8秒 → 時間切れ
+  assert.equal(h.state, 'over');
+  assert.equal(h.result.misses, 2);
+  assert.equal(h.result.penaltyMs, 12000);
+  assert.equal(answerRight(h, 115600).status, 'closed');
+  assert.equal(h.correct, 0);
 });
 
 test('21段階の段位が正しい順序で、境界値で正しく認定される（20以上で皆伝）', () => {
@@ -449,7 +514,7 @@ test('21段階の段位が正しい順序で、境界値で正しく認定され
   assert.equal(R.tierFor(20), 'crown');
 });
 
-test('結果：段位・有効正解数・最高連続正解・認定基準のバージョン', () => {
+test('結果：段位・時間ペナルティ・最高連続正解・認定基準のバージョン', () => {
   const g = new PH.RankGame({ seed: 14 });
   g.start(0);
   for (let i = 0; i < 15; i++) answerRight(g, i);
@@ -458,9 +523,10 @@ test('結果：段位・有効正解数・最高連続正解・認定基準の�
   const r = g.result;
   assert.equal(r.correct, 15);
   assert.equal(r.misses, 4);
-  assert.equal(r.effectiveScore, 13);
-  assert.equal(r.rankName, '四段');
-  assert.equal(r.rank, 13);
+  assert.equal(r.effectiveScore, 15);
+  assert.equal(r.rankName, '六段');
+  assert.equal(r.rank, 15);
+  assert.equal(r.penaltyMs, 40000);                                 // 4 + 8 + 12 + 16 秒
   assert.equal(r.maxCombo, 15);
   assert.equal(r.criteriaVersion, CFG.criteriaVersion);
   assert.equal(r.wrongs.length, 4);

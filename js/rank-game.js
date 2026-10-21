@@ -193,7 +193,9 @@
     this.result = null;
   }
 
-  RankGame.prototype.limit = function () { return C().timeLimitMs; };
+  // 制限時間（誤答のたびに短くなる：n 回目の誤答で 4×n 秒）
+  RankGame.prototype.penaltyMs = function () { return PH.rank.totalPenalty(this.misses); };
+  RankGame.prototype.limit = function () { return Math.max(0, C().timeLimitMs - this.penaltyMs()); };
 
   RankGame.prototype.start = function (now) {
     if (this.state !== 'ready') return false;
@@ -250,16 +252,16 @@
     if (!this.complete(inputValue)) return { status: 'incomplete' };
     const inst = this.current;
     const ok = judge(inst, this.selections, inputValue);
-    return this.record(inst, ok, answerText(inst, this.selections, inputValue), false);
+    return this.record(inst, ok, answerText(inst, this.selections, inputValue), false, now);
   };
 
   // パス：ミス1回として次の問題へ
   RankGame.prototype.pass = function (now) {
     if (!this.accepting(now)) { this.tick(now); return { status: 'closed' }; }
-    return this.record(this.current, false, 'パス', true);
+    return this.record(this.current, false, 'パス', true, now);
   };
 
-  RankGame.prototype.record = function (inst, ok, given, passed) {
+  RankGame.prototype.record = function (inst, ok, given, passed, now) {
     this.answered++;
     let comboText = null;
     if (ok) {
@@ -279,11 +281,15 @@
     }
     const prevZone = inst.zone;
     this.next();
-    return {
+    const out = {
       status: ok ? 'correct' : passed ? 'pass' : 'wrong',
       combo: this.combo, comboText: comboText,
       zoneEnter: prevZone === 'select' && this.current.zone === 'challenge',
+      penaltyMs: ok ? 0 : PH.rank.penaltyFor(this.misses),    // この誤答で減った時間
     };
+    // 時間ペナルティで制限時間を過ぎたら、その場で終了
+    if (!ok && now != null) this.tick(now);
+    return out;
   };
 
   // 時間切れの確認。終了処理は1回だけ
@@ -300,6 +306,7 @@
     this.result = {
       correct: this.correct, misses: this.misses, passes: this.passes, answered: this.answered,
       effectiveScore: score, rank: grade.rank, rankName: grade.name, maxCombo: this.maxCombo,
+      penaltyMs: this.penaltyMs(),
       criteriaVersion: C().criteriaVersion, seed: this.seed,
       wrongs: this.wrongs.slice(0, C().reviewLimit),
     };

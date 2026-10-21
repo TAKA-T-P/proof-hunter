@@ -25,7 +25,8 @@
     const s = Math.ceil(ms / 1000);
     return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
   }
-  function fmtScore(v) { return (Math.round(v * 10) / 10).toFixed(1); }
+  function fmtScore(v) { return String(Math.round(v * 10) / 10); }
+  function fmtSec(ms) { return String(Math.round(ms / 1000)); }
 
   const TIER_ICON = { kyu: '🎖️', medal: '🥇', gold: '🏆', crown: '👑' };
 
@@ -65,8 +66,8 @@
           '<ul>' +
             '<li>制限時間は <b>120秒</b>。時間内なら何問でも挑戦できるよ。</li>' +
             '<li><b>1〜10問目</b>はセレクトゾーン（選択式）。<b>11問目から</b>はチャレンジゾーン（記号の入力もあるよ）。</li>' +
-            '<li>解答箇所が2〜3か所の問題も、すべて正しければ <b>1問正解</b>。</li>' +
-            '<li>まちがい・パスはミス1回。<b>有効正解数 ＝ 正解数 − ミス数 × 0.5</b> で段位が決まるよ。</li>' +
+            '<li><b>正解数</b>で段位が決まるよ（10級〜皆伝の21段階）。</li>' +
+            '<li>まちがい・パスは<b>制限時間が減る</b>よ。1回目は −4秒、2回目は −8秒、3回目は −12秒…と、だんだん重くなるよ。</li>' +
             '<li>途中でやめると記録は残らないよ。一時停止はできないよ。</li>' +
           '</ul>' +
         '</div>' +
@@ -88,8 +89,8 @@
       '</header>' +
       '<div class="rank-grades">' +
         '<div class="card rank-now">' +
-          '<p>現在の最高段位：<b>' + esc(bestLine()) + '</b>' + (r.best ? '（有効正解数 ' + fmtScore(score) + '）' : '') + '</p>' +
-          (r.best && nxt ? '<p class="rank-next">次の<b>' + esc(nxt.grade.name) + '</b>まで：<b class="rank-need">あと' + fmtScore(nxt.need) + 'ポイント！</b></p>' : '') +
+          '<p>現在の最高段位：<b>' + esc(bestLine()) + '</b>' + (r.best ? '（正解数 ' + fmtScore(score) + '問）' : '') + '</p>' +
+          (r.best && nxt ? '<p class="rank-next">次の<b>' + esc(nxt.grade.name) + '</b>まで：<b class="rank-need">あと' + fmtScore(nxt.need) + '問！</b></p>' : '') +
           (r.best && !nxt ? '<p class="rank-next">最高の段位「皆伝」に到達！</p>' : '') +
           (!r.best ? '<p class="rank-next">まずは挑戦して、段位を認定してもらおう！</p>' : '') +
         '</div>' +
@@ -98,7 +99,7 @@
           return '<li class="grade-item tier-' + PH.rank.tierFor(g.rank) + (got ? ' is-got' : '') + (g.rank === bestRank ? ' is-best' : '') + '">' +
             '<span class="grade-ico" aria-hidden="true">' + (got ? TIER_ICON[PH.rank.tierFor(g.rank)] : '・') + '</span>' +
             '<span class="grade-name">' + esc(g.name) + '</span>' +
-            '<span class="grade-min">有効正解数 ' + g.min + ' 以上</span>' +
+            '<span class="grade-min">正解数 ' + g.min + '問 以上</span>' +
             '</li>';
         }).join('') + '</ol>' +
         '<p class="select-note">認定基準は暫定版です（基準バージョン ' + C().criteriaVersion + '）。</p>' +
@@ -131,12 +132,12 @@
           '<dl class="rank-stats">' +
             '<div><dt>正解数</dt><dd>' + res.correct + '問</dd></div>' +
             '<div><dt>ミス数</dt><dd>' + res.misses + '回' + (res.passes ? '<small>（パス' + res.passes + '）</small>' : '') + '</dd></div>' +
-            '<div><dt>有効正解数</dt><dd>' + fmtScore(res.effectiveScore) + '</dd></div>' +
+            '<div><dt>時間ペナルティ</dt><dd>' + (res.penaltyMs ? '−' + fmtSec(res.penaltyMs) + '秒' : 'なし') + '</dd></div>' +
             '<div><dt>最高連続正解</dt><dd>' + res.maxCombo + '問</dd></div>' +
           '</dl>' +
           (function () {
             const nxt = PH.rank.nextGrade(res.effectiveScore);
-            return nxt ? '<p class="rank-next">次の<b>' + esc(nxt.grade.name) + '</b>まで あと' + fmtScore(nxt.need) + 'ポイント</p>' : '';
+            return nxt ? '<p class="rank-next">次の<b>' + esc(nxt.grade.name) + '</b>まで あと' + fmtScore(nxt.need) + '問</p>' : '';
           })() +
         '</div>' +
         '<div class="rank-result-actions">' +
@@ -224,6 +225,7 @@
           '</div>' +
         '</header>' +
         '<div class="rank-pop" data-ref="pop" aria-live="polite"></div>' +
+        '<div class="rank-penalty" data-ref="penalty" aria-live="polite"></div>' +
         '<div class="rank-zone" data-ref="zone" hidden>CHALLENGE ZONE！</div>' +
         '<div class="rank-stage" data-ref="stage"></div>' +
         '<div class="rank-count" data-ref="count" aria-live="assertive"></div>' +
@@ -372,6 +374,7 @@
     this.ref('ng').textContent = String(this.game.misses);
     this.ref('combo').textContent = String(this.game.combo);
     if (r.comboText) this.pop(r.comboText);
+    if (r.penaltyMs) this.penalty(r.penaltyMs);
     const self = this;
     this.later(function () {
       self.locked = false;
@@ -379,6 +382,16 @@
       self.renderQuestion();
       if (r.zoneEnter) self.zone();
     }, C().feedbackMs);
+  };
+
+  // 誤答の時間ペナルティ（「−4秒」をタイマーの下に短く表示し、残り時間をすぐ更新）
+  RankPlay.prototype.penalty = function (ms) {
+    const el = this.ref('penalty');
+    el.textContent = '−' + fmtSec(ms) + '秒';
+    el.className = 'rank-penalty';
+    void el.offsetWidth;
+    el.className = 'rank-penalty show';
+    this.update();
   };
 
   RankPlay.prototype.pop = function (text) {

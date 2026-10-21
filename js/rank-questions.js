@@ -1,5 +1,6 @@
 /*
  * rank-questions.js — 段位認定のミニ問題を、既存の問題データ（PH.problems）から生成する（DOMに依存しない）
+ * どの問題も解答箇所は1つ（テンポを上げるため）。対応する頂点だけを問う問題は作らない（対応する辺・角・三角形は問う）。
  *
  * 正解はすべて evidence・congruence・triangles・finalStep から求め、問題文や正解を別に書き写さない。
  * 判定は geometry.js・validation.js の正規化（AB＝BA、左右の入れかえ、∠ABC＝∠CBA、一直線上の別名、頂点の対応）を使う。
@@ -86,11 +87,30 @@
 
   // ---- 各タイプの生成 ----------------------------------------------------------
 
-  // タイプA：理由に合う等しい辺・角を答える（「△…と△…において、共通な辺だから ＿＿」）
+  // 2つの三角形の辺・角のキー（三角形の部分かどうかの判定用）
+  function triangleParts(p) {
+    const out = {};
+    p.triangles.forEach(function (t) {
+      [[0, 1], [1, 2], [0, 2]].forEach(function (ij) { out[G().segKey(t[ij[0]] + t[ij[1]])] = true; });
+      [0, 1, 2].forEach(function (i) { out[key(p, '∠' + t[(i + 1) % 3] + t[i] + t[(i + 2) % 3])] = true; });
+    });
+    return out;
+  }
+
+  /*
+   * タイプA：理由に合う等しい辺・角を答える（「△…と△…において、対頂角より ＿＿」）
+   * 選択肢がなくても答えが1つに決まる問題だけを作る：その理由で言える、2つの三角形の辺・角どうしの等式が1つだけのとき。
+   * （仮定が2つある問題の「仮定より」や、錯角が2組ある問題の「錯角より」は作らない。
+   *   三角形の外の角どうし（例 p05 の ∠AOC＝∠BOD）は、「△ABOと△DCOにおいて」の答えにならないので数えない）
+   */
   function equationQuestion(p, ev) {
     const shown = { reason: ev.reason, text: reasonText(ev), specific: !!ev.proofReason };
-    // 同じ理由で言える根拠はどれも正解（仮定が2つあるときなど）
     const accepted = p.evidence.filter(function (e) { return PH.puzzleUtil.reasonAccepts(shown, e); });
+    const parts = triangleParts(p);
+    const extra = (p.extraTruths || []).filter(function (x) {
+      return x.reason === ev.reason && x.items.every(function (n) { return parts[key(p, n)]; });
+    });
+    if (accepted.length + extra.length !== 1) return null;
     const acceptedEq = accepted.map(function (e) { return eqKeyOf(p, e.items); });
     const rnd = seeded(p.id + ev.id + ':eq');
     const wrong = shuffle(((p.puzzle && p.puzzle.distractors) || {}).equations || [], rnd).filter(function (label) {
@@ -153,37 +173,21 @@
     };
   }
 
-  // タイプB（2〜3か所）：複数の等式の理由をまとめて答える（すべて正しければ1問正解）
-  function reasonMultiQuestion(p, n) {
-    const evs = p.evidence.slice(0, n);
-    const blanks = evs.map(function (ev) { return choiceBlank(ev.label + ' の理由', reasonText(ev), wrongReasons(p, ev, 2)); });
-    if (blanks.some(function (b) { return b.choices.length < 3; })) return null;
-    return {
-      id: p.id + '-rs' + n, sourceId: p.id, category: 'reason', type: 'reasonMulti', typeLabel: '等しい理由（' + n + 'か所）',
-      difficulty: n === 2 ? 2 : 3, blanks: n, figure: p.id, highlight: [],
-      lines: givenLines(p),
-      ask: 'それぞれの等式が等しい理由は？',
-      choice: { blanks: blanks }, input: null,
-      answerText: evs.map(function (ev) { return ev.label + '：' + reasonText(ev); }).join('／'),
-      explain: evs.map(function (ev) { return REASON_EXPLAIN[ev.reason]; }).filter(function (t, i, a) { return a.indexOf(t) === i; }).join(' '),
-      signature: PH.congruenceText(p) + '|reason' + n + '|' + evs.map(function (e) { return e.label; }).join(','),
-    };
-  }
-
-  // タイプC：3つの根拠から合同条件を答える
+  // タイプC：図と仮定・結論（合同）から、使える合同条件を答える（根拠は自分で見つける）
   function conditionQuestion(p) {
     const cond = V().deriveCondition(p, p.evidence);
     const order = PH.CONDITION_ORDER.slice();
     const wrong = order.filter(function (c) { return c !== cond; }).map(function (c) { return PH.CONDITIONS[c].label; });
+    const cong = PH.congruenceText(p);
     return {
       id: p.id + '-cond', sourceId: p.id, category: 'cond', type: 'condition', typeLabel: '合同条件',
-      difficulty: 2, blanks: 1, figure: null, highlight: [],
-      lines: [triText(p) + 'において'].concat(p.evidence.map(function (ev) { return ev.label; })),
-      ask: 'これらから使える合同条件は？',
+      difficulty: 2, blanks: 1, figure: p.id, highlight: [],
+      lines: ['仮定：' + p.given.join('、'), '結論：' + cong],
+      ask: cong + ' を証明するとき、使える合同条件は？',
       choice: { blanks: [choiceBlank('合同条件', PH.CONDITIONS[cond].label, wrong)] }, input: null,
       answerText: PH.CONDITIONS[cond].label,
-      explain: lastHint(p, 'congruence'),
-      signature: PH.congruenceText(p) + '|cond|' + p.evidence.map(function (e) { return e.label; }).join(','),
+      explain: p.evidence.map(function (ev) { return ev.label; }).join('、') + ' から。' + lastHint(p, 'congruence'),
+      signature: cong + '|cond|' + p.given.join(','),
     };
   }
 
@@ -192,35 +196,6 @@
     const out = [];
     const t1 = p.triangles[0], t2 = p.triangles[1];
     const cong = PH.congruenceText(p);
-    const vxExplain = '合同の式 ' + cong + ' では、同じ位置にある頂点どうしが対応します。';
-    // タイプD：対応する頂点（両方向）
-    [[t1, t2], [t2, t1]].forEach(function (pair, dir) {
-      pair[0].forEach(function (v, i) {
-        const others = pair[1].filter(function (w) { return w !== pair[1][i]; });
-        out.push({
-          id: p.id + '-vx' + dir + i, sourceId: p.id, category: 'corr', type: 'vertex', typeLabel: '対応する頂点',
-          difficulty: 1, blanks: 1, figure: null, highlight: [],
-          lines: [cong + ' のとき'], ask: '頂点 ' + v + ' に対応する頂点は？',
-          choice: { blanks: [choiceBlank('頂点', pair[1][i], others)] }, input: null,
-          answerText: pair[1][i], explain: vxExplain,
-          signature: cong + '|vx|' + dir + i,
-        });
-      });
-    });
-    // タイプD（2〜3か所）：対応する頂点をまとめて答える
-    [2, 3].forEach(function (n) {
-      const blanks = t1.slice(0, n).map(function (v, i) {
-        return choiceBlank(v + ' に対応する頂点', t2[i], t2.filter(function (w) { return w !== t2[i]; }));
-      });
-      out.push({
-        id: p.id + '-vxm' + n, sourceId: p.id, category: 'corr', type: 'vertexMulti', typeLabel: '対応する頂点（' + n + 'か所）',
-        difficulty: n === 2 ? 2 : 3, blanks: n, figure: null, highlight: [],
-        lines: [cong + ' のとき'], ask: 'それぞれに対応する頂点は？',
-        choice: { blanks: blanks }, input: null,
-        answerText: t1.slice(0, n).map(function (v, i) { return v + '↔' + t2[i]; }).join('、'), explain: vxExplain,
-        signature: cong + '|vxm' + n,
-      });
-    });
     // タイプE：合同から等しい辺・角を答える（「△ABC≡△DEF より、AC＝＿＿」）
     const parts = [];
     [[0, 1], [1, 2], [0, 2]].forEach(function (ij) {
@@ -329,8 +304,6 @@
         add(equationQuestion(p, ev));
         add(reasonQuestion(p, ev));
       });
-      add(reasonMultiQuestion(p, 2));
-      add(reasonMultiQuestion(p, 3));
       add(conditionQuestion(p));
       congruenceQuestions(p).forEach(add);
       if (PH.hasFinalStep(p)) {
