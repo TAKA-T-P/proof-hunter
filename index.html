@@ -35,6 +35,14 @@
             <span class="mode-ico" aria-hidden="true">🧩</span>
             <span class="mode-text"><span class="mode-name">証明パズルモード</span><span class="mode-desc">カードを組み合わせて、証明文を完成させよう！</span></span>
           </button>
+          <button class="mode-card mode-rank" data-go="#/rank">
+            <span class="mode-ico" aria-hidden="true">⏱️</span>
+            <span class="mode-text">
+              <span class="mode-name">段位認定モード<span class="mode-new">NEW</span></span>
+              <span class="mode-desc">120秒で何問解ける？ 目指せ皆伝！</span>
+              <span class="mode-rank-line"><span class="mode-rank-tag">120秒チャレンジ</span><span class="mode-rank-best">👑 最高段位：<b id="title-rank-best">未認定</b></span></span>
+            </span>
+          </button>
         </div>
         <div class="title-buttons">
           <button class="btn btn-gold btn-big" id="btn-continue" hidden>つづきから<span class="cont-sub"></span></button>
@@ -42,7 +50,7 @@
         </div>
         <button class="btn btn-small btn-ghost" data-sound-toggle aria-pressed="true">🔊 効果音 ON</button>
       </div>
-      <footer class="version">Ver.0.5</footer>
+      <footer class="version">Ver.0.6</footer>
     </section>
 
     <!-- ステージ選択・ステージの問題一覧・苦手な問題（js/app.js が中身を作る） -->
@@ -65,6 +73,7 @@
         <div class="howto-tabs" role="group" aria-label="モード">
           <button class="howto-tab" data-howto-tab="hunter" data-go="#/howto" aria-pressed="true">🔍 ハンター</button>
           <button class="howto-tab" data-howto-tab="puzzle" data-go="#/howto/puzzle" aria-pressed="false">🧩 証明パズル</button>
+          <button class="howto-tab" data-howto-tab="rank" data-go="#/howto/rank" aria-pressed="false">⏱️ 段位認定</button>
         </div>
         <div class="howto-art" id="howto-art" aria-hidden="true"></div>
         <h2 class="howto-title" id="howto-title"></h2>
@@ -82,6 +91,9 @@
 
     <!-- 証明パズルのプレイ画面（js/puzzle-renderer.js が中身を作る） -->
     <section id="screen-puzzle" class="screen screen-play screen-puzzle" hidden></section>
+
+    <!-- 段位認定（js/rank-renderer.js が中身を作る） -->
+    <section id="screen-rank" class="screen screen-rank" hidden></section>
   </main>
 
   <!-- ヒント（図形を隠さない下部ポップアップ） -->
@@ -123,6 +135,10 @@
   <script src="js/math-keypad.js"></script>
   <script src="js/puzzle.js"></script>
   <script src="js/puzzle-renderer.js"></script>
+  <script src="js/rank-config.js"></script>
+  <script src="js/rank-questions.js"></script>
+  <script src="js/rank-game.js"></script>
+  <script src="js/rank-renderer.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

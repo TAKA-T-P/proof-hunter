@@ -5,6 +5,7 @@
  *   PH.mathKeypad.create(letters, opts)  … letters はその問題の図にある頂点記号だけ
  *     opts.kinds      入力できる種類（省略時 ['seg', 'ang']。三角形の入力欄は ['tri']。種類が1つなら最初から選ばれている）
  *     opts.isTriangle 三角形の入力で、3点が図の上の三角形かを確かめる関数（図にない三角形は決定できない）
+ *     opts.fixedLeft  左辺を固定して右辺だけ入力する（'AC' や '∠ABC'。段位認定の「AC＝＿＿」）。左辺は消せない
  *     .setKind('seg' | 'ang' | 'tri')  辺の等式（□□＝□□）／角の等式（∠□□□＝∠□□□）／三角形（△□□□と△□□□）。切りかえると入力はリセット
  *     .press('A')                   頂点記号を1文字（同じ辺・角・三角形の中で同じ文字は使えない）
  *                                   左辺（1つ目の三角形）を入力しおわると、そのまま右辺へ進む（＝・∠・△ は表示ずみなので押さなくてよい）
@@ -36,9 +37,19 @@
     this.left = [];
     this.right = [];
     this.eq = false;
+    // 左辺を固定して右辺だけ入力する（段位認定の「AC＝＿＿」など）。opts.fixedLeft = 'AC' / '∠ABC'
+    this.locked = null;
+    if (o.fixedLeft) {
+      const s = String(o.fixedLeft).replace(/[∠\s]/g, '');
+      this.kind = /^\s*∠/.test(o.fixedLeft) ? 'ang' : 'seg';
+      this.kinds = [this.kind];
+      this.locked = s.split('');
+      this.clear();
+    }
   }
 
   Keypad.prototype.setKind = function (kind) {
+    if (this.locked) return false;
     if (!SIZE[kind] || this.kinds.indexOf(kind) < 0) return false;
     this.kind = kind;
     this.clear();
@@ -46,9 +57,9 @@
   };
 
   Keypad.prototype.clear = function () {
-    this.left = [];
+    this.left = this.locked ? this.locked.slice() : [];
     this.right = [];
-    this.eq = false;
+    this.eq = !!this.locked;
   };
 
   // いま入力しているのは左辺か右辺か
@@ -84,12 +95,14 @@
   // 1文字削除。右辺が空なら＝をまたいで、左辺の最後の文字を消す
   Keypad.prototype.backspace = function () {
     if (this.right.length) this.right.pop();
+    else if (this.locked) return false;                // 固定した左辺は消さない
     else if (this.left.length) { this.eq = false; this.left.pop(); }
     else return false;
     return true;
   };
 
   Keypad.prototype.isEmpty = function () {
+    if (this.locked) return !this.right.length;
     return !this.left.length && !this.eq;
   };
 

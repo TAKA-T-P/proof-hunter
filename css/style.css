@@ -984,3 +984,148 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .pz-cards.kind-freason .pz-card { text-align: left; font-size: .9rem; }
 .pz-cards.kind-tri2 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .kp-warn { margin: 0; padding: 2px 8px; border-radius: 8px; background: var(--red-soft); color: #991b1b; font-size: .82rem; font-weight: 700; text-align: center; }
+
+/* ==== Ver.0.6：段位認定モード ======================================================= */
+:root { --gold-deep: #b45309; --gold-soft: #fffbeb; }
+
+/* タイトルのモードカード（ゴールド系） */
+.mode-card.mode-rank { border-color: #fcd34d; background: linear-gradient(135deg, #fffbeb, #fef3c7); color: var(--gold-deep); }
+.mode-rank .mode-ico { background: #fde68a; }
+.mode-new { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 6px; background: var(--red); color: #fff; font-size: .62rem; vertical-align: middle; letter-spacing: .04em; }
+.mode-rank-line { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; font-size: .74rem; font-weight: 800; }
+.mode-rank-tag { padding: 0 6px; border-radius: 99px; background: var(--gold-deep); color: #fff; }
+.mode-rank-best { color: #78350f; }
+
+/* 段位認定の画面（トップ・結果・一覧・振り返り） */
+body[data-screen="rank"], body[data-screen="rank-play"] { background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 60%, #fde68a 100%); }
+.rank-header { background: linear-gradient(90deg, #92400e, #b45309); }
+.rank-top, .rank-result, .rank-grades, .rank-review { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.rank-hero { padding: 16px; text-align: center; display: flex; flex-direction: column; gap: 8px; border-color: #fcd34d; }
+.rank-hero-ico { font-size: 2.6rem; line-height: 1; }
+.rank-hero-tag { margin: 0; align-self: center; padding: 0 12px; border-radius: 99px; background: var(--gold-deep); color: #fff; font-weight: 900; }
+.rank-hero-lead { margin: 0; font-size: 1.1rem; font-weight: 900; color: #78350f; }
+.rank-best { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.rank-best-item { display: flex; flex-direction: column; padding: 6px 4px; border-radius: 10px; background: var(--gold-soft); border: 1px solid #fde68a; }
+.rank-best-item span { font-size: .72rem; color: var(--muted); font-weight: 700; }
+.rank-best-item b { font-size: 1.15rem; color: #78350f; }
+.rank-top-links { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.rank-top-links .btn { flex: 1 1 8em; }
+.rank-rules { padding: 10px 16px; }
+.rank-rules h2 { margin: 0 0 4px; font-size: 1rem; color: #78350f; }
+.rank-rules ul { margin: 0; padding-left: 1.2em; line-height: 1.6; font-size: .9rem; }
+
+/* 段位一覧 */
+.rank-now { padding: 10px 14px; }
+.rank-now p { margin: 2px 0; }
+.rank-next { color: #78350f; font-weight: 700; }
+.rank-need { color: var(--red); }
+.grade-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.grade-item { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 12px; background: #fff; border: 1px solid var(--line); color: #94a3b8; }
+.grade-name { font-weight: 900; font-size: 1.05rem; }
+.grade-min { font-size: .8rem; }
+.grade-ico { text-align: center; font-size: 1.2rem; }
+.grade-item.is-got { color: var(--ink); border-color: #fcd34d; background: var(--gold-soft); }
+.grade-item.is-got.tier-gold, .grade-item.is-got.tier-crown { background: linear-gradient(90deg, #fef3c7, #fde68a); }
+.grade-item.is-best { box-shadow: 0 0 0 3px var(--gold); }
+
+/* 結果 */
+.rank-cert { position: relative; overflow: hidden; padding: 14px 16px; text-align: center; border: 3px solid #fcd34d; }
+.rank-cert-label { margin: 0; font-weight: 800; color: var(--muted); }
+.rank-cert-ico { font-size: 2.8rem; line-height: 1.1; }
+.rank-cert-name { margin: 0; font-size: clamp(2.6rem, 14vw, 3.6rem); font-weight: 900; color: #78350f; line-height: 1.15; }
+.rank-cert.tier-medal .rank-cert-name { color: var(--gold-deep); }
+.rank-cert.tier-gold { background: linear-gradient(160deg, #fffbeb, #fde68a); }
+.rank-cert.tier-gold .rank-cert-name { color: #92400e; text-shadow: 0 2px 0 #fff; }
+.rank-cert.tier-crown { background: linear-gradient(160deg, #fef3c7, #fbbf24); }
+.rank-cert.tier-crown .rank-cert-name { color: #7c2d12; text-shadow: 0 0 14px #fff, 0 2px 0 #fff; }
+.rank-cert.is-fresh .rank-cert-ico, .rank-cert.is-fresh .rank-cert-name { animation: cert-in .5s ease-out both; }
+.rank-cert.is-fresh .rank-cert-name { animation-delay: .1s; }
+@keyframes cert-in { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.rank-newrec { margin: 2px 0; font-weight: 900; color: var(--red); letter-spacing: .08em; }
+.rank-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 8px 0 4px; }
+.rank-stats div { padding: 4px; border-radius: 10px; background: rgba(255,255,255,.75); }
+.rank-stats dt { font-size: .75rem; color: var(--muted); font-weight: 700; }
+.rank-stats dd { margin: 0; font-size: 1.25rem; font-weight: 900; color: var(--ink); }
+.rank-stats small { font-size: .7rem; font-weight: 700; color: var(--muted); }
+.rank-result-actions { display: flex; flex-direction: column; gap: 8px; }
+
+/* 振り返り */
+.rank-review-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.rank-review-item { padding: 8px 12px; }
+.rr-head { margin: 0 0 4px; font-weight: 900; color: #78350f; }
+.rr-pass { margin-left: 6px; padding: 0 6px; border-radius: 6px; background: #e2e8f0; color: var(--muted); font-size: .72rem; }
+.rr-body { display: flex; gap: 10px; align-items: flex-start; }
+.rr-fig { flex: none; width: 110px; height: 96px; }
+.rr-text p { margin: 2px 0; font-size: .9rem; }
+.rr-you b { color: var(--red); }
+.rr-ans b { color: var(--green); }
+.rr-exp { color: var(--muted); }
+.rr-link a { font-weight: 800; color: var(--blue); }
+
+/* プレイ画面 */
+.rank-play { position: relative; max-width: 860px; margin: 0 auto; }
+.rank-bar {
+  display: flex; align-items: center; gap: 8px; margin: -12px -16px 8px; padding: 4px 10px;
+  background: linear-gradient(90deg, #92400e, #b45309); color: #fff; position: sticky; top: 0; z-index: 20;
+}
+.rank-timer { min-width: 3.4em; padding: 0 10px; border-radius: 12px; background: rgba(0,0,0,.18); font-size: 1.9rem; font-weight: 900; font-variant-numeric: tabular-nums; text-align: center; transition: background .3s, color .3s; }
+.rank-timer.is-warn { background: #f97316; }
+.rank-timer.is-danger { background: var(--red); }
+.rank-score { flex: 1; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 10px; font-size: .78rem; font-weight: 700; }
+.rank-score b { font-size: 1.05rem; }
+.rank-pop { position: absolute; top: 52px; right: 8px; z-index: 25; padding: 2px 12px; border-radius: 99px; background: var(--gold); color: #3b2a00; font-weight: 900; opacity: 0; pointer-events: none; }
+.rank-pop.show { animation: pop-fade 1s ease-out; }
+@keyframes pop-fade { 0% { opacity: 0; transform: translateY(6px) scale(.9); } 15% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; } }
+.rank-zone { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); z-index: 25; padding: 2px 16px; border-radius: 10px; background: #7c2d12; color: #fde68a; font-weight: 900; letter-spacing: .06em; white-space: nowrap; pointer-events: none; }
+.rank-zone.show { animation: zone-fade 1.3s ease-out; }
+@keyframes zone-fade { 0% { opacity: 0; } 15% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
+.rank-count { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; font-size: 5rem; font-weight: 900; color: #92400e; background: rgba(255,251,235,.75); pointer-events: none; }
+.rank-count.show { display: grid; animation: count-in .5s ease-out; }
+.rank-count.is-start { color: var(--red); font-size: 3.6rem; }
+.rank-count.is-up { color: var(--red); font-size: 3.2rem; }
+@keyframes count-in { from { transform: scale(1.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.rank-q { position: relative; display: flex; flex-direction: column; gap: 8px; }
+.rq-figwrap { background: #fff; border-radius: var(--radius); border: 1px solid var(--line); padding: 4px; }
+.rq-fig { display: block; width: 100%; height: min(30vh, 220px); }
+.rq-main { display: flex; flex-direction: column; gap: 8px; }
+.rq-text { background: #fff; border-radius: var(--radius); border: 1px solid var(--line); padding: 8px 12px; }
+.rq-type { margin: 0; font-size: .74rem; font-weight: 800; color: var(--gold-deep); }
+.rq-line { margin: 0; font-weight: 700; }
+.rq-ask { margin: 2px 0 0; font-size: 1.12rem; font-weight: 900; color: var(--navy); }
+.rq-blank { display: flex; flex-direction: column; gap: 4px; }
+.rq-blank + .rq-blank { margin-top: 6px; }
+.rq-blabel { margin: 0; font-size: .82rem; font-weight: 800; color: #78350f; }
+.rq-choices { display: grid; gap: 8px; }
+.rq-choice {
+  min-height: 52px; padding: 4px 12px; border-radius: 14px; border: 2px solid #fcd34d; background: #fff;
+  font-size: 1.1rem; font-weight: 900; color: var(--ink); text-align: center; line-height: 1.3;
+}
+.rq-choice:active { transform: scale(.98); }
+.rq-choice.is-on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.rq-decide { width: 100%; min-height: 46px; margin-top: 8px; font-size: 1.1rem; }
+.rq-foot { display: flex; justify-content: flex-end; }
+.rq-pass { min-height: 34px; color: var(--muted); }
+.rq-keypad { display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: var(--radius); background: #fff; border: 1px solid var(--line); }
+.rq-keypad .kp-display { font-size: 1.4rem; }
+.rq-keypad .kp-key, .rq-keypad .kp-op, .rq-keypad .kp-decide { min-height: 40px; }
+.rq-mark { position: absolute; inset: 0; display: none; place-items: center; font-size: 6rem; font-weight: 900; pointer-events: none; }
+.rq-mark.show { display: grid; animation: count-in .2s ease-out; }
+.rq-mark.is-ok { color: rgba(5, 150, 105, .85); }
+.rq-mark.is-ng { color: rgba(220, 38, 38, .85); }
+
+@media (min-width: 900px) {
+  .rank-q.has-fig { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .rq-fig { height: 320px; }
+  .rq-choices { gap: 10px; }
+}
+@media (max-width: 899px) {
+  .rank-score { font-size: .7rem; }
+  .rank-timer { font-size: 1.6rem; }
+  .rq-fig { height: min(26vh, 200px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rank-pop.show, .rank-zone.show { animation: none; opacity: 1; }
+  .rank-count.show, .rq-mark.show, .rank-cert.is-fresh .rank-cert-ico, .rank-cert.is-fresh .rank-cert-name { animation: none; }
+  .rank-timer { transition: none; }
+}

@@ -14,7 +14,16 @@
  *     },
  *     puzzleLevel: 'easy' | 'standard' | 'challenge',   // 選んでいる解答レベル（初期値 easy）
  *     puzzleMigrated: true,                    // Ver.0.3 の記録を移行ずみ（二重に移行しない）
- *     lastProblemId, lastPuzzleProblemId, lastMode: 'hunter' | 'puzzle', sound
+ *     lastProblemId, lastPuzzleProblemId, lastMode: 'hunter' | 'puzzle', sound,
+ *     rankCertification: {                     // Ver.0.6〜：段位認定（ハンター・パズルの記録とは独立）
+ *       criteriaVersion,                       // いまの最高記録の認定基準のバージョン
+ *       best: { rank, rankName, effectiveScore, correct, maxCombo, at },   // 同じ基準での最高記録（認定時の段位名を保存）
+ *       bestCorrect, bestEffectiveScore, bestCombo,
+ *       playCount,                             // 挑戦回数（最後まで終えた回数）
+ *       lastResult: { correct, misses, passes, effectiveScore, rank, rankName, maxCombo, criteriaVersion, completedAt },
+ *       lastReview: [ ... ],                   // 直近1回分の誤答・パス（振り返り用。上限あり）
+ *       previous: [ { criteriaVersion, best } ],   // 基準が変わる前の最高記録（比べずに残す。最大3件）
+ *     }
  *   }
  *   記録はモードごと・解答レベルごとに別々。古いデータに無い項目は空として読み、過去のプレイ内容は推測で補わない。
  *   関数の mode 引数は 'hunter'（省略時）、'puzzle:easy' / 'puzzle:standard' / 'puzzle:challenge'、
@@ -25,7 +34,7 @@
   const PH = root.PH = root.PH || {};
   const KEY = 'proofHunter.v1';
 
-  const VERSION = 4;
+  const VERSION = 5;
   const LEVELS = ['easy', 'standard', 'challenge'];
 
   /*
@@ -44,7 +53,38 @@
     return {
       version: VERSION, problems: {}, puzzleProblems: {}, puzzleLevels: blankLevels(), puzzleLevel: 'easy',
       puzzleMigrated: false, lastProblemId: null, lastPuzzleProblemId: null, lastMode: null, sound: true,
+      rankCertification: blankRank(),
     };
+  }
+
+  function blankRank() {
+    return {
+      criteriaVersion: null, best: null, bestCorrect: 0, bestEffectiveScore: 0, bestCombo: 0,
+      playCount: 0, lastResult: null, lastReview: [], previous: [],
+    };
+  }
+
+  function num(v, def) { return typeof v === 'number' && isFinite(v) && v >= 0 ? v : def; }
+
+  // 段位認定の記録を安全な値にそろえる（壊れた値は初期値）
+  function cleanRank(r) {
+    const out = blankRank();
+    if (!isObj(r)) return out;
+    out.criteriaVersion = typeof r.criteriaVersion === 'number' ? r.criteriaVersion : null;
+    if (isObj(r.best) && typeof r.best.rank === 'number') {
+      out.best = {
+        rank: r.best.rank, rankName: String(r.best.rankName || ''), effectiveScore: num(r.best.effectiveScore, 0),
+        correct: num(r.best.correct, 0), maxCombo: num(r.best.maxCombo, 0), at: typeof r.best.at === 'string' ? r.best.at : null,
+      };
+    }
+    out.bestCorrect = num(r.bestCorrect, 0);
+    out.bestEffectiveScore = num(r.bestEffectiveScore, 0);
+    out.bestCombo = num(r.bestCombo, 0);
+    out.playCount = Math.floor(num(r.playCount, 0));
+    out.lastResult = isObj(r.lastResult) ? r.lastResult : null;
+    out.lastReview = Array.isArray(r.lastReview) ? r.lastReview.filter(isObj) : [];
+    out.previous = Array.isArray(r.previous) ? r.previous.filter(isObj).slice(0, 3) : [];
+    return out;
   }
 
   function isObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
@@ -103,6 +143,7 @@
           data.lastPuzzleProblemId = typeof parsed.lastPuzzleProblemId === 'string' ? parsed.lastPuzzleProblemId : null;
           data.lastMode = parsed.lastMode === 'puzzle' || parsed.lastMode === 'hunter' ? parsed.lastMode : null;
           data.sound = parsed.sound !== false;
+          data.rankCertification = cleanRank(parsed.rankCertification);
           data.version = VERSION;
         }
       }
@@ -230,6 +271,54 @@
       LEVELS.some(function (lv) { return Object.keys(d.puzzleLevels[lv]).length > 0; });
   }
 
+  // ---- 段位認定（Ver.0.6） ------------------------------------------------------
+
+  function getRank() { return load().rankCertification; }
+
+  /*
+   * 段位認定の結果を記録する（最後まで終えた挑戦だけ。途中終了は記録しない）。
+   *   最高記録は同じ認定基準（criteriaVersion）の中で比べる。基準が変わっていたら、それまでの最高記録は previous に移して残す。
+   *   最高段位は下がらない。認定時の段位名を保存するので、あとで基準を変えても過去の認定は変わらない。
+   *   戻り値 { newRecord（最高段位を更新）, bestScore（有効正解数を更新）, ... }
+   */
+  function recordRank(result) {
+    const d = load();
+    const r = d.rankCertification;
+    const ver = result.criteriaVersion;
+    if (r.criteriaVersion !== null && r.criteriaVersion !== ver && r.best) {
+      r.previous.unshift({ criteriaVersion: r.criteriaVersion, best: r.best });
+      r.previous = r.previous.slice(0, 3);
+      r.best = null; r.bestCorrect = 0; r.bestEffectiveScore = 0; r.bestCombo = 0;
+    }
+    r.criteriaVersion = ver;
+    const at = new Date().toISOString();
+    const prevBest = r.best;
+    const newRecord = !prevBest || result.rank > prevBest.rank ||
+      (result.rank === prevBest.rank && result.effectiveScore > prevBest.effectiveScore);
+    if (newRecord) {
+      r.best = { rank: result.rank, rankName: result.rankName, effectiveScore: result.effectiveScore,
+        correct: result.correct, maxCombo: result.maxCombo, at: at };
+    }
+    const out = {
+      newRecord: newRecord && !!prevBest,          // 初めての挑戦は「自己ベスト更新」とは言わない
+      firstTime: !prevBest,
+      bestCorrect: result.correct > r.bestCorrect,
+      bestCombo: result.maxCombo > r.bestCombo,
+    };
+    r.bestCorrect = Math.max(r.bestCorrect, result.correct);
+    r.bestEffectiveScore = Math.max(r.bestEffectiveScore, result.effectiveScore);
+    r.bestCombo = Math.max(r.bestCombo, result.maxCombo);
+    r.playCount++;
+    r.lastResult = {
+      correct: result.correct, misses: result.misses, passes: result.passes, answered: result.answered,
+      effectiveScore: result.effectiveScore, rank: result.rank, rankName: result.rankName, maxCombo: result.maxCombo,
+      criteriaVersion: ver, completedAt: at, newRecord: out.newRecord,
+    };
+    r.lastReview = (result.wrongs || []).slice(0, 40);
+    save();
+    return out;
+  }
+
   function getSound() { return load().sound !== false; }
   function setSound(on) { load().sound = !!on; save(); }
 
@@ -252,6 +341,8 @@
     hasHistory: hasHistory,
     getSound: getSound,
     setSound: setSound,
+    getRank: getRank,
+    recordRank: recordRank,
     _reset: _reset,
   };
 

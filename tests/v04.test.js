@@ -413,7 +413,7 @@ test('Ver.0.3 の記録を移行：穴埋め→おてがる、組み立て→ス
     assert.deepEqual(PH.storage.getLastPlay(), { mode: 'puzzle', id: 'p08' });
     PH.storage.setPuzzleLevel('challenge');
     const saved = JSON.parse(mem[PH.storage.KEY]);
-    assert.equal(saved.version, 4);
+    assert.ok(saved.version >= 4);
     assert.equal(saved.puzzleMigrated, true);
     assert.equal(saved.puzzleProblems.p01.bestStars, 2);                              // 旧データは消さない
     assert.equal(saved.puzzleLevels.easy.p01.bestStars, 2);

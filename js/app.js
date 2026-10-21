@@ -11,7 +11,10 @@
  *   #/puzzle/stage/<n>       証明パズル：ステージの問題一覧
  *   #/puzzle/review          証明パズル：苦手な問題
  *   #/puzzle/play/<id>       証明パズル：プレイ
- *   #/howto  #/howto/puzzle  あそびかた（ハンター／パズル）
+ *   #/howto  #/howto/puzzle  #/howto/rank  あそびかた（ハンター／パズル／段位認定）
+ *   #/rank                   段位認定：トップ（Ver.0.6）
+ *   #/rank/play              段位認定：プレイ（「チャレンジ開始」から来たときだけ始まる）
+ *   #/rank/result  #/rank/review  #/rank/grades   結果・間違えた問題・段位一覧
  * 記録・評価はモードごとに別々。証明パズルは、さらに解答レベル（おてがる／スタンダード／チャレンジ）ごとに別々
  * （storage.js の mode 引数：'hunter' / 'puzzle:<レベル>'）。
  */
@@ -45,7 +48,7 @@
     },
   };
 
-  const SCREENS = ['title', 'select', 'howto', 'play', 'puzzle'];
+  const SCREENS = ['title', 'select', 'howto', 'play', 'puzzle', 'rank'];
 
   // 記録の種類：ハンターはそのまま、パズルは選んでいる解答レベルの記録
   function recMode(mode) {
@@ -78,6 +81,7 @@
       cont.querySelector('.cont-sub').textContent =
         (last.mode === 'puzzle' ? '証明パズル（' + currentLevel().label + '）' : 'ハンター') + '・問題' + problem.number;
     }
+    $('#title-rank-best').textContent = PH.rankView.bestName();
     renderSoundButtons();
   }
 
@@ -268,6 +272,28 @@
         art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="104" rx="8" class="h-paper"/><line x1="45" y1="30" x2="150" y2="30" class="h-rule"/><line x1="45" y1="48" x2="135" y2="48" class="h-rule"/><line x1="45" y1="66" x2="145" y2="66" class="h-rule"/><text x="100" y="98" class="h-star">★★★</text></svg>',
       },
     ],
+    rank: [
+      {
+        title: '120秒で何問解ける？',
+        text: '段位認定は、証明の知識をすばやく使うゲーム！ 制限時間120秒の中で、ミニ問題を次々に解こう。一時停止はできないよ。',
+        art: '<svg viewBox="0 0 200 120"><circle cx="100" cy="58" r="42" class="h-paper"/><line x1="100" y1="58" x2="100" y2="28" class="h-rule"/><line x1="100" y1="58" x2="122" y2="70" class="h-rule"/><text x="100" y="114" class="h-btxt">120秒チャレンジ</text></svg>',
+      },
+      {
+        title: '1〜10問目は選択式',
+        text: '「セレクトゾーン」は選択肢をタップするだけ。解答箇所が2〜3か所の問題は、全部選んでから「決定」！ 全部正しければ1問正解だよ。',
+        art: '<svg viewBox="0 0 200 120"><rect x="20" y="10" width="160" height="28" rx="8" class="h-btn h-on"/><text x="100" y="29" class="h-btxt">対頂角は等しいから</text><rect x="20" y="46" width="160" height="28" rx="8" class="h-btn"/><text x="100" y="65" class="h-btxt">仮定より</text><rect x="20" y="82" width="160" height="28" rx="8" class="h-btn"/><text x="100" y="101" class="h-btxt">共通な辺だから</text></svg>',
+      },
+      {
+        title: '11問目からはチャレンジゾーン',
+        text: '等しい辺・角や三角形を、キーパッドで入力する問題が出てくるよ。「AC＝＿＿」なら D → F → 決定。わからないときは「パス」（ミス1回）。',
+        art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="28" rx="8" class="h-paper"/><text x="100" y="28" class="h-kp-disp">AC＝D＿</text><rect x="20" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="37" y="64" class="h-btxt">D</text><rect x="62" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="79" y="64" class="h-btxt">E</text><rect x="104" y="46" width="34" height="26" rx="6" class="h-btn h-on"/><text x="121" y="64" class="h-btxt">F</text><rect x="112" y="80" width="68" height="26" rx="6" class="h-btn h-on h-confirm"/><text x="146" y="98" class="h-btxt">決定</text></svg>',
+      },
+      {
+        title: '段位を認定！',
+        text: 'まちがい・パスはミス1回。有効正解数（正解数 − ミス数 × 0.5）で、10級〜皆伝の21段階の段位が決まるよ。終わったら、まちがえた問題を確認しよう！',
+        art: '<svg viewBox="0 0 200 120"><circle cx="100" cy="55" r="34" class="h-paper"/><text x="100" y="66" class="h-star">皆伝</text><text x="100" y="112" class="h-btxt">10級 → 初段 → 皆伝</text></svg>',
+      },
+    ],
   };
   let howtoMode = 'hunter';
   let howtoPage = 0;
@@ -321,6 +347,7 @@
     const name = parts[0];
     PH.play.unmount();
     PH.puzzleView.unmount();
+    PH.rankView.unmount();      // プレイ中にほかの画面へ移ったら、その挑戦は記録しない
     doc.title = '証明ハンター';
 
     if (name === 'select') {
@@ -332,8 +359,10 @@
     } else if (name === 'review') {
       renderReview(mode);
       show('select');
+    } else if (name === 'rank' && mode === 'hunter') {
+      routeRank(parts[1]);
     } else if (name === 'howto' && mode === 'hunter') {
-      howtoMode = parts[1] === 'puzzle' ? 'puzzle' : 'hunter';
+      howtoMode = parts[1] === 'puzzle' || parts[1] === 'rank' ? parts[1] : 'hunter';
       howtoPage = 0;
       renderHowto();
       show('howto');
@@ -354,12 +383,39 @@
     }
   }
 
+  // 段位認定の画面
+  function routeRank(sub) {
+    const el = doc.getElementById('screen-rank');
+    doc.title = '段位認定｜証明ハンター';
+    if (sub === 'play') {
+      show('rank');
+      const ok = PH.rankView.mountPlay(el, {
+        home: function () { go('#/'); },
+        result: function () { go('#/rank/result'); },
+      });
+      if (!ok) { go('#/rank'); return; }       // 再読み込み・直接のURLでは挑戦を再開しない
+      doc.body.setAttribute('data-screen', 'rank-play');
+      return;
+    }
+    if (sub === 'grades') PH.rankView.renderGrades(el);
+    else if (sub === 'result') PH.rankView.renderResult(el);
+    else if (sub === 'review') PH.rankView.renderReview(el);
+    else PH.rankView.renderTop(el);
+    show('rank');
+  }
+
   function init() {
     PH.sound.setEnabled(PH.storage.getSound());
 
     doc.addEventListener('click', function (e) {
-      const t = e.target.closest('[data-go],[data-level],[data-sound-toggle],#btn-continue,#howto-prev,#howto-next,#hint-close,#tri-close');
+      const t = e.target.closest('[data-go],[data-level],[data-sound-toggle],[data-act="rank-start"],#btn-continue,#howto-prev,#howto-next,#hint-close,#tri-close');
       if (!t) return;
+      if (t.getAttribute('data-act') === 'rank-start') {
+        PH.sound.play('tap');
+        PH.rankView.requestStart();
+        go('#/rank/play');
+        return;
+      }
       if (t.hasAttribute('data-level')) {
         if (PH.storage.setPuzzleLevel(t.getAttribute('data-level'))) {
           PH.sound.play('tap');
@@ -385,7 +441,7 @@
         if (howtoPage > 0) { howtoPage--; renderHowto(); }
       } else if (t.id === 'howto-next') {
         if (howtoPage < HOWTO[howtoMode].length - 1) { howtoPage++; renderHowto(); }
-        else go(MODES[howtoMode].select);
+        else go(howtoMode === 'rank' ? '#/rank' : MODES[howtoMode].select);
       } else if (t.id === 'hint-close') {
         PH.hints.hide(doc.getElementById('hint-popup'));
       } else if (t.id === 'tri-close') {
