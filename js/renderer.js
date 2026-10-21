@@ -6,7 +6,8 @@
  *   view.flash       : 一瞬光らせる要素キー
  *   view.autoMarks   : 根拠登録で自動表示する印 { key: 本数 | 'common' }
  *   view.userMarks   : 生徒がつけた印 { key: 本数 }
- *   view.triangles   : true なら対象の2つの三角形を色付け
+ *   view.triangles   : true なら対象の2つの三角形を色付け（'check' なら輪郭も強調：三角形を確認）
+ *   view.flashLines  : 一瞬光らせる線 [[点名, 点名], ...]（平行線の強調など）
  *   view.interactive : true ならタップ用の透明な操作領域を置く
  *   view.hit         : { seg, ang } どちらの操作領域を置くか（省略時は両方）
  *   view.angleGuide  : true なら選択できる角に薄い円弧を表示（角選択モード）
@@ -20,8 +21,6 @@
   const SEG_HIT_WIDTH = 40;     // 辺の操作領域の太さ（viewBox単位）の最小値
   const SEG_HIT_PX = 36;        // 図が縮小表示されても、画面上でこの太さ(px)は確保する
   const SEG_HIT_MAX = 64;
-  const ANGLE_HIT_MAX = 56;     // 角の操作領域の半径の上限（辺と同時に置くとき）
-  const ANGLE_ONLY_MAX = 92;    // 角だけを置くとき（角選択モード）は広くとる
   const SELECT_RADIUS = 34;
 
   function el(name, attrs, parent) {
@@ -35,15 +34,32 @@
     return el('line', Object.assign({ x1: a.x, y1: a.y, x2: b.x, y2: b.y }, attrs), parent);
   }
 
-  // 角の操作領域の半径。隣の頂点の角と重ならないよう、辺の長さの半分未満に抑える
-  function hitRadius(a, angleOnly) {
-    const v = G().vec;
-    const shortest = Math.min(v.dist(a.vertex, a.from), v.dist(a.vertex, a.to));
-    return angleOnly ? Math.min(ANGLE_ONLY_MAX, 0.48 * shortest) : Math.min(ANGLE_HIT_MAX, 0.45 * shortest);
+  // 図の中心から離れる向きの法線（途中に点がある長い辺の印を外側に描くため）
+  function outward(fig, p1, p2) {
+    const g = G();
+    const names = Object.keys(fig.points);
+    const c = names.reduce(function (acc, n) {
+      return { x: acc.x + fig.points[n].x / names.length, y: acc.y + fig.points[n].y / names.length };
+    }, { x: 0, y: 0 });
+    const nm = g.vec.normal(g.vec.sub(p2, p1));
+    const mid = g.vec.lerp(p1, p2, 0.5);
+    const toC = g.vec.sub(c, mid);
+    return nm.x * toC.x + nm.y * toC.y > 0 ? g.vec.mul(nm, -1) : nm;
   }
 
-  function drawMark(group, item, mark, cls) {
+  function drawMark(group, item, mark, cls, fig) {
     const g = G();
+    if (item.kind === 'seg' && item.composite && mark !== 'common') {
+      // 途中に点がある長い辺は、辺に沿わせた補助線（寸法線）の上に印をつける
+      const o = g.vec.mul(outward(fig, item.p1, item.p2), 16);
+      const a = g.vec.add(item.p1, o), b = g.vec.add(item.p2, o);
+      line(a, b, { class: 'mark-dim ' + cls }, group);
+      [item.p1, item.p2].forEach(function (p) {
+        line(g.vec.add(p, g.vec.mul(o, 0.6)), g.vec.add(p, g.vec.mul(o, 1.4)), { class: 'mark-dim ' + cls }, group);
+      });
+      g.tickLines(a, b, mark, 14, 6).forEach(function (t) { line(t.a, t.b, { class: 'mark-tick ' + cls }, group); });
+      return;
+    }
     if (item.kind === 'seg') {
       if (mark === 'common') {
         const mid = g.vec.lerp(item.p1, item.p2, 0.5);
@@ -55,7 +71,7 @@
         t.textContent = '共通';
         return;
       }
-      g.tickLines(item.p1, item.p2, mark, 16, 6).forEach(function (s) {
+      g.tickLines(item.h1, item.h2, mark, 16, 6).forEach(function (s) {
         line(s.a, s.b, { class: 'mark-tick ' + cls }, group);
       });
     } else if (mark === 'common') {
@@ -85,9 +101,9 @@
     svg.setAttribute('viewBox', fig.viewBox.join(' '));
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-    // 1. 三角形（証明成功時）
+    // 1. 三角形（証明成功時・三角形を確認）
     if (v.triangles) {
-      const gt = el('g', { class: 'layer-tri' }, svg);
+      const gt = el('g', { class: 'layer-tri' + (v.triangles === 'check' ? ' tri-check' : '') }, svg);
       problem.triangles.forEach(function (tri, i) {
         const pts = tri.map(function (n) { return g.fmt(fig.points[n]).replace(' ', ','); }).join(' ');
         el('polygon', { points: pts, class: 'tri tri-' + i }, gt);
@@ -105,6 +121,9 @@
         line(item.vertex, item.to, { class: 'under-ray ' + cls }, gu);
       }
     }
+    (v.flashLines || []).forEach(function (pq) {
+      line(fig.points[pq[0]], fig.points[pq[1]], { class: 'under-seg is-flash is-parallel' }, gu);
+    });
     flash.forEach(function (k) { if (els.byKey[k]) underlay(els.byKey[k], 'is-flash'); });
     // 同じ要素を2回選んだ（共通な辺・角）ときは赤で表示
     const sameTwice = selection.length === 2 && selection[0] === selection[1];
@@ -131,16 +150,20 @@
     // 5. 印（自動表示を優先、生徒の印は内部的に別管理）
     const gm = el('g', { class: 'layer-mark' }, svg);
     Object.keys(userMarks).forEach(function (k) {
-      if (autoMarks[k] == null && els.byKey[k]) drawMark(gm, els.byKey[k], userMarks[k], 'mark-user');
+      if (autoMarks[k] == null && els.byKey[k]) drawMark(gm, els.byKey[k], userMarks[k], 'mark-user', fig);
     });
     Object.keys(autoMarks).forEach(function (k) {
-      if (els.byKey[k]) drawMark(gm, els.byKey[k], autoMarks[k], 'mark-auto');
+      if (els.byKey[k]) drawMark(gm, els.byKey[k], autoMarks[k], 'mark-auto', fig);
     });
 
     // 6. 平行の矢印（等しい辺の印とは別の表示）
-    (fig.parallel || []).forEach(function (pair) {
-      const p = g.chevron(fig.points[pair[0]], fig.points[pair[1]], 0.28, 14);
-      el('polyline', { points: p.map(function (q) { return q.x + ',' + q.y; }).join(' '), class: 'parallel' }, gm);
+    g.parallelLines(fig).forEach(function (pl) {
+      const P = fig.points[pl.from], Q = fig.points[pl.to];
+      const step = 9 / g.vec.dist(P, Q);
+      for (let i = 0; i < pl.group; i++) {
+        const p = g.chevron(P, Q, 0.28 + i * step, 14);
+        el('polyline', { points: p.map(function (q) { return q.x + ',' + q.y; }).join(' '), class: 'parallel' }, gm);
+      }
     });
 
     // 7. 頂点と名前
@@ -161,7 +184,7 @@
       const scale = svg.clientWidth ? Math.min(svg.clientWidth / fig.viewBox[2], svg.clientHeight / fig.viewBox[3]) : 1;
       const segHit = Math.min(SEG_HIT_MAX, Math.max(SEG_HIT_WIDTH, SEG_HIT_PX / (scale || 1)));
       if (hit.seg) els.segments.forEach(function (s) {
-        const h = line(s.p1, s.p2, {
+        const h = line(s.h1, s.h2, {
           class: 'hit hit-seg', 'stroke-width': segHit, 'data-key': s.key,
           role: 'button', tabindex: '0', 'aria-label': '辺' + s.display,
         }, gh);
@@ -169,7 +192,7 @@
       });
       if (hit.ang) els.angles.forEach(function (a) {
         const h = el('path', {
-          d: g.sectorPath(a.vertex, a.from, a.to, hitRadius(a, angleOnly)),
+          d: g.sectorPath(a.vertex, a.from, a.to, g.angleHitRadius(fig, a, angleOnly)),
           class: 'hit hit-ang', 'data-key': a.key,
           role: 'button', tabindex: '0', 'aria-label': a.display,
         }, gh);

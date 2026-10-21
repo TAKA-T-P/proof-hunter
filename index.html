@@ -33,18 +33,17 @@
         </div>
         <button class="btn btn-small btn-ghost" data-sound-toggle aria-pressed="true">🔊 効果音 ON</button>
       </div>
-      <footer class="version">Ver.0.1</footer>
+      <footer class="version">Ver.0.2</footer>
     </section>
 
-    <!-- 問題選択画面 -->
+    <!-- ステージ選択・ステージの問題一覧・苦手な問題（js/app.js が中身を作る） -->
     <section id="screen-select" class="screen screen-select" hidden>
       <header class="page-header">
-        <button class="head-btn" data-go="#/" aria-label="タイトルに戻る"><span class="ico">⌂</span><span class="lbl">ホーム</span></button>
-        <h1 class="page-title">問題をえらぶ</h1>
+        <button class="head-btn" id="select-back" data-go="#/" aria-label="戻る"><span class="ico">⌂</span><span class="lbl">ホーム</span></button>
+        <h1 class="page-title" id="select-title">ステージをえらぶ</h1>
         <button class="btn btn-small btn-ghost" data-sound-toggle aria-pressed="true">🔊 効果音 ON</button>
       </header>
-      <ul id="problem-list" class="problem-list"></ul>
-      <p class="select-note">どの問題からでも挑戦できるよ。ミス0・ヒント0でクリアすると ★★★！</p>
+      <div id="select-body"></div>
     </section>
 
     <!-- あそびかた -->
@@ -80,7 +79,16 @@
     <p class="hint-count"></p>
   </div>
 
-  <!-- 証明成功の演出（操作をさえぎらない） -->
+  <!-- 三角形を確認（証明する2つの三角形と、対応する頂点） -->
+  <div id="tri-popup" class="hint-popup tri-popup" role="dialog" aria-label="三角形を確認" hidden>
+    <div class="hint-head">
+      <span class="hint-level">△ 証明する三角形</span>
+      <button class="hint-close" id="tri-close" aria-label="閉じる">×</button>
+    </div>
+    <div class="tri-body"></div>
+  </div>
+
+  <!-- 証明成功・ステージクリアの演出（操作をさえぎらない） -->
   <div id="success-overlay" class="success-overlay" aria-hidden="true" hidden>
     <div class="success-burst"></div>
     <div class="success-text">証明成功！</div>

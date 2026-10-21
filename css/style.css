@@ -222,6 +222,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .tag-mini { display: inline-block; padding: 0 6px; border-radius: 6px; color: #fff; font-weight: 700; margin-right: 3px; }
 
 .figure-card { position: relative; padding: 4px; background: #fff; border-width: 3px; transition: border-color .2s; }
+.figure-card.mode-side { border-color: #93c5fd; }
 .figure-card.mode-angle { border-color: #fbbf24; }
 .figure-card.mode-mark { border-color: #60a5fa; border-style: dashed; }
 .figure-card.mode-erase { border-color: #fb923c; border-style: dashed; }
@@ -305,7 +306,11 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .tool .ico { font-size: 1.25rem; }
 .tool .ico-glyph { font-weight: 900; line-height: 1.2; }
 .tool .lbl { font-size: .72rem; font-weight: 700; white-space: nowrap; }
-.tool[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+.tool[aria-pressed="true"] {
+  background: var(--blue); border-color: var(--gold); color: #fff;
+  box-shadow: 0 0 0 2px var(--gold), 0 3px 8px rgba(29, 78, 216, .35);
+}
+.tool[aria-pressed="true"] .lbl { font-weight: 900; }
 .tool:disabled { opacity: .4; }
 .tool:active:not(:disabled) { transform: scale(.96); }
 
@@ -330,7 +335,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .choices { display: grid; gap: 6px; }
 .reasons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .choice {
-  min-height: 36px; padding: 2px 10px; border: 2px solid var(--line); border-radius: 12px; background: #fff;
+  min-height: 40px; padding: 2px 10px; border: 2px solid var(--line); border-radius: 12px; background: #fff;
   font-weight: 700; font-size: .95rem; text-align: center; line-height: 1.3;
 }
 .conds .choice { text-align: left; display: flex; align-items: center; gap: 8px; font-size: 1rem; }
@@ -449,13 +454,6 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .proof-title { margin: 0 0 6px; font-size: 1rem; color: var(--muted); }
 .proof-intro { margin: 0 0 4px; font-weight: 800; }
 .proof-lines { list-style: none; margin: 0; padding: 0; }
-.proof-line {
-  display: block; width: 100%; text-align: left; padding: 1px 8px; margin: 1px -8px;
-  border: 0; border-radius: 8px; background: none;
-}
-.proof-line:hover, .proof-line:focus-visible { background: var(--green-soft); }
-.pl-reason { display: block; }
-.pl-eq { display: block; padding-left: 1.2em; font-weight: 800; font-size: 1.12rem; }
 .pl-no { font-weight: 700; color: var(--muted); }
 .proof-sum { margin: 8px 0 0; }
 .proof-cond { margin: 0; }
@@ -482,7 +480,8 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
     padding: 4px 12px; border-bottom: 1px solid var(--line);
     background: var(--bg); box-shadow: 0 3px 8px rgba(30, 58, 138, .08); position: relative; z-index: 1;
   }
-  .play-stage .figure-card { flex: 1; min-width: 0; padding: 2px; display: flex; align-items: center; justify-content: center; }
+  .play-stage .figure-card { flex: 1; min-width: 0; padding: 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .play-stage .tri-btn { min-height: 28px; font-size: .74rem; padding: 1px 10px; }
   .play-stage .figure { max-height: 38vh; max-height: 38dvh; }
   .play-stage .pt-label { font-size: 30px; }
   .play-stage .toolbar {
@@ -504,6 +503,128 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
   }
 }
 
+
+/* =====================================================================
+   Ver.0.2：ステージ・復習・三角形の確認・解説
+   ===================================================================== */
+
+/* ステージ選択 */
+.review-btn {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  margin-bottom: 10px; padding: 8px 16px; min-height: 48px;
+  border: 2px solid var(--gold); border-radius: var(--radius); background: var(--gold-soft);
+  font-weight: 800; font-size: 1.05rem; color: #713f12; box-shadow: var(--shadow);
+}
+.review-btn:active { transform: scale(.98); }
+.review-count { font-size: .85rem; padding: 0 10px; border-radius: 99px; background: #fff; color: var(--gold-dark); }
+.stage-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+@media (min-width: 760px) { .stage-list { grid-template-columns: repeat(2, 1fr); } }
+.stage-card {
+  display: flex; align-items: center; gap: 12px; height: 100%; padding: 6px 14px; text-decoration: none;
+  background: #fff; border: 2px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+  transition: transform .1s, border-color .15s;
+}
+.stage-card:hover { border-color: var(--blue-600); }
+.stage-card:active { transform: scale(.98); }
+.stage-card.is-complete { border-color: #fcd34d; background: linear-gradient(180deg, #fff, var(--gold-soft)); }
+.sc-no {
+  flex: none; display: grid; place-items: center; width: 60px; height: 60px; border-radius: 12px;
+  background: var(--navy); color: #fde68a; font-size: .68rem; font-weight: 800; line-height: 1.1;
+}
+.sc-no b { display: block; font-size: 1.7rem; color: #fff; }
+.sc-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sc-title { font-weight: 800; font-size: 1.05rem; }
+.sc-theme { font-size: .8rem; color: var(--muted); line-height: 1.4; }
+.sc-stars { display: flex; flex-wrap: wrap; gap: 8px; color: var(--gold); font-size: .95rem; }
+.sc-star .dim { font-size: .8rem; }
+.sc-status { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: .8rem; }
+.sc-clear b { font-size: 1.1rem; color: var(--navy); }
+.sc-total { color: var(--gold-dark); font-weight: 800; }
+.sc-badge { padding: 0 8px; border-radius: 99px; background: var(--gold); color: #3b2a00; font-weight: 900; font-size: .72rem; }
+.stage-intro { margin-bottom: 10px; }
+.stage-intro p { margin: 0; }
+.stage-intro-stat { font-size: .85rem; color: var(--muted); }
+.pc-stage { font-size: .72rem; font-weight: 800; color: var(--blue); }
+.review-empty { padding: 16px; text-align: center; }
+.review-empty-title { margin: 0; font-size: 1.15rem; font-weight: 900; color: var(--green); }
+
+/* 三角形を確認 */
+/* 図に重ならないよう、図の下に置く */
+.tri-btn {
+  display: block; margin: 2px auto 0;
+  padding: 2px 12px; min-height: 30px; border: 2px solid var(--line); border-radius: 99px;
+  background: #fff; font-size: .8rem; font-weight: 800; color: var(--navy);
+}
+.tri-btn[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+.tri-check .tri { stroke-width: 3; stroke-dasharray: 7 5; }
+.tri-check .tri-0 { stroke: #2563eb; }
+.tri-check .tri-1 { stroke: #d97706; }
+.tri-popup .tri-body { padding-bottom: 4px; }
+.tri-pair { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.tri-pair figure { margin: 0; flex: 1; max-width: 170px; text-align: center; }
+.tri-cap { font-weight: 900; font-size: 1rem; }
+.tri-cap-0 { color: #1d4ed8; }
+.tri-cap-1 { color: #b45309; }
+.tri-and { font-weight: 800; color: var(--muted); }
+.tri-mini { display: block; width: 100%; height: 96px; }
+.tri-mini .tri { stroke-width: 3; }
+.tri-mini .tri-0 { stroke: #2563eb; }
+.tri-mini .tri-1 { stroke: #d97706; }
+.vx-label { font-size: 22px; font-weight: 900; text-anchor: middle; dominant-baseline: central; paint-order: stroke; stroke: #fff; stroke-width: 5px; }
+.vx-dot.vx-0, .vx-label.vx-0 { fill: #e11d48; }
+.vx-dot.vx-1, .vx-label.vx-1 { fill: #059669; }
+.vx-dot.vx-2, .vx-label.vx-2 { fill: #7c3aed; }
+.tri-map { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 12px; margin-top: 4px; }
+.tri-map-label { width: 100%; text-align: center; font-size: .78rem; font-weight: 700; color: var(--muted); }
+.vx-pair { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; }
+.vx-chip { display: inline-grid; place-items: center; min-width: 28px; height: 28px; border-radius: 8px; color: #fff; font-weight: 900; }
+.vx-chip.vx-0 { background: #e11d48; }
+.vx-chip.vx-1 { background: #059669; }
+.vx-chip.vx-2 { background: #7c3aed; }
+.tri-note { margin: 4px 0 0; font-size: .8rem; color: var(--muted); }
+
+/* 途中に点がある長い辺の印（寸法線）と、平行線の強調 */
+.mark-dim { stroke-width: 2; stroke-linecap: round; }
+.mark-dim.mark-user { stroke: var(--blue-600); }
+.mark-dim.mark-auto { stroke: var(--green); }
+.under-seg.is-parallel { stroke: #a78bfa; stroke-width: 12; }
+
+/* 根拠発見の演出 */
+.counter.bump { animation: bump .5s ease-out; }
+@keyframes bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.35); background: var(--gold); }
+  100% { transform: scale(1); }
+}
+.pop-msg { font-size: 1.5rem; }
+.panel.glow { animation: panel-glow 1.4s ease-in-out 2; }
+@keyframes panel-glow {
+  0%, 100% { box-shadow: var(--shadow); }
+  50% { box-shadow: 0 0 0 4px rgba(245, 179, 1, .45), 0 0 18px rgba(245, 179, 1, .5); }
+}
+
+/* ステージクリアの演出 */
+.success-overlay.is-stage .success-text { color: #fde68a; -webkit-text-stroke: 2px var(--navy); text-shadow: 0 4px 0 var(--navy), 0 0 26px rgba(253, 224, 71, .95); }
+.stage-clear-banner {
+  display: flex; flex-direction: column; align-items: center; padding: 6px 12px; border-radius: var(--radius);
+  background: linear-gradient(135deg, #fde68a, var(--gold)); color: #3b2a00; text-align: center;
+  animation: slot-in .6s cubic-bezier(.2, 1.4, .4, 1);
+}
+.scb-title { font-size: 1.7rem; font-weight: 900; letter-spacing: .06em; }
+.scb-sub { font-size: .9rem; font-weight: 700; }
+
+/* 証明完成：理由と式をそれぞれタップできる */
+.proof-line { margin: 1px -8px; padding: 0; display: block; }
+.pl-reason, .pl-eq {
+  display: block; width: 100%; text-align: left; padding: 1px 8px; border: 0; border-radius: 8px; background: none;
+}
+.pl-eq { padding-left: calc(8px + 1.2em); font-weight: 800; font-size: 1.12rem; }
+.pl-reason:hover, .pl-reason:focus-visible, .pl-eq:hover, .pl-eq:focus-visible { background: var(--green-soft); }
+.pl-reason { text-decoration: underline dotted #94a3b8; text-underline-offset: 4px; }
+.explain-text { margin: 0 0 4px; font-weight: 700; }
+.explain h4 { margin: 4px 0 0; font-size: .85rem; color: var(--muted); }
+.result-guide { margin: 0; padding: 6px 12px; border-radius: 10px; background: var(--blue-50); color: var(--navy); font-weight: 700; }
+
 /* 小さい画面 */
 @media (max-width: 380px) {
   .eq-part { min-width: 70px; font-size: 1.25rem; }
@@ -522,4 +643,5 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
   .success-overlay.show { animation: none; opacity: 1; }
   .success-burst { display: none; }
   .is-flash { animation: none; }
+  .counter.bump, .panel.glow { animation: none; }
 }

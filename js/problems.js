@@ -27,6 +27,38 @@
   };
   PH.CONDITION_ORDER = ['SSS', 'SAS', 'ASA'];
 
+  // ステージ（問題の stage で参照）
+  PH.STAGES = [
+    { id: 1, title: 'はじめての証明',     theme: '仮定・共通な辺を使って証明しよう！' },
+    { id: 2, title: '対頂角を見つけろ！', theme: '対頂角と、辺・角の組み合わせを見抜こう！' },
+    { id: 3, title: '平行線を使いこなせ！', theme: '平行線の錯角・同位角を見つけよう！' },
+    { id: 4, title: '合同条件を見極めろ！', theme: '3つの合同条件を使い分けよう！' },
+    { id: 5, title: '証明マスターへの道', theme: 'いろいろな根拠を組み合わせよう！' },
+  ];
+
+  // 合同条件を選ぶときのヒント（問題データから呼び出す共通文）
+  function sssHints() {
+    return [
+      { text: '集めた根拠は「辺」かな？「角」かな？ それぞれ何組あるか数えてみよう。' },
+      { text: '集めた3つの根拠は、どれも辺が等しいことだね。' },
+      { text: '「3組の辺がそれぞれ等しい」を選ぼう！' },
+    ];
+  }
+  function sasHints(angle, sides) {
+    return [
+      { text: '集めた根拠は、辺が何組、角が何組かな？' },
+      { text: '等しい角' + angle + 'は、' + sides + 'の「間」にあるかな？' },
+      { text: '2組の辺と、その間の角が等しいね。「2組の辺とその間の角がそれぞれ等しい」を選ぼう！' },
+    ];
+  }
+  function asaHints(angles, side) {
+    return [
+      { text: '集めた根拠は、辺が何組、角が何組かな？' },
+      { text: '等しい角' + angles + 'は、' + side + 'の「両端」にあるかな？' },
+      { text: '1組の辺と、その両端の角が等しいね。「1組の辺とその両端の角がそれぞれ等しい」を選ぼう！' },
+    ];
+  }
+
   PH.problems = [
     // ------------------------------------------------------------------
     {
@@ -34,6 +66,7 @@
       number: '01',
       title: '共通な辺を見つけろ！',
       difficulty: 1,
+      stage: 1,
       statement: '四角形ABCDで、AB＝CB、AD＝CDのとき、△ABD≡△CBDであることを証明しよう。',
       given: ['AB＝CB', 'AD＝CD'],
       conclusion: '△ABD≡△CBD',
@@ -83,6 +116,7 @@
           { text: '「3組の辺がそれぞれ等しい」を選ぼう！' },
         ],
       },
+      explanation: '2つの三角形に共通する辺は、必ず長さが等しくなります。仮定から2組の辺が見つかったら、共通な辺がないか探してみましょう！',
       learningPoints: [
         '仮定から等しい辺を見つける。',
         '2つの三角形に共通する辺を見つける。',
@@ -96,6 +130,7 @@
       number: '02',
       title: '対頂角を見つけろ！',
       difficulty: 1,
+      stage: 2,
       statement: '線分ABと線分CDが点Oで交わっている。AO＝BO、CO＝DOのとき、△AOC≡△BODであることを証明しよう。',
       given: ['AO＝BO', 'CO＝DO'],
       conclusion: '△AOC≡△BOD',
@@ -148,6 +183,7 @@
           { text: '2組の辺と、その間の角が等しいね。「2組の辺とその間の角がそれぞれ等しい」を選ぼう！' },
         ],
       },
+      explanation: '2本の直線が交わるとき、対頂角は等しくなります。2組の辺が等しいとわかったら、その間の角に注目しましょう！',
       learningPoints: [
         '対頂角が等しいことを見つける。',
         '2組の辺とその間の角の関係を理解する。',
@@ -160,6 +196,7 @@
       number: '03',
       title: '平行線の角を見抜け！',
       difficulty: 2,
+      stage: 3,
       statement: 'AB∥CD、AB＝CDである。線分ACとBDの交点をOとするとき、△ABO≡△CDOであることを証明しよう。',
       given: ['AB∥CD', 'AB＝CD'],
       conclusion: '△ABO≡△CDO',
@@ -215,12 +252,751 @@
           { text: '1組の辺と、その両端の角が等しいね。「1組の辺とその両端の角がそれぞれ等しい」を選ぼう！' },
         ],
       },
+      explanation: '平行線があったら、平行線と交わる直線に注目して錯角を探しましょう。等しい辺ABの両端にある角が、2組とも錯角で等しくなっています。',
       learningPoints: [
         '平行線の錯角を見つける。',
         '1組の辺とその両端の角という合同条件を理解する。',
       ],
     },
+
+    // ==================================================================
+    // Ver.0.2 追加問題（ステージ順に並べ替えるので、ここでの順番はステージ内の順番）
+    // ==================================================================
+
+    // ---- STAGE 1 ------------------------------------------------------
+    {
+      id: 'p04',
+      number: '04',
+      title: '重なった三角形を見抜け！',
+      difficulty: 1,
+      stage: 1,
+      statement: 'AB＝DC、AC＝DBのとき、△ABC≡△DCBであることを証明しよう。',
+      given: ['AB＝DC', 'AC＝DB'],
+      conclusion: '△ABC≡△DCB',
+      // A↔D, B↔C, C↔B（BとCが入れかわる）
+      triangles: [['A', 'B', 'C'], ['D', 'C', 'B']],
+      figure: {
+        viewBox: [0, 0, 400, 340],
+        points: {
+          A: { x: 130, y: 60,  label: [0, -22] },
+          D: { x: 270, y: 60,  label: [0, -22] },
+          B: { x: 50,  y: 300, label: [-20, 8] },
+          C: { x: 350, y: 300, label: [20, 8] },
+        },
+        lines: [],
+        segments: ['AB', 'AC', 'DB', 'DC', 'BC'],
+        angles: ['BAC', 'BDC', 'ABD', 'DBC', 'ACD', 'ACB'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'vertical'],
+      evidence: [
+        { id: 'e1', items: ['AB', 'DC'], reason: 'given',  label: 'AB＝DC', mark: 1 },
+        { id: 'e2', items: ['AC', 'DB'], reason: 'given',  label: 'AC＝DB', mark: 2 },
+        { id: 'e3', items: ['BC', 'CB'], reason: 'common', label: 'BC＝CB', mark: 'common' },
+      ],
+      extraTruths: [],
+      congruence: 'SSS',
+      proof: { intro: '△ABCと△DCBにおいて' },
+      hints: {
+        e1: [
+          { text: '仮定に書かれている等しい辺から探してみよう。' },
+          { text: '辺ABと辺DCに注目！', focus: ['AB', 'DC'] },
+          { text: 'AB＝DC。仮定より等しいね！', focus: ['AB', 'DC'] },
+        ],
+        e2: [
+          { text: '仮定にはもう1組、等しい辺があるよ。' },
+          { text: '辺ACと辺DBに注目！ 2本は図の中で交わっているね。', focus: ['AC', 'DB'] },
+          { text: 'AC＝DB。仮定より等しいね！', focus: ['AC', 'DB'] },
+        ],
+        e3: [
+          { text: '△ABCと△DCBの両方にふくまれる辺はどれかな？' },
+          { text: '辺BCに注目！ 同じ辺を2回タップしよう。', focus: ['BC'] },
+          { text: 'BC＝CB。共通な辺だから等しいね！', focus: ['BC'] },
+        ],
+        congruence: sssHints(),
+      },
+      explanation: '2つの三角形が重なっているときは、1つずつ取り出して見てみよう。△ABCと△DCBでは、頂点Bと頂点Cの対応が入れかわる（B↔C、C↔B）ことに注意しましょう。',
+      learningPoints: [
+        '重なった図から2つの三角形を見分ける。',
+        '共通な辺BCを見つける。',
+        '頂点の対応（A↔D、B↔C、C↔B）を確かめる。',
+      ],
+    },
+
+    {
+      id: 'p06',
+      number: '06',
+      title: '間の角を見つけろ！',
+      difficulty: 1,
+      stage: 1,
+      statement: 'AB＝AD、∠BAC＝∠DACのとき、△ABC≡△ADCであることを証明しよう。',
+      given: ['AB＝AD', '∠BAC＝∠DAC'],
+      conclusion: '△ABC≡△ADC',
+      triangles: [['A', 'B', 'C'], ['A', 'D', 'C']],
+      figure: {
+        viewBox: [0, 0, 400, 350],
+        points: {
+          A: { x: 200, y: 40,  label: [0, -22] },
+          B: { x: 50,  y: 300, label: [-18, 12] },
+          D: { x: 350, y: 300, label: [18, 12] },
+          C: { x: 200, y: 250, label: [0, 28] },
+        },
+        lines: [],
+        segments: ['AB', 'AD', 'AC', 'BC', 'DC'],
+        angles: ['BAC', 'DAC', 'ABC', 'ADC', 'ACB', 'ACD'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'vertical'],
+      evidence: [
+        { id: 'e1', items: ['AB', 'AD'], reason: 'given',  label: 'AB＝AD', mark: 1 },
+        { id: 'e2', items: ['∠BAC', '∠DAC'], reason: 'given', label: '∠BAC＝∠DAC', mark: 1 },
+        { id: 'e3', items: ['AC', 'AC'], reason: 'common', label: 'AC＝AC', mark: 'common' },
+      ],
+      extraTruths: [],
+      congruence: 'SAS',
+      proof: { intro: '△ABCと△ADCにおいて' },
+      hints: {
+        e1: [
+          { text: '仮定から等しい辺を探そう。' },
+          { text: '辺ABと辺ADに注目！', focus: ['AB', 'AD'] },
+          { text: 'AB＝AD。仮定より等しいね！', focus: ['AB', 'AD'] },
+        ],
+        e2: [
+          { text: '仮定には等しい角も書かれているよ。「角選択」に切り替えよう。' },
+          { text: '頂点Aにある∠BACと∠DACに注目！', focus: ['∠BAC', '∠DAC'] },
+          { text: '∠BAC＝∠DAC。仮定より等しいね！', focus: ['∠BAC', '∠DAC'] },
+        ],
+        e3: [
+          { text: '△ABCと△ADCの両方にふくまれる辺はどれかな？' },
+          { text: '辺ACに注目！ 同じ辺を2回タップしよう。', focus: ['AC'] },
+          { text: 'AC＝AC。共通な辺だから等しいね！', focus: ['AC'] },
+        ],
+        congruence: sasHints('∠BAC', '辺ABと辺AC'),
+      },
+      explanation: '仮定に角が出てきたら「角選択」で探そう。仮定の辺ABと共通な辺ACの「間」にある角が∠BACなので、2組の辺とその間の角が等しいといえます。',
+      learningPoints: [
+        '仮定から等しい角を見つける。',
+        '共通な辺を見つける。',
+        '等しい角が2組の辺の「間の角」かどうかを確かめる。',
+      ],
+    },
+
+    // ---- STAGE 2 ------------------------------------------------------
+    {
+      id: 'p05',
+      number: '05',
+      title: '上下の三角形と対頂角',
+      difficulty: 1,
+      stage: 2,
+      statement: '線分ADと線分BCが点Oで交わっている。AO＝DO、BO＝COのとき、△ABO≡△DCOであることを証明しよう。',
+      given: ['AO＝DO', 'BO＝CO'],
+      conclusion: '△ABO≡△DCO',
+      triangles: [['A', 'B', 'O'], ['D', 'C', 'O']],
+      figure: {
+        viewBox: [0, 0, 400, 380],
+        points: {
+          A: { x: 90,  y: 60,  label: [-16, -14] },
+          B: { x: 330, y: 100, label: [18, -12] },
+          D: { x: 310, y: 320, label: [16, 18] },
+          C: { x: 70,  y: 280, label: [-18, 14] },
+          O: { x: 200, y: 190, label: [34, 4] },
+        },
+        lines: [['A', 'O', 'D'], ['B', 'O', 'C']],
+        segments: ['AO', 'DO', 'BO', 'CO', 'AB', 'CD'],
+        angles: ['AOB', 'DOC', 'AOC', 'BOD', 'OAB', 'OBA', 'ODC', 'OCD'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'vertical', 'alternate'],
+      evidence: [
+        { id: 'e1', items: ['AO', 'DO'], reason: 'given', label: 'AO＝DO', mark: 1 },
+        { id: 'e2', items: ['BO', 'CO'], reason: 'given', label: 'BO＝CO', mark: 2 },
+        { id: 'e3', items: ['∠AOB', '∠DOC'], reason: 'vertical', label: '∠AOB＝∠DOC', mark: 1 },
+      ],
+      extraTruths: [
+        { items: ['∠AOC', '∠BOD'], reason: 'vertical' },
+      ],
+      congruence: 'SAS',
+      proof: { intro: '△ABOと△DCOにおいて' },
+      hints: {
+        e1: [
+          { text: '仮定から等しい辺を探そう。' },
+          { text: '辺AOと辺DOに注目！', focus: ['AO', 'DO'] },
+          { text: 'AO＝DO。仮定より等しいね！', focus: ['AO', 'DO'] },
+        ],
+        e2: [
+          { text: '仮定にはもう1組、等しい辺があるよ。' },
+          { text: '辺BOと辺COに注目！', focus: ['BO', 'CO'] },
+          { text: 'BO＝CO。仮定より等しいね！', focus: ['BO', 'CO'] },
+        ],
+        e3: [
+          { text: '2本の線分が交わってできる角に注目しよう。' },
+          { text: '点Oの上と下にある∠AOBと∠DOCを比べてみよう！', focus: ['∠AOB', '∠DOC'] },
+          { text: '∠AOB＝∠DOC。対頂角だから等しいね！', focus: ['∠AOB', '∠DOC'] },
+        ],
+        congruence: sasHints('∠AOB', '辺AOと辺BO'),
+      },
+      explanation: '交点Oのまわりで向かい合う角が対頂角です。今回は上と下の三角形なので、∠AOBと向かい合うのは∠DOCです。2組の辺AO・BOの「間」にある角になっています。',
+      learningPoints: [
+        '上下に向かい合う三角形で対頂角を見つける。',
+        '頂点の対応（A↔D、B↔C、O↔O）を確かめる。',
+      ],
+    },
+
+    {
+      id: 'p09',
+      number: '09',
+      title: '辺と両端の角を見抜け！',
+      difficulty: 2,
+      stage: 2,
+      statement: '線分ADと線分BCが点Oで交わっている。AO＝DO、∠OAB＝∠ODCのとき、△ABO≡△DCOであることを証明しよう。',
+      given: ['AO＝DO', '∠OAB＝∠ODC'],
+      conclusion: '△ABO≡△DCO',
+      triangles: [['A', 'B', 'O'], ['D', 'C', 'O']],
+      figure: {
+        viewBox: [0, 0, 400, 370],
+        points: {
+          A: { x: 50,  y: 170, label: [-20, 0] },
+          D: { x: 350, y: 210, label: [20, 0] },
+          B: { x: 250, y: 50,  label: [0, -22] },
+          C: { x: 150, y: 330, label: [0, 24] },
+          O: { x: 200, y: 190, label: [30, -16] },
+        },
+        lines: [['A', 'O', 'D'], ['B', 'O', 'C']],
+        segments: ['AO', 'DO', 'BO', 'CO', 'AB', 'CD'],
+        angles: ['OAB', 'ODC', 'AOB', 'DOC', 'AOC', 'BOD', 'OBA', 'OCD'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'vertical', 'alternate'],
+      evidence: [
+        { id: 'e1', items: ['AO', 'DO'], reason: 'given', label: 'AO＝DO', mark: 1 },
+        { id: 'e2', items: ['∠OAB', '∠ODC'], reason: 'given', label: '∠OAB＝∠ODC', mark: 1 },
+        { id: 'e3', items: ['∠AOB', '∠DOC'], reason: 'vertical', label: '∠AOB＝∠DOC', mark: 2 },
+      ],
+      extraTruths: [
+        { items: ['∠AOC', '∠BOD'], reason: 'vertical' },
+      ],
+      congruence: 'ASA',
+      proof: { intro: '△ABOと△DCOにおいて' },
+      hints: {
+        e1: [
+          { text: '仮定から等しい辺を探そう。' },
+          { text: '辺AOと辺DOに注目！', focus: ['AO', 'DO'] },
+          { text: 'AO＝DO。仮定より等しいね！', focus: ['AO', 'DO'] },
+        ],
+        e2: [
+          { text: '仮定には等しい角も書かれているよ。「角選択」に切り替えよう。' },
+          { text: '∠OABと∠ODCに注目！', focus: ['∠OAB', '∠ODC'] },
+          { text: '∠OAB＝∠ODC。仮定より等しいね！', focus: ['∠OAB', '∠ODC'] },
+        ],
+        e3: [
+          { text: '2本の線分が交わってできる角に注目しよう。' },
+          { text: '点Oのまわりの∠AOBと∠DOCを比べてみよう！', focus: ['∠AOB', '∠DOC'] },
+          { text: '∠AOB＝∠DOC。対頂角だから等しいね！', focus: ['∠AOB', '∠DOC'] },
+        ],
+        congruence: asaHints('∠OABと∠AOB', '辺AO'),
+      },
+      explanation: '辺が1組、角が2組そろったら、2つの角が等しい辺の「両端」にあるかを確かめよう。∠OABは辺AOの端A、∠AOBは辺AOの端Oにある角です。仮定にAB∥DCはないので、錯角は使えません。',
+      learningPoints: [
+        '仮定の角と対頂角を組み合わせる。',
+        '1組の辺とその両端の角という合同条件を使う。',
+      ],
+    },
+
+    // ---- STAGE 3 ------------------------------------------------------
+    {
+      id: 'p08',
+      number: '08',
+      title: '平行線と共通な辺',
+      difficulty: 2,
+      stage: 3,
+      statement: '四角形ABCDで、AD∥BC、AD＝CBである。対角線ACをひくとき、△ADC≡△CBAであることを証明しよう。',
+      given: ['AD∥BC', 'AD＝CB'],
+      conclusion: '△ADC≡△CBA',
+      triangles: [['A', 'D', 'C'], ['C', 'B', 'A']],
+      figure: {
+        viewBox: [0, 0, 410, 350],
+        points: {
+          A: { x: 110, y: 70,  label: [-14, -18] },
+          D: { x: 350, y: 70,  label: [16, -18] },
+          B: { x: 60,  y: 300, label: [-16, 16] },
+          C: { x: 300, y: 300, label: [16, 16] },
+        },
+        lines: [],
+        segments: ['AD', 'BC', 'AB', 'DC', 'AC'],
+        angles: ['DAC', 'CAB', 'BCA', 'ACD', 'ADC', 'ABC'],
+        parallel: [['A', 'D'], ['B', 'C']],
+      },
+      reasons: ['given', 'common', 'alternate', 'corresponding'],
+      evidence: [
+        { id: 'e1', items: ['AD', 'CB'], reason: 'given', label: 'AD＝CB', mark: 1 },
+        { id: 'e2', items: ['∠DAC', '∠BCA'], reason: 'alternate', label: '∠DAC＝∠BCA', mark: 1,
+          proofReason: 'AD∥BCより、平行線の錯角は等しいから' },
+        { id: 'e3', items: ['AC', 'CA'], reason: 'common', label: 'AC＝CA', mark: 'common' },
+      ],
+      extraTruths: [],
+      congruence: 'SAS',
+      proof: { intro: '△ADCと△CBAにおいて' },
+      hints: {
+        e1: [
+          { text: '仮定から等しい辺を探そう。' },
+          { text: '辺ADと辺CBに注目！', focus: ['AD', 'CB'] },
+          { text: 'AD＝CB。仮定より等しいね！', focus: ['AD', 'CB'] },
+        ],
+        e2: [
+          { text: 'AD∥BCだから、平行線と交わる対角線ACに注目しよう。' },
+          { text: '∠DACと∠BCAを比べてみよう！', focus: ['∠DAC', '∠BCA'] },
+          { text: '∠DAC＝∠BCA。平行線の錯角だから等しいね！', focus: ['∠DAC', '∠BCA'] },
+        ],
+        e3: [
+          { text: '△ADCと△CBAの両方にふくまれる辺はどれかな？' },
+          { text: '対角線ACに注目！ 同じ辺を2回タップしよう。', focus: ['AC'] },
+          { text: 'AC＝CA。共通な辺だから等しいね！', focus: ['AC'] },
+        ],
+        congruence: sasHints('∠DAC', '辺ADと辺AC'),
+      },
+      explanation: '平行線があったら、平行線と交わる直線（ここでは対角線AC）に注目して錯角を探そう。仮定はAD∥BCだけなので、ABとDCが平行かどうかはまだ分かりません。',
+      learningPoints: [
+        '平行線の錯角を見つける。',
+        '共通な辺と組み合わせて「2組の辺とその間の角」を使う。',
+      ],
+    },
+
+    {
+      id: 'p10',
+      number: '10',
+      title: '同位角を2組見つけろ！',
+      difficulty: 2,
+      stage: 3,
+      statement: '3点B、C、Eはこの順に一直線上にある。AB∥DC、AC∥DE、BC＝CEのとき、△ABC≡△DCEであることを証明しよう。',
+      given: ['AB∥DC', 'AC∥DE', 'BC＝CE'],
+      conclusion: '△ABC≡△DCE',
+      triangles: [['A', 'B', 'C'], ['D', 'C', 'E']],
+      figure: {
+        viewBox: [0, 0, 420, 340],
+        points: {
+          A: { x: 100, y: 100, label: [-8, -22] },
+          D: { x: 270, y: 100, label: [8, -22] },
+          B: { x: 40,  y: 300, label: [-16, 16] },
+          C: { x: 210, y: 300, label: [0, 24] },
+          E: { x: 380, y: 300, label: [16, 16] },
+        },
+        lines: [['B', 'C', 'E']],
+        segments: ['AB', 'AC', 'BC', 'CE', 'DC', 'DE'],
+        angles: ['ABC', 'ACB', 'ACD', 'DCE', 'DEC', 'BAC', 'CDE'],
+        // 1組目 AB∥DC（矢印1つ）、2組目 AC∥DE（矢印2つ）
+        parallel: [['B', 'A', 1], ['C', 'D', 1], ['A', 'C', 2], ['D', 'E', 2]],
+      },
+      reasons: ['given', 'vertical', 'alternate', 'corresponding'],
+      evidence: [
+        { id: 'e1', items: ['BC', 'CE'], reason: 'given', label: 'BC＝CE', mark: 1 },
+        { id: 'e2', items: ['∠ABC', '∠DCE'], reason: 'corresponding', label: '∠ABC＝∠DCE', mark: 1,
+          parallelGroup: 1, proofReason: 'AB∥DCより、平行線の同位角は等しいから' },
+        { id: 'e3', items: ['∠ACB', '∠DEC'], reason: 'corresponding', label: '∠ACB＝∠DEC', mark: 2,
+          parallelGroup: 2, proofReason: 'AC∥DEより、平行線の同位角は等しいから' },
+      ],
+      extraTruths: [
+        { items: ['∠BAC', '∠ACD'], reason: 'alternate' },
+        { items: ['∠ACD', '∠CDE'], reason: 'alternate' },
+        // 錯角を2回使うと言える（∠BAC＝∠ACD＝∠CDE）。結論を使わずに言える関係なのでミスにしない
+        { items: ['∠BAC', '∠CDE'], reason: 'alternate' },
+      ],
+      congruence: 'ASA',
+      proof: { intro: '△ABCと△DCEにおいて' },
+      hints: {
+        e1: [
+          { text: '仮定から等しい辺を探そう。' },
+          { text: '辺BCと辺CEに注目！', focus: ['BC', 'CE'] },
+          { text: 'BC＝CE。仮定より等しいね！', focus: ['BC', 'CE'] },
+        ],
+        e2: [
+          { text: 'AB∥DCだから、平行線と交わる直線BEに注目しよう。' },
+          { text: '∠ABCと∠DCEを比べてみよう！ 同じ位置にある角だね。', focus: ['∠ABC', '∠DCE'] },
+          { text: '∠ABC＝∠DCE。平行線の同位角だから等しいね！', focus: ['∠ABC', '∠DCE'] },
+        ],
+        e3: [
+          { text: 'もう1組の平行線AC∥DEにも注目しよう。' },
+          { text: '∠ACBと∠DECを比べてみよう！', focus: ['∠ACB', '∠DEC'] },
+          { text: '∠ACB＝∠DEC。平行線の同位角だから等しいね！', focus: ['∠ACB', '∠DEC'] },
+        ],
+        congruence: asaHints('∠ABCと∠ACB', '辺BC'),
+      },
+      explanation: '平行線が2組あるときは、それぞれの平行線ごとに同位角・錯角を探そう。直線BEの上で同じ位置にある角が同位角です。∠BAC＝∠ACDのような錯角も見つかりますが、今回は辺BCの両端の角を使います。',
+      learningPoints: [
+        '平行線の同位角を見つける。',
+        '2組の平行線をそれぞれ使い分ける。',
+        '1組の辺とその両端の角を使う。',
+      ],
+    },
+
+    // ---- STAGE 4 ------------------------------------------------------
+    {
+      id: 'p07',
+      number: '07',
+      title: '離れた三角形の対応を見抜け！',
+      difficulty: 2,
+      stage: 4,
+      statement: 'AB＝DF、AC＝DE、∠BAC＝∠FDEのとき、△ABC≡△DFEであることを証明しよう。',
+      given: ['AB＝DF', 'AC＝DE', '∠BAC＝∠FDE'],
+      conclusion: '△ABC≡△DFE',
+      triangles: [['A', 'B', 'C'], ['D', 'F', 'E']],
+      figure: {
+        viewBox: [0, 0, 420, 340],
+        points: {
+          A: { x: 60,  y: 80,  label: [-18, -8] },
+          B: { x: 40,  y: 300, label: [-16, 16] },
+          C: { x: 180, y: 235, label: [0, 24] },
+          D: { x: 360, y: 80,  label: [18, -8] },
+          F: { x: 380, y: 300, label: [16, 16] },
+          E: { x: 240, y: 235, label: [0, 24] },
+        },
+        lines: [],
+        segments: ['AB', 'BC', 'CA', 'DF', 'FE', 'ED'],
+        angles: ['BAC', 'ABC', 'ACB', 'FDE', 'DFE', 'DEF'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'vertical'],
+      evidence: [
+        { id: 'e1', items: ['AB', 'DF'], reason: 'given', label: 'AB＝DF', mark: 1 },
+        { id: 'e2', items: ['AC', 'DE'], reason: 'given', label: 'AC＝DE', mark: 2 },
+        { id: 'e3', items: ['∠BAC', '∠FDE'], reason: 'given', label: '∠BAC＝∠FDE', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'SAS',
+      proof: { intro: '△ABCと△DFEにおいて' },
+      hints: {
+        e1: [
+          { text: '仮定から等しい辺を探そう。' },
+          { text: '辺ABと辺DFに注目！', focus: ['AB', 'DF'] },
+          { text: 'AB＝DF。仮定より等しいね！', focus: ['AB', 'DF'] },
+        ],
+        e2: [
+          { text: '仮定にはもう1組、等しい辺があるよ。' },
+          { text: '辺ACと辺DEに注目！', focus: ['AC', 'DE'] },
+          { text: 'AC＝DE。仮定より等しいね！', focus: ['AC', 'DE'] },
+        ],
+        e3: [
+          { text: '仮定には等しい角もあるよ。「角選択」に切り替えよう。' },
+          { text: '∠BACと∠FDEに注目！', focus: ['∠BAC', '∠FDE'] },
+          { text: '∠BAC＝∠FDE。仮定より等しいね！', focus: ['∠BAC', '∠FDE'] },
+        ],
+        congruence: sasHints('∠BAC', '辺ABと辺AC'),
+      },
+      explanation: '2つの三角形が離れていて向きもちがうときは、「三角形を確認」で頂点の対応（A↔D、B↔F、C↔E）を確かめよう。結論の△ABC≡△DFEの文字の順番が、そのまま対応を表しています。',
+      learningPoints: [
+        '結論の文字の順番から頂点の対応を読み取る。',
+        '仮定だけで「2組の辺とその間の角」がそろうことを確かめる。',
+      ],
+    },
+
+    {
+      id: 'p11',
+      number: '11',
+      title: '共通な辺と両端の角',
+      difficulty: 2,
+      stage: 4,
+      statement: '∠BAC＝∠DAC、∠BCA＝∠DCAのとき、△ABC≡△ADCであることを証明しよう。',
+      given: ['∠BAC＝∠DAC', '∠BCA＝∠DCA'],
+      conclusion: '△ABC≡△ADC',
+      triangles: [['A', 'B', 'C'], ['A', 'D', 'C']],
+      figure: {
+        viewBox: [0, 0, 420, 380],
+        points: {
+          A: { x: 40,  y: 190, label: [-20, 0] },
+          C: { x: 380, y: 190, label: [20, 0] },
+          B: { x: 250, y: 60,  label: [0, -22] },
+          D: { x: 250, y: 320, label: [0, 24] },
+        },
+        lines: [],
+        segments: ['AB', 'AD', 'CB', 'CD', 'AC'],
+        angles: ['BAC', 'DAC', 'BCA', 'DCA', 'ABC', 'ADC'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'vertical'],
+      evidence: [
+        { id: 'e1', items: ['∠BAC', '∠DAC'], reason: 'given', label: '∠BAC＝∠DAC', mark: 1 },
+        { id: 'e2', items: ['∠BCA', '∠DCA'], reason: 'given', label: '∠BCA＝∠DCA', mark: 2 },
+        { id: 'e3', items: ['AC', 'AC'], reason: 'common', label: 'AC＝AC', mark: 'common' },
+      ],
+      extraTruths: [],
+      congruence: 'ASA',
+      proof: { intro: '△ABCと△ADCにおいて' },
+      hints: {
+        e1: [
+          { text: '仮定には等しい角が書かれているよ。「角選択」で探そう。' },
+          { text: '頂点Aの∠BACと∠DACに注目！', focus: ['∠BAC', '∠DAC'] },
+          { text: '∠BAC＝∠DAC。仮定より等しいね！', focus: ['∠BAC', '∠DAC'] },
+        ],
+        e2: [
+          { text: '仮定にはもう1組、等しい角があるよ。' },
+          { text: '頂点Cの∠BCAと∠DCAに注目！', focus: ['∠BCA', '∠DCA'] },
+          { text: '∠BCA＝∠DCA。仮定より等しいね！', focus: ['∠BCA', '∠DCA'] },
+        ],
+        e3: [
+          { text: '△ABCと△ADCの両方にふくまれる辺はどれかな？' },
+          { text: '辺ACに注目！ 同じ辺を2回タップしよう。', focus: ['AC'] },
+          { text: 'AC＝AC。共通な辺だから等しいね！', focus: ['AC'] },
+        ],
+        congruence: asaHints('∠BACと∠BCA', '辺AC'),
+      },
+      explanation: '角が2組と辺が1組のときは「1組の辺とその両端の角」を考えよう。共通な辺ACの両端A・Cにある角が、それぞれ等しくなっています。',
+      learningPoints: [
+        '仮定から等しい角を2組見つける。',
+        '共通な辺と組み合わせて「1組の辺とその両端の角」を使う。',
+      ],
+    },
+
+    {
+      id: 'p12',
+      number: '12',
+      title: '中点と3組の辺',
+      difficulty: 2,
+      stage: 4,
+      statement: 'AB＝AC、点Mは辺BCの中点である。このとき、△ABM≡△ACMであることを証明しよう。',
+      given: ['AB＝AC', 'Mは辺BCの中点'],
+      conclusion: '△ABM≡△ACM',
+      triangles: [['A', 'B', 'M'], ['A', 'C', 'M']],
+      figure: {
+        viewBox: [0, 0, 400, 370],
+        points: {
+          A: { x: 200, y: 40,  label: [0, -22] },
+          B: { x: 50,  y: 320, label: [-18, 10] },
+          C: { x: 350, y: 320, label: [18, 10] },
+          M: { x: 200, y: 320, label: [0, 26] },
+        },
+        lines: [['B', 'M', 'C']],
+        segments: ['AB', 'AC', 'BM', 'MC', 'AM'],
+        angles: ['BAM', 'CAM', 'ABM', 'ACM', 'AMB', 'AMC'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'vertical'],
+      evidence: [
+        { id: 'e1', items: ['AB', 'AC'], reason: 'given', label: 'AB＝AC', mark: 1 },
+        { id: 'e2', items: ['BM', 'CM'], reason: 'given', label: 'BM＝CM', mark: 2,
+          proofReason: '仮定より、Mは辺BCの中点だから' },
+        { id: 'e3', items: ['AM', 'AM'], reason: 'common', label: 'AM＝AM', mark: 'common' },
+      ],
+      extraTruths: [],
+      congruence: 'SSS',
+      proof: { intro: '△ABMと△ACMにおいて' },
+      hints: {
+        e1: [
+          { text: '仮定から等しい辺を探そう。' },
+          { text: '辺ABと辺ACに注目！', focus: ['AB', 'AC'] },
+          { text: 'AB＝AC。仮定より等しいね！', focus: ['AB', 'AC'] },
+        ],
+        e2: [
+          { text: '「中点」は、線分をちょうど2等分する点のことだよ。' },
+          { text: '辺BMと辺CMに注目！ Mは辺BCの中点だね。', focus: ['BM', 'CM'] },
+          { text: 'BM＝CM。仮定（Mは辺BCの中点）より等しいね！', focus: ['BM', 'CM'] },
+        ],
+        e3: [
+          { text: '△ABMと△ACMの両方にふくまれる辺はどれかな？' },
+          { text: '辺AMに注目！ 同じ辺を2回タップしよう。', focus: ['AM'] },
+          { text: 'AM＝AM。共通な辺だから等しいね！', focus: ['AM'] },
+        ],
+        congruence: sssHints(),
+      },
+      explanation: '「Mは辺BCの中点」という仮定は、BM＝CMということを表しています。言葉で書かれた仮定は、等しい辺や角に読みかえよう。∠ABM＝∠ACMは見た目では等しそうでも、まだ根拠には使えません。',
+      learningPoints: [
+        '「中点」の仮定を等しい辺に読みかえる。',
+        '共通な辺と合わせて3組の辺をそろえる。',
+      ],
+    },
+
+    // ---- STAGE 5 ------------------------------------------------------
+    {
+      id: 'p13',
+      number: '13',
+      title: '2組の平行線と対角線',
+      difficulty: 3,
+      stage: 5,
+      statement: '四角形ABCDで、AB∥DC、AD∥BCである。対角線ACをひくとき、△ABC≡△CDAであることを証明しよう。',
+      given: ['AB∥DC', 'AD∥BC'],
+      conclusion: '△ABC≡△CDA',
+      triangles: [['A', 'B', 'C'], ['C', 'D', 'A']],
+      figure: {
+        viewBox: [0, 0, 420, 350],
+        points: {
+          A: { x: 110, y: 60,  label: [-14, -18] },
+          B: { x: 360, y: 60,  label: [16, -18] },
+          C: { x: 310, y: 300, label: [16, 16] },
+          D: { x: 60,  y: 300, label: [-16, 16] },
+        },
+        lines: [],
+        segments: ['AB', 'BC', 'CD', 'DA', 'AC'],
+        angles: ['BAC', 'CAD', 'DCA', 'ACB', 'ABC', 'ADC'],
+        // 1組目 AB∥DC（矢印1つ）、2組目 AD∥BC（矢印2つ）
+        parallel: [['A', 'B', 1], ['D', 'C', 1], ['D', 'A', 2], ['C', 'B', 2]],
+      },
+      reasons: ['given', 'common', 'alternate', 'corresponding'],
+      evidence: [
+        { id: 'e1', items: ['∠BAC', '∠DCA'], reason: 'alternate', label: '∠BAC＝∠DCA', mark: 1,
+          parallelGroup: 1, proofReason: 'AB∥DCより、平行線の錯角は等しいから' },
+        { id: 'e2', items: ['∠BCA', '∠DAC'], reason: 'alternate', label: '∠BCA＝∠DAC', mark: 2,
+          parallelGroup: 2, proofReason: 'AD∥BCより、平行線の錯角は等しいから' },
+        { id: 'e3', items: ['AC', 'CA'], reason: 'common', label: 'AC＝CA', mark: 'common' },
+      ],
+      extraTruths: [],
+      congruence: 'ASA',
+      proof: { intro: '△ABCと△CDAにおいて' },
+      hints: {
+        e1: [
+          { text: 'AB∥DCだから、平行線と交わる対角線ACに注目しよう。' },
+          { text: '∠BACと∠DCAを比べてみよう！', focus: ['∠BAC', '∠DCA'] },
+          { text: '∠BAC＝∠DCA。平行線の錯角だから等しいね！', focus: ['∠BAC', '∠DCA'] },
+        ],
+        e2: [
+          { text: 'もう1組の平行線AD∥BCにも注目しよう。' },
+          { text: '∠BCAと∠DACを比べてみよう！', focus: ['∠BCA', '∠DAC'] },
+          { text: '∠BCA＝∠DAC。平行線の錯角だから等しいね！', focus: ['∠BCA', '∠DAC'] },
+        ],
+        e3: [
+          { text: '△ABCと△CDAの両方にふくまれる辺はどれかな？' },
+          { text: '対角線ACに注目！ 同じ辺を2回タップしよう。', focus: ['AC'] },
+          { text: 'AC＝CA。共通な辺だから等しいね！', focus: ['AC'] },
+        ],
+        congruence: asaHints('∠BACと∠BCA', '辺AC'),
+      },
+      explanation: '平行線が2組あるときは、どちらの平行線の錯角かを区別しよう。∠BAC＝∠DCAはAB∥DC、∠BCA＝∠DACはAD∥BCから言えます。この合同から、平行四辺形の向かい合う辺が等しいことが分かります。',
+      learningPoints: [
+        '2組の平行線それぞれの錯角を見つける。',
+        '共通な辺と合わせて「1組の辺とその両端の角」を使う。',
+      ],
+    },
+
+    {
+      id: 'p14',
+      number: '14',
+      title: '共通な角を見つけろ！',
+      difficulty: 3,
+      stage: 5,
+      statement: '点Dは辺AB上、点Eは辺AC上にある。AB＝AC、AD＝AEのとき、△ABE≡△ACDであることを証明しよう。',
+      given: ['AB＝AC', 'AD＝AE'],
+      conclusion: '△ABE≡△ACD',
+      triangles: [['A', 'B', 'E'], ['A', 'C', 'D']],
+      figure: {
+        viewBox: [0, 0, 400, 360],
+        points: {
+          A: { x: 200,   y: 40,    label: [0, -22] },
+          B: { x: 70,    y: 320,   label: [-16, 14] },
+          C: { x: 330,   y: 320,   label: [16, 14] },
+          D: { x: 145.4, y: 157.6, label: [-22, -4] },
+          E: { x: 254.6, y: 157.6, label: [22, -4] },
+        },
+        lines: [['A', 'D', 'B'], ['A', 'E', 'C']],
+        // AB・AC は途中に点があるので、D〜B、E〜C の部分をタップすると辺全体が選ばれる
+        segments: ['AD', { name: 'AB', hit: ['D', 'B'] }, 'AE', { name: 'AC', hit: ['E', 'C'] }, 'BE', 'CD'],
+        angles: ['BAC', 'ABE', 'ACD', 'ADC', 'BDC', 'AEB', 'CEB'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'vertical'],
+      evidence: [
+        { id: 'e1', items: ['AB', 'AC'], reason: 'given', label: 'AB＝AC', mark: 1 },
+        { id: 'e2', items: ['AE', 'AD'], reason: 'given', label: 'AE＝AD', mark: 2 },
+        { id: 'e3', items: ['∠BAE', '∠CAD'], reason: 'commonAngle', label: '∠BAE＝∠CAD', mark: 'common' },
+      ],
+      extraTruths: [],
+      congruence: 'SAS',
+      proof: { intro: '△ABEと△ACDにおいて' },
+      hints: {
+        e1: [
+          { text: '仮定から等しい辺を探そう。' },
+          { text: '辺ABと辺ACに注目！ 点D・Eより先の部分をタップすると、辺全体が選べるよ。', focus: ['AB', 'AC'] },
+          { text: 'AB＝AC。仮定より等しいね！', focus: ['AB', 'AC'] },
+        ],
+        e2: [
+          { text: '仮定にはもう1組、等しい辺があるよ。' },
+          { text: '辺AEと辺ADに注目！', focus: ['AE', 'AD'] },
+          { text: 'AE＝AD。仮定より等しいね！', focus: ['AE', 'AD'] },
+        ],
+        e3: [
+          { text: '△ABEと△ACDは、どちらも頂点Aの角をふくんでいるよ。' },
+          { text: '頂点Aの角に注目！「角選択」で同じ角を2回タップしよう。', focus: ['∠BAC'] },
+          { text: '∠BAE＝∠CAD。共通な角だから等しいね！', focus: ['∠BAC'] },
+        ],
+        congruence: sasHints('∠BAE', '辺ABと辺AE'),
+      },
+      explanation: '2つの三角形が重なっているとき、頂点の角が両方の三角形にふくまれていることがあります。∠BAEと∠CADは名前はちがっても同じ角（共通な角）です。',
+      learningPoints: [
+        '重なった三角形から共通な角を見つける。',
+        '名前がちがっても同じ角であることに気づく。',
+        '2組の辺とその間の角を使う。',
+      ],
+    },
+
+    {
+      id: 'p15',
+      number: '15',
+      title: '3つの理由を組み合わせろ！',
+      difficulty: 3,
+      stage: 5,
+      statement: '線分ADと線分BCが点Oで交わっている。AB∥CD、AO＝DOのとき、△ABO≡△DCOであることを証明しよう。',
+      given: ['AB∥CD', 'AO＝DO'],
+      conclusion: '△ABO≡△DCO',
+      triangles: [['A', 'B', 'O'], ['D', 'C', 'O']],
+      figure: {
+        viewBox: [0, 0, 400, 370],
+        points: {
+          A: { x: 70,  y: 60,  label: [-16, -14] },
+          B: { x: 250, y: 60,  label: [16, -14] },
+          D: { x: 330, y: 320, label: [16, 16] },
+          C: { x: 150, y: 320, label: [-16, 16] },
+          O: { x: 200, y: 190, label: [32, -6] },
+        },
+        lines: [['A', 'O', 'D'], ['B', 'O', 'C']],
+        segments: ['AB', 'CD', 'AO', 'DO', 'BO', 'CO'],
+        angles: ['BAO', 'ABO', 'CDO', 'DCO', 'AOB', 'DOC', 'AOC', 'BOD'],
+        parallel: [['A', 'B'], ['C', 'D']],
+      },
+      reasons: ['given', 'vertical', 'alternate', 'corresponding'],
+      evidence: [
+        { id: 'e1', items: ['AO', 'DO'], reason: 'given', label: 'AO＝DO', mark: 1 },
+        { id: 'e2', items: ['∠BAO', '∠CDO'], reason: 'alternate', label: '∠BAO＝∠CDO', mark: 1,
+          proofReason: 'AB∥CDより、平行線の錯角は等しいから' },
+        { id: 'e3', items: ['∠AOB', '∠DOC'], reason: 'vertical', label: '∠AOB＝∠DOC', mark: 2 },
+      ],
+      extraTruths: [
+        { items: ['∠ABO', '∠DCO'], reason: 'alternate' },
+        { items: ['∠AOC', '∠BOD'], reason: 'vertical' },
+      ],
+      congruence: 'ASA',
+      proof: { intro: '△ABOと△DCOにおいて' },
+      hints: {
+        e1: [
+          { text: '仮定から等しい辺を探そう。' },
+          { text: '辺AOと辺DOに注目！', focus: ['AO', 'DO'] },
+          { text: 'AO＝DO。仮定より等しいね！', focus: ['AO', 'DO'] },
+        ],
+        e2: [
+          { text: 'AB∥CDだから、平行線と交わる線分ADに注目しよう。' },
+          { text: '∠BAOと∠CDOを比べてみよう！', focus: ['∠BAO', '∠CDO'] },
+          { text: '∠BAO＝∠CDO。平行線の錯角だから等しいね！', focus: ['∠BAO', '∠CDO'] },
+        ],
+        e3: [
+          { text: '2本の線分が交わってできる角に注目しよう。' },
+          { text: '点Oのまわりの∠AOBと∠DOCを比べてみよう！', focus: ['∠AOB', '∠DOC'] },
+          { text: '∠AOB＝∠DOC。対頂角だから等しいね！', focus: ['∠AOB', '∠DOC'] },
+        ],
+        congruence: asaHints('∠BAOと∠AOB', '辺AO'),
+      },
+      explanation: '仮定・平行線の錯角・対頂角という3種類の理由を組み合わせる問題です。辺AOの両端A・Oにある角がそれぞれ等しくなります。∠ABO＝∠DCOも錯角で等しいですが、今回は辺AOの両端の角を使います。',
+      learningPoints: [
+        '仮定・錯角・対頂角を組み合わせる。',
+        '等しい辺の両端にある角を選ぶ。',
+      ],
+    },
   ];
+
+  // ステージ順に並べる（同じステージ内は上に書いた順。sort は安定ソート）
+  PH.problems.sort(function (a, b) { return a.stage - b.stage; });
+
+  PH.getStage = function (id) {
+    return PH.STAGES.find(function (s) { return s.id === Number(id); }) || null;
+  };
+
+  PH.stageProblems = function (stageId) {
+    return PH.problems.filter(function (p) { return p.stage === Number(stageId); });
+  };
 
   PH.getProblem = function (id) {
     return PH.problems.find(function (p) { return p.id === id; }) || null;

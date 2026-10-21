@@ -61,14 +61,21 @@
   const cache = new WeakMap();
 
   // 図形データから選択可能な要素（辺・角）を作る
+  //   辺は 'AB' のほか、途中に点がある長い辺を { name: 'AB', hit: ['D', 'B'] } と書ける。
+  //   このとき操作領域は D〜B の部分だけになり（A〜D は別の辺 AD として選ぶ）、選ぶと AB 全体が選ばれる。
   function getElements(figure) {
     if (cache.has(figure)) return cache.get(figure);
     const pts = figure.points;
     const byKey = {};
-    const segments = figure.segments.map(function (name) {
+    const segments = figure.segments.map(function (entry) {
+      const name = typeof entry === 'string' ? entry : entry.name;
       const s = cleanName(name);
-      const el = { key: segKey(s), kind: 'seg', name: s, display: s, p1: pts[s[0]], p2: pts[s[1]] };
-      if (!el.p1 || !el.p2) throw new Error('点が定義されていません: ' + name);
+      const hit = typeof entry === 'string' || !entry.hit ? [s[0], s[1]] : entry.hit;
+      const el = {
+        key: segKey(s), kind: 'seg', name: s, display: s, p1: pts[s[0]], p2: pts[s[1]],
+        h1: pts[hit[0]], h2: pts[hit[1]], composite: hit[0] + hit[1] !== s,
+      };
+      if (!el.p1 || !el.p2 || !el.h1 || !el.h2) throw new Error('点が定義されていません: ' + name);
       if (byKey[el.key]) throw new Error('線分が重複しています: ' + name);
       byKey[el.key] = el;
       return el;
@@ -120,6 +127,80 @@
     return 'M ' + pt(V) + ' L ' + pt(k.a) + ' A ' + f(r) + ' ' + f(r) + ' 0 0 ' + k.sweep + ' ' + pt(k.b) + ' Z';
   }
 
+  // 点 p から線分 ab までの距離
+  function distToSegment(p, a, b) {
+    const ab = sub(b, a);
+    const l2 = ab.x * ab.x + ab.y * ab.y || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / l2));
+    return dist(p, add(a, mul(ab, t)));
+  }
+
+  // 2線分の交点（端点どうしの接触は除く）。なければ null
+  function segmentIntersection(a, b, c, d) {
+    const r = sub(b, a), q = sub(d, c);
+    const den = r.x * q.y - r.y * q.x;
+    if (Math.abs(den) < 1e-9) return null;
+    const t = ((c.x - a.x) * q.y - (c.y - a.y) * q.x) / den;
+    const u = ((c.x - a.x) * r.y - (c.y - a.y) * r.x) / den;
+    const eps = 1e-6;
+    if (t <= eps || t >= 1 - eps || u <= eps || u >= 1 - eps) return null;
+    return add(a, mul(r, t));
+  }
+
+  /*
+   * 頂点 V から点 P の方向へ進んだとき、最初にぶつかる「名前のある点」までの距離と、
+   * 「ほかの線分との交わり（名前のない交点）」までの距離を返す。角の操作領域の大きさの計算に使う。
+   */
+  function rayClearance(figure, vName, pName) {
+    const pts = figure.points;
+    const V = pts[vName], P = pts[pName];
+    const dir = unit(sub(P, V));
+    let point = dist(V, P);
+    Object.keys(pts).forEach(function (n) {
+      if (n === vName) return;
+      const w = sub(pts[n], V);
+      const along = w.x * dir.x + w.y * dir.y;
+      const off = Math.abs(w.x * dir.y - w.y * dir.x);
+      if (along > 1e-6 && off < 0.5 && along < point) point = along;
+    });
+    let crossing = Infinity;
+    const far = add(V, mul(dir, point));
+    getElements(figure).segments.forEach(function (s) {
+      const x = segmentIntersection(V, far, s.p1, s.p2);
+      if (x) crossing = Math.min(crossing, dist(V, x));
+    });
+    return { point: point, crossing: crossing };
+  }
+
+  // 角の操作領域（扇形）の半径。隣の頂点の角や、線の交点の向こう側の角と重ならないようにする
+  const ANGLE_HIT_MAX = 56;     // 辺と同時に置くとき
+  const ANGLE_ONLY_MAX = 92;    // 角だけを置くとき（角選択モード）
+  function angleHitRadius(figure, a, angleOnly) {
+    const r1 = rayClearance(figure, a.name[1], a.name[0]);
+    const r2 = rayClearance(figure, a.name[1], a.name[2]);
+    let byPoint = Math.min(r1.point, r2.point);
+    // 角の内側にほかの頂点があるときは、その頂点の角と重ならないよう距離の半分未満に抑える
+    const u1 = sub(a.from, a.vertex), u2 = sub(a.to, a.vertex);
+    const cr = function (p, q) { return p.x * q.y - p.y * q.x; };
+    const sgn = Math.sign(cr(u1, u2));
+    Object.keys(figure.points).forEach(function (n) {
+      if (n === a.name[1]) return;
+      const q = sub(figure.points[n], a.vertex);
+      if (Math.sign(cr(u1, q)) * sgn > 0 && Math.sign(cr(q, u2)) * sgn > 0) byPoint = Math.min(byPoint, len(q));
+    });
+    const byCrossing = Math.min(r1.crossing, r2.crossing);
+    return angleOnly
+      ? Math.min(ANGLE_ONLY_MAX, 0.48 * byPoint, byCrossing)
+      : Math.min(ANGLE_HIT_MAX, 0.45 * byPoint, byCrossing);
+  }
+
+  // 平行の印の一覧。[始点, 終点] または [始点, 終点, 組番号]（組番号の数だけ矢印を重ねる）
+  function parallelLines(figure) {
+    return (figure.parallel || []).map(function (e) {
+      return { from: e[0], to: e[1], group: e[2] || 1 };
+    });
+  }
+
   // 角の二等分線方向の単位ベクトル
   function bisector(V, P1, P2) {
     return unit(add(unit(sub(P1, V)), unit(sub(P2, V))));
@@ -155,6 +236,10 @@
     isAngleName: isAngleName,
     elementKey: elementKey,
     getElements: getElements,
+    angleHitRadius: angleHitRadius,
+    parallelLines: parallelLines,
+    segmentIntersection: segmentIntersection,
+    distToSegment: distToSegment,
     vec: { sub: sub, add: add, mul: mul, len: len, dist: dist, unit: unit, normal: normal, lerp: lerp },
     fmt: pt,
     arcPath: arcPath,

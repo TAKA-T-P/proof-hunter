@@ -43,6 +43,24 @@
 
   const MARK_TOOLS = [['seg', 1], ['seg', 2], ['seg', 3], ['ang', 1], ['ang', 2]];
 
+  // 証明する三角形を1つだけ取り出した小さな図（向きは元の図のまま。重ねる演出はしない）
+  // 頂点は対応順の番号ごとに同じ色（vx-0〜2）で表示する
+  function miniTriangle(fig, tri, idx) {
+    const pts = tri.map(function (n) { return fig.points[n]; });
+    const xs = pts.map(function (q) { return q.x; }), ys = pts.map(function (q) { return q.y; });
+    const pad = 30;
+    const minX = Math.min.apply(null, xs) - pad, minY = Math.min.apply(null, ys) - pad;
+    const w = Math.max.apply(null, xs) - minX + pad, h = Math.max.apply(null, ys) - minY + pad;
+    const cx = xs.reduce(function (a, b) { return a + b; }) / 3, cy = ys.reduce(function (a, b) { return a + b; }) / 3;
+    let body = '<polygon class="tri tri-' + idx + '" points="' + pts.map(function (q) { return q.x + ',' + q.y; }).join(' ') + '"/>';
+    pts.forEach(function (q, k) {
+      const dx = q.x - cx, dy = q.y - cy, l = Math.hypot(dx, dy) || 1;
+      body += '<circle class="vx-dot vx-' + k + '" cx="' + q.x + '" cy="' + q.y + '" r="7"/>' +
+        '<text class="vx-label vx-' + k + '" x="' + (q.x + dx / l * 20).toFixed(1) + '" y="' + (q.y + dy / l * 20).toFixed(1) + '">' + esc(tri[k]) + '</text>';
+    });
+    return '<svg class="tri-mini" viewBox="' + [minX, minY, w, h].map(function (n) { return n.toFixed(1); }).join(' ') + '" aria-hidden="true">' + body + '</svg>';
+  }
+
   // ---------------------------------------------------------------------
 
   function PlayController(container, problem, nav) {
@@ -51,7 +69,10 @@
     this.nav = nav;
     this.game = new PH.Game(problem);
     this.flashKeys = [];
+    this.flashLines = [];
     this.flashTimer = null;
+    this.triCheck = false;      // 「三角形を確認」表示中
+    this.stageCleared = false;  // この問題のクリアで初めてステージクリアになった
     this.timers = [];
     this.message = null;
     this.newSlot = null;
@@ -80,7 +101,7 @@
       '<header class="play-header">' +
         '<button class="head-btn" data-act="home" aria-label="ホームに戻る"><span class="ico">⌂</span><span class="lbl">ホーム</span></button>' +
         '<div class="play-title"><span class="play-no">問題' + esc(p.number) + '</span><span class="play-name">' + esc(p.title) + '</span></div>' +
-        '<div class="counter" aria-live="polite"><span class="counter-label">根拠</span><b data-ref="count">0</b><span>/' + p.evidence.length + '</span></div>' +
+        '<div class="counter" data-ref="counter" aria-live="polite"><span class="counter-label">根拠</span><b data-ref="count">0</b><span>/' + p.evidence.length + '</span></div>' +
         '<button class="head-btn head-hint" data-act="hint" aria-label="ヒント"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
       '</header>' +
       // スマホ縦画面: .play-stage（図＋ボタン）を上に固定し、.play-scroll（問題文・解答欄）だけスクロール
@@ -90,6 +111,7 @@
           '<div class="card figure-card" data-ref="figureCard">' +
             '<div class="mode-badge" data-ref="modeBadge"></div>' +
             '<svg class="figure" data-ref="svg" role="group" aria-label="問題の図"></svg>' +
+            '<button class="tri-btn" data-act="tri-check" aria-pressed="false">△ 三角形を確認</button>' +
             '<div class="pop-msg" data-ref="popMsg" aria-hidden="true"></div>' +
           '</div>' +
           '<div class="toolbar" role="toolbar" aria-label="操作">' +
@@ -125,6 +147,7 @@
     clearTimeout(this.flashTimer);
     this.timers.forEach(clearTimeout);
     PH.hints.hide(doc.getElementById('hint-popup'));
+    PH.hints.hide(doc.getElementById('tri-popup'));
     const ov = doc.getElementById('success-overlay');
     if (ov) { ov.hidden = true; ov.classList.remove('show'); }
     this.root.innerHTML = '';
@@ -147,18 +170,22 @@
   };
 
   PlayController.prototype.handleClick = function (e) {
-    const t = e.target.closest('[data-key],[data-act],[data-mode],[data-reason],[data-cond],[data-tool],[data-ev]');
+    const t = e.target.closest('[data-key],[data-act],[data-mode],[data-reason],[data-cond],[data-tool],[data-ev],[data-proof-reason]');
     if (!t || t.disabled) return;
-    if (t.hasAttribute('data-key')) return this.tapElement(t.getAttribute('data-key'));
+    if (t.hasAttribute('data-key')) return this.tapElement(this.resolveTapKey(t, e.clientX, e.clientY));
     if (t.hasAttribute('data-mode')) return this.setMode(t.getAttribute('data-mode'));
     if (t.hasAttribute('data-reason')) return this.selectReason(t.getAttribute('data-reason'));
     if (t.hasAttribute('data-cond')) return this.selectCondition(t.getAttribute('data-cond'));
     if (t.hasAttribute('data-tool')) return this.selectTool(t.getAttribute('data-tool'));
     if (t.hasAttribute('data-ev')) return this.showEvidence(t.getAttribute('data-ev'));
+    if (t.hasAttribute('data-proof-reason')) return this.showReason(t.getAttribute('data-proof-reason'));
     switch (t.getAttribute('data-act')) {
       case 'home': return this.nav.home();
       case 'list': return this.nav.list();
+      case 'stages': return this.nav.stages();
       case 'next': return this.nav.next();
+      case 'next-stage': return this.nav.nextStage();
+      case 'tri-check': return this.setTriCheck(!this.triCheck);
       case 'hint': return this.hint();
       case 'restart': return this.restart();
       case 'clear-sel': return this.clearSelection();
@@ -166,6 +193,25 @@
       case 'confirm-cond': return this.confirmCondition();
       case 'clear-marks': return this.clearMarks();
     }
+  };
+
+  /*
+   * 辺の操作領域は太いので、2本の辺が鋭い角度で交わる頂点の近くでは重なる。
+   * 辺をタップしたときは、重なりの上下関係ではなく「タップした点にいちばん近い辺」を選ぶ。
+   */
+  PlayController.prototype.resolveTapKey = function (target, clientX, clientY) {
+    const key = target.getAttribute('data-key');
+    if (!target.classList.contains('hit-seg') || clientX == null) return key;
+    const svg = this.ref('svg');
+    const ctm = svg && svg.getScreenCTM && svg.getScreenCTM();
+    if (!ctm) return key;
+    const q = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+    let best = key, bestD = Infinity;
+    PH.geometry.getElements(this.problem.figure).segments.forEach(function (s) {
+      const d = PH.geometry.distToSegment(q, s.h1, s.h2);
+      if (d < bestD) { bestD = d; best = s.key; }
+    });
+    return best;
   };
 
   PlayController.prototype.say = function (text, type) {
@@ -234,9 +280,12 @@
   PlayController.prototype.restart = function () {
     this.game.reset();
     this.resultBuilt = false;
+    this.stageCleared = false;
     this.newSlot = null;
     this.flashKeys = [];
+    this.flashLines = [];
     this.say(null);
+    this.setTriCheck(false);
     PH.hints.hide(doc.getElementById('hint-popup'));
     PH.storage.setLastProblem(this.problem.id);
     this.render();
@@ -250,23 +299,77 @@
     this.ref('result').scrollTop = 0;
   };
 
-  PlayController.prototype.flash = function (keys, ms) {
+  PlayController.prototype.flash = function (keys, ms, lines) {
     const self = this;
     this.flashKeys = keys.slice();
+    this.flashLines = (lines || []).slice();
     clearTimeout(this.flashTimer);
     this.flashTimer = setTimeout(function () {
       self.flashKeys = [];
+      self.flashLines = [];
       self.renderFigures();
     }, ms || 1300);
     this.renderFigures();
   };
 
+  // 根拠の等式：その辺・角を光らせる
   PlayController.prototype.showEvidence = function (id) {
     const keys = this.game.evidenceKeys(id);
     if (keys.length) {
       PH.sound.play('tap');
       this.flash(keys, 1400);
     }
+  };
+
+  // 根拠の理由：辺・角に加えて、平行線の錯角・同位角なら使った平行線も光らせる
+  PlayController.prototype.showReason = function (id) {
+    const ev = this.game.evidenceById(id);
+    if (!ev) return;
+    let lines = [];
+    if (ev.reason === 'alternate' || ev.reason === 'corresponding') {
+      const group = ev.parallelGroup || 1;
+      lines = PH.geometry.parallelLines(this.problem.figure)
+        .filter(function (pl) { return pl.group === group; })
+        .map(function (pl) { return [pl.from, pl.to]; });
+    }
+    PH.sound.play('tap');
+    this.flash(this.game.evidenceKeys(id), 1600, lines);
+  };
+
+  // 「三角形を確認」：対象の2つの三角形を色分けし、頂点の対応を表示する
+  PlayController.prototype.setTriCheck = function (on) {
+    this.triCheck = !!on;
+    const popup = doc.getElementById('tri-popup');
+    if (this.triCheck) {
+      PH.hints.hide(doc.getElementById('hint-popup'));
+      this.fillTriPopup(popup);
+      popup.hidden = false;
+      popup.classList.remove('pop');
+      void popup.offsetWidth;
+      popup.classList.add('pop');
+      PH.sound.play('tap');
+    } else {
+      PH.hints.hide(popup);
+    }
+    const btn = this.root.querySelector('.tri-btn');
+    if (btn) btn.setAttribute('aria-pressed', String(this.triCheck));
+    this.renderFigures();
+  };
+
+  PlayController.prototype.fillTriPopup = function (popup) {
+    const p = this.problem;
+    const t1 = p.triangles[0], t2 = p.triangles[1];
+    const pairs = [0, 1, 2].map(function (k) {
+      return '<span class="vx-pair"><span class="vx-chip vx-' + k + '">' + esc(t1[k]) + '</span>↔<span class="vx-chip vx-' + k + '">' + esc(t2[k]) + '</span></span>';
+    }).join('');
+    popup.querySelector('.tri-body').innerHTML =
+      '<div class="tri-pair">' +
+        '<figure><figcaption class="tri-cap tri-cap-0">' + triName(t1) + '</figcaption>' + miniTriangle(p.figure, t1, 0) + '</figure>' +
+        '<span class="tri-and">と</span>' +
+        '<figure><figcaption class="tri-cap tri-cap-1">' + triName(t2) + '</figcaption>' + miniTriangle(p.figure, t2, 1) + '</figure>' +
+      '</div>' +
+      '<div class="tri-map"><span class="tri-map-label">対応する頂点</span>' + pairs + '</div>' +
+      '<p class="tri-note">結論 <b>' + esc(p.conclusion) + '</b> の文字の順番が、頂点の対応を表しているよ。同じ色の頂点どうしが対応するよ。</p>';
   };
 
   PlayController.prototype.popMessage = function (text) {
@@ -283,6 +386,7 @@
     const popup = doc.getElementById('hint-popup');
     if (g.phase === 'clear') return;
     const h = g.useHint();
+    if (this.triCheck) this.setTriCheck(false);
     PH.sound.play('tap');
     PH.hints.show(popup, h, g.hintsUsed);
     if (h && h.focus.length) this.flash(h.focus, 1800);
@@ -304,8 +408,13 @@
         this.popMessage('根拠発見！');
         this.flash(g.evidenceKeys(ev.id), 1100);
         PH.hints.hide(doc.getElementById('hint-popup'));
-        if (r.complete) this.say('3つの根拠がそろった！ 合同条件を見極めよう！', 'ok');
-        else this.say('根拠発見！ ' + ev.label + '（' + PH.REASONS[ev.reason].short + '）', 'ok');
+        this.bumpCounter = true;
+        if (r.complete) {
+          this.say('3つの根拠がそろった！ 合同条件を見極めよう！', 'ok');
+          this.focusPanel = true;
+        } else {
+          this.say('根拠発見！ ' + ev.label + '（' + PH.REASONS[ev.reason].short + '）', 'ok');
+        }
         break;
       }
       case 'duplicate':
@@ -347,23 +456,44 @@
     }
     PH.sound.play('success');
     PH.hints.hide(doc.getElementById('hint-popup'));
+    this.setTriCheck(false);
+    const stageBefore = PH.storage.stageStats(this.problem.stage).complete;
     const saved = PH.storage.recordClear(this.problem.id, g.stars, g.misses);
     this.improved = saved.improved;
+    // そのステージの全問題がこのクリアで初めてそろったときだけ「STAGE CLEAR！」を出す
+    this.stageCleared = !stageBefore && PH.storage.stageStats(this.problem.stage).complete;
     this.say(null);
     this.showSuccess();
     this.render();
     this.scrollToTop();
   };
 
-  PlayController.prototype.showSuccess = function () {
+  PlayController.prototype.showOverlay = function (title, sub, cls) {
     const ov = doc.getElementById('success-overlay');
     if (!ov) return;
-    ov.querySelector('.success-concl').textContent = this.problem.conclusion;
+    ov.querySelector('.success-text').textContent = title;
+    ov.querySelector('.success-concl').textContent = sub;
+    ov.className = 'success-overlay ' + (cls || '');
     ov.hidden = false;
-    ov.classList.remove('show');
     void ov.offsetWidth;
     ov.classList.add('show');
-    this.later(function () { ov.classList.remove('show'); ov.hidden = true; }, 2000);
+  };
+
+  PlayController.prototype.showSuccess = function () {
+    const self = this;
+    const ov = doc.getElementById('success-overlay');
+    if (!ov) return;
+    this.showOverlay('証明成功！', this.problem.conclusion);
+    if (this.stageCleared) {
+      const st = PH.getStage(this.problem.stage);
+      this.later(function () {
+        PH.sound.play('success');
+        self.showOverlay('STAGE CLEAR！', 'STAGE ' + st.id + '「' + st.title + '」', 'is-stage');
+      }, 1900);
+      this.later(function () { ov.classList.remove('show'); ov.hidden = true; }, 4100);
+    } else {
+      this.later(function () { ov.classList.remove('show'); ov.hidden = true; }, 2000);
+    }
   };
 
   // ---- 描画 -------------------------------------------------------------
@@ -392,6 +522,20 @@
       panel.classList.add('shake');
       this.shake = false;
     }
+    if (this.bumpCounter) {
+      const c = this.ref('counter');
+      c.classList.remove('bump');
+      void c.offsetWidth;
+      c.classList.add('bump');
+      this.bumpCounter = false;
+    }
+    if (this.focusPanel) {
+      // 3つそろったら合同条件の選択欄が見えるようにする（スマホでは下の領域だけスクロール）
+      const panel = this.ref('panel');
+      panel.classList.add('glow');
+      if (panel.scrollIntoView) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      this.focusPanel = false;
+    }
   };
 
   PlayController.prototype.renderFigures = function () {
@@ -400,7 +544,7 @@
       const mini = this.ref('miniSvg');
       if (mini) {
         PH.renderer.render(mini, this.problem, {
-          flash: this.flashKeys, autoMarks: g.autoMarks(), triangles: true, interactive: false,
+          flash: this.flashKeys, flashLines: this.flashLines, autoMarks: g.autoMarks(), triangles: true, interactive: false,
         });
       }
       return;
@@ -416,6 +560,8 @@
       flash: this.flashKeys,
       autoMarks: g.autoMarks(),
       userMarks: g.userMarks,
+      flashLines: this.flashLines,
+      triangles: this.triCheck ? 'check' : false,
       interactive: true,
       // 辺選択では辺だけ、角選択では角だけ、印つけでは選んだ印の種類だけ、消すでは両方がタップに反応する
       hit: g.mode === 'erase' ? { seg: true, ang: true }
@@ -479,7 +625,7 @@
               '<span class="choice-no">' + CIRCLED[i] + '</span>' + esc(PH.CONDITIONS[id].label) + '</button>';
           }).join('') +
         '</div>' +
-        '<div class="panel-actions"><button class="btn btn-primary btn-wide" data-act="confirm-cond"' + (g.condition ? '' : ' disabled') + '>決定</button></div>' +
+        '<div class="panel-actions"><button class="btn btn-confirm btn-wide" data-act="confirm-cond"' + (g.condition ? '' : ' disabled') + '>決定</button></div>' +
         this.feedbackHtml();
       panel.innerHTML = html;
       return;
@@ -544,17 +690,29 @@
   PlayController.prototype.buildResult = function () {
     const g = this.game;
     const p = this.problem;
-    const nums = p.evidence.map(function (_, i) { return CIRCLED[i]; });
-    const isLast = PH.problems[PH.problems.length - 1].id === p.id;
-    const lines = p.evidence.map(function (ev, i) {
-      const reason = ev.proofReason || PH.REASONS[ev.reason].proof;
-      return '<li><button class="proof-line" data-ev="' + ev.id + '">' +
-        '<span class="pl-reason">' + esc(reason) + '</span>' +
-        '<span class="pl-eq">' + esc(ev.label) + '<span class="pl-no">……' + nums[i] + '</span></span>' +
-        '</button></li>';
+    const proof = PH.buildProof(p);
+    const stage = PH.getStage(p.stage);
+    const list = PH.stageProblems(p.stage);
+    const hasNext = list.indexOf(p) < list.length - 1;
+    const nextStage = PH.getStage(p.stage + 1);
+    const lines = proof.lines.map(function (l) {
+      return '<li class="proof-line">' +
+        '<button class="pl-reason" data-proof-reason="' + l.evidenceId + '">' + esc(l.reason) + '</button>' +
+        '<button class="pl-eq" data-ev="' + l.evidenceId + '">' + esc(l.equation) + '<span class="pl-no">……' + l.no + '</span></button>' +
+        '</li>';
     }).join('');
 
+    let guide = '';
+    if (!hasNext) {
+      guide = nextStage
+        ? '<p class="result-guide">STAGE ' + stage.id + 'の問題はこれで最後！ 次は <b>STAGE ' + nextStage.id + '「' + esc(nextStage.title) + '」</b> に挑戦しよう！</p>'
+        : '<p class="result-guide">これで最後のステージの最後の問題だよ。ステージ選択から、★★★をめざして挑戦しよう！</p>';
+    }
+
     this.ref('result').innerHTML =
+      (this.stageCleared
+        ? '<div class="stage-clear-banner"><span class="scb-title">STAGE CLEAR！</span><span class="scb-sub">STAGE ' + stage.id + '「' + esc(stage.title) + '」の問題をすべてクリアしたよ！</span></div>'
+        : '') +
       '<div class="result-banner">' +
         '<div class="result-title">証明成功！</div>' +
         '<div class="result-stars" aria-label="評価 星' + g.stars + 'つ">' + starsText(g.stars) + '</div>' +
@@ -563,23 +721,29 @@
       '</div>' +
       '<div class="result-grid">' +
         '<div class="card result-figure"><svg class="figure mini" data-ref="miniSvg" aria-label="証明した図"></svg>' +
-          '<p class="small-note">証明の式をタップすると、図の場所が光るよ</p></div>' +
+          '<p class="small-note">証明の式や理由をタップすると、図の場所が光るよ</p></div>' +
         '<div class="card proof-sheet">' +
           '<h2 class="proof-title">完成した証明</h2>' +
-          '<p class="proof-intro">' + esc(p.proof.intro) + '</p>' +
+          '<p class="proof-intro">' + esc(proof.intro) + '</p>' +
           '<ol class="proof-lines">' + lines + '</ol>' +
-          '<p class="proof-sum">' + nums.join('、') + 'より、</p>' +
-          '<p class="proof-cond"><strong>' + esc(PH.CONDITIONS[p.congruence].label) + '</strong>ので、</p>' +
-          '<p class="proof-concl">' + esc(p.conclusion) + '</p>' +
+          '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
+          '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +
+          '<p class="proof-concl">' + esc(proof.conclusion) + '</p>' +
         '</div>' +
       '</div>' +
-      '<div class="card points"><h3>この問題のポイント</h3><ul>' +
-        p.learningPoints.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') +
-      '</ul></div>' +
+      '<div class="card points explain">' +
+        '<h3>💡 今回のポイント</h3>' +
+        '<p class="explain-text">' + esc(p.explanation) + '</p>' +
+        '<h4>学習のポイント</h4><ul>' +
+          p.learningPoints.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') +
+        '</ul>' +
+      '</div>' +
+      guide +
       '<div class="result-actions">' +
         '<button class="btn" data-act="restart">↺ もう一度挑戦</button>' +
-        (isLast ? '' : '<button class="btn btn-primary" data-act="next">次の問題へ ▶</button>') +
-        '<button class="btn" data-act="list">問題一覧へ</button>' +
+        (hasNext ? '<button class="btn btn-primary" data-act="next">次の問題へ ▶</button>' : '') +
+        (!hasNext && nextStage ? '<button class="btn btn-primary" data-act="next-stage">次のステージへ ▶</button>' : '') +
+        '<button class="btn" data-act="stages">ステージ選択へ</button>' +
       '</div>';
     this.resultBuilt = true;
   };

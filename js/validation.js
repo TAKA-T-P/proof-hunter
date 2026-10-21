@@ -164,11 +164,78 @@
     return { ok: true, status: 'correct', condition: derived };
   }
 
-  // 問題データの整合性チェック（テスト・開発用）
+  // ---- 図の座標を使った数値チェック -------------------------------------
+
+  // 辺の長さ・角の大きさ（度）を図の座標から測る
+  function measure(figure, name) {
+    const pts = figure.points;
+    const v = geo().vec;
+    if (geo().isAngleName(name)) {
+      const n = String(name).replace(/[∠\s]/g, '');
+      const V = pts[n[1]], P = pts[n[0]], Q = pts[n[2]];
+      const a = v.sub(P, V), b = v.sub(Q, V);
+      const cos = (a.x * b.x + a.y * b.y) / (v.len(a) * v.len(b));
+      return { kind: 'ang', value: Math.acos(Math.max(-1, Math.min(1, cos))) * 180 / Math.PI };
+    }
+    const n = String(name).replace(/\s/g, '');
+    return { kind: 'seg', value: v.dist(pts[n[0]], pts[n[1]]) };
+  }
+
+  function nearlyEqual(m1, m2) {
+    if (m1.kind !== m2.kind) return false;
+    return m1.kind === 'ang'
+      ? Math.abs(m1.value - m2.value) < 0.5
+      : Math.abs(m1.value - m2.value) < Math.max(0.5, m1.value * 0.005);
+  }
+
+  // 問題データの整合性チェック（テスト・開発用）。問題がなければ空配列
   function verifyProblem(problem) {
     const errors = [];
+    const fig = problem.figure;
+    const v = geo().vec;
     try {
-      const els = geo().getElements(problem.figure);
+      ['id', 'title', 'statement', 'conclusion', 'explanation'].forEach(function (k) {
+        if (typeof problem[k] !== 'string' || !problem[k]) errors.push(k + ' がない');
+      });
+      if (!PH.getStage || !PH.getStage(problem.stage)) errors.push('stage が無効: ' + problem.stage);
+      if (!(problem.difficulty >= 1 && problem.difficulty <= 3)) errors.push('difficulty が無効');
+      if (!Array.isArray(problem.learningPoints) || !problem.learningPoints.length) errors.push('learningPoints がない');
+      if (!problem.proof || !problem.proof.intro) errors.push('proof.intro がない');
+      if (!PH.CONDITIONS[problem.congruence]) errors.push('congruence が無効');
+      if (!(problem.hints && problem.hints.congruence && problem.hints.congruence.length)) errors.push('合同条件のヒントがない');
+
+      // 三角形：点があり、3点が異なり、一直線上にない。結論の表記と対応順が一致
+      problem.triangles.forEach(function (t, i) {
+        if (t.length !== 3 || new Set(t).size !== 3) errors.push('三角形' + (i + 1) + 'の頂点が不正');
+        t.forEach(function (n) { if (!fig.points[n]) errors.push('三角形の頂点 ' + n + ' が図にない'); });
+        if (t.every(function (n) { return fig.points[n]; })) {
+          const A = fig.points[t[0]], B = fig.points[t[1]], C = fig.points[t[2]];
+          if (Math.abs((B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x)) < 1) errors.push('三角形' + (i + 1) + 'がつぶれている');
+        }
+      });
+      const expected = '△' + problem.triangles[0].join('') + '≡△' + problem.triangles[1].join('');
+      if (problem.conclusion !== expected) errors.push('結論の表記と triangles の対応順が一致しない: ' + expected);
+
+      // 一直線上の点（figure.lines）が本当に一直線上に、書いた順で並んでいるか
+      (fig.lines || []).forEach(function (L) {
+        const P = fig.points[L[0]], Q = fig.points[L[L.length - 1]];
+        const d = v.unit(v.sub(Q, P));
+        let last = -Infinity;
+        L.forEach(function (n) {
+          const w = v.sub(fig.points[n], P);
+          if (Math.abs(w.x * d.y - w.y * d.x) > 0.5) errors.push('lines の点が一直線上にない: ' + n);
+          const t = w.x * d.x + w.y * d.y;
+          if (t <= last) errors.push('lines の点の順番が不正: ' + L.join(''));
+          last = t;
+        });
+      });
+
+      const els = geo().getElements(fig);
+      els.angles.forEach(function (a) {
+        const m = measure(fig, '∠' + a.name).value;
+        if (!(m > 1 && m < 179)) errors.push('角 ∠' + a.name + ' が不正（' + m.toFixed(1) + '°）');
+      });
+
       const c = compiled(problem);
       c.evidence.forEach(function (e) {
         e.keys.forEach(function (k) {
@@ -176,15 +243,73 @@
         });
         if (!PH.REASONS[e.ev.reason]) errors.push(e.ev.id + ': 未定義の理由 ' + e.ev.reason);
         const same = e.keys[0] === e.keys[1];
-        const reasonsOffered = problem.reasons.concat(same ? [e.keys[0].slice(0, 3) === 'ang' ? 'commonAngle' : 'common'] : []);
-        if (reasonsOffered.indexOf(e.ev.reason) < 0) errors.push(e.ev.id + ': 理由が選択肢にない');
+        const auto = same ? [e.keys[0].slice(0, 3) === 'ang' ? 'commonAngle' : 'common'] : [];
+        if (problem.reasons.concat(auto).indexOf(e.ev.reason) < 0) errors.push(e.ev.id + ': 理由が選択肢にない');
         if (!(problem.hints && problem.hints[e.ev.id] && problem.hints[e.ev.id].length)) errors.push(e.ev.id + ': ヒントがない');
+        if (!nearlyEqual(measure(fig, e.ev.items[0]), measure(fig, e.ev.items[1]))) errors.push(e.ev.id + ': 図の上で等しくない ' + e.ev.label);
+        if ((e.ev.reason === 'common' || e.ev.reason === 'commonAngle') !== same) errors.push(e.ev.id + ': 共通の理由と要素が合わない');
+        if (e.ev.label.replace(/＝/g, '=') !== e.ev.items.join('=')) errors.push(e.ev.id + ': label と items が一致しない');
       });
+      c.extras.forEach(function (x) {
+        if (!nearlyEqual(measure(fig, x.item.items[0]), measure(fig, x.item.items[1]))) errors.push('extraTruths が図の上で等しくない: ' + x.item.items.join('='));
+        x.keys.forEach(function (k) { if (!els.byKey[k]) errors.push('extraTruths: 図で選択できない要素 ' + k); });
+      });
+
+      // 図の2つの三角形が実際に合同に描かれているか（対応する辺がすべて等しい）
+      const t1 = problem.triangles[0], t2 = problem.triangles[1];
+      [[0, 1], [1, 2], [0, 2]].forEach(function (ij) {
+        const a = t1[ij[0]] + t1[ij[1]], b = t2[ij[0]] + t2[ij[1]];
+        if (!nearlyEqual(measure(fig, a), measure(fig, b))) errors.push('図の三角形が合同でない: ' + a + '≠' + b);
+      });
+
+      // 平行の組（同じ組番号の線）が本当に平行で、矢印が同じ向きか
+      const groups = {};
+      geo().parallelLines(fig).forEach(function (pl) { (groups[pl.group] = groups[pl.group] || []).push(pl); });
+      Object.keys(groups).forEach(function (gid) {
+        const ls = groups[gid];
+        if (ls.length < 2) errors.push('平行の組' + gid + 'が1本しかない');
+        const d0 = v.unit(v.sub(fig.points[ls[0].to], fig.points[ls[0].from]));
+        ls.forEach(function (pl) {
+          const d = v.unit(v.sub(fig.points[pl.to], fig.points[pl.from]));
+          if (Math.abs(d.x * d0.y - d.y * d0.x) > 0.005 || d.x * d0.x + d.y * d0.y < 0) errors.push('平行の印の向き・平行が不正: ' + pl.from + pl.to);
+        });
+      });
+      problem.evidence.forEach(function (ev) {
+        if (ev.parallelGroup && !groups[ev.parallelGroup]) errors.push(ev.id + ': parallelGroup が図にない');
+        if ((ev.reason === 'alternate' || ev.reason === 'corresponding') && !Object.keys(groups).length) errors.push(ev.id + ': 平行線の理由なのに平行の印がない');
+      });
+
+      // 途中に点がある長い辺：タップ部分の端点が辺の上にあるか
+      fig.segments.forEach(function (entry) {
+        if (typeof entry === 'string' || !entry.hit) return;
+        const el = els.byKey[geo().segKey(entry.name)];
+        const d = v.unit(v.sub(el.p2, el.p1));
+        [el.h1, el.h2].forEach(function (h) {
+          const w = v.sub(h, el.p1);
+          if (Math.abs(w.x * d.y - w.y * d.x) > 0.5) errors.push('hit の点が辺 ' + entry.name + ' の上にない');
+        });
+      });
+
       const derived = deriveCondition(problem, problem.evidence);
       if (derived !== problem.congruence) errors.push('合同条件が根拠と一致しない: ' + derived + ' / ' + problem.congruence);
     } catch (err) {
       errors.push(String(err && err.message || err));
     }
+    return errors;
+  }
+
+  // 問題全体のチェック（ID重複・各ステージに問題があるか・各問題）
+  function verifyAll(problems, stages) {
+    const errors = [];
+    const ids = {};
+    problems.forEach(function (p) {
+      if (ids[p.id]) errors.push('問題IDが重複: ' + p.id);
+      ids[p.id] = true;
+      verifyProblem(p).forEach(function (e) { errors.push(p.id + ': ' + e); });
+    });
+    (stages || []).forEach(function (st) {
+      if (!problems.some(function (p) { return p.stage === st.id; })) errors.push('STAGE ' + st.id + ' に問題がない');
+    });
     return errors;
   }
 
@@ -196,6 +321,8 @@
     deriveCondition: deriveCondition,
     checkCongruence: checkCongruence,
     verifyProblem: verifyProblem,
+    verifyAll: verifyAll,
+    measure: measure,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = PH.validation;

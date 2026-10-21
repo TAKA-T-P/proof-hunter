@@ -3,7 +3,9 @@
  *
  * 画面はURLのハッシュで切り替える（ブラウザの「戻る」でも状態が崩れない）。
  *   #/            タイトル
- *   #/select      問題選択
+ *   #/select      ステージ選択（＋苦手な問題に挑戦）
+ *   #/stage/<n>   ステージの問題一覧
+ *   #/review      苦手な問題（未クリア・★★以下）
  *   #/howto       あそびかた
  *   #/play/<id>   問題プレイ（開くたびに新しい状態で開始）
  */
@@ -52,29 +54,88 @@
     });
   }
 
-  // ---- 問題選択 ----------------------------------------------------------
+  // ---- ステージ選択・問題一覧・復習 ----------------------------------------
 
-  function renderSelect() {
-    const list = $('#problem-list');
-    list.innerHTML = PH.problems.map(function (p) {
-      const rec = PH.storage.getProblem(p.id);
-      const diff = '★'.repeat(p.difficulty) + '<span class="dim">' + '★'.repeat(Math.max(0, 3 - p.difficulty)) + '</span>';
-      const best = rec.cleared
-        ? '<span class="best-stars">' + '★'.repeat(rec.bestStars) + '<span class="dim">' + '★'.repeat(3 - rec.bestStars) + '</span></span>'
-        : '<span class="best-stars dim">★★★</span>';
-      return '<li><a class="problem-card' + (rec.cleared ? ' is-cleared' : '') + '" href="#/play/' + p.id + '">' +
-        '<span class="pc-no">問題<b>' + esc(p.number) + '</b></span>' +
-        '<span class="pc-body">' +
-          '<span class="pc-title">' + esc(p.title) + '</span>' +
-          '<span class="pc-meta"><span class="pc-diff" aria-label="難易度' + p.difficulty + '">難易度 ' + diff + '</span></span>' +
-        '</span>' +
-        '<span class="pc-status">' +
-          '<span class="pc-badge">' + (rec.cleared ? 'クリア' : '未クリア') + '</span>' +
-          '<span class="pc-best" aria-label="最高評価">' + best + '</span>' +
-          (rec.cleared && rec.minMisses != null ? '<span class="pc-miss">最少ミス ' + rec.minMisses + '回</span>' : '') +
-        '</span>' +
-      '</a></li>';
-    }).join('');
+  function starsHtml(rec) {
+    if (!rec.cleared) return '<span class="dim" aria-label="未クリア">★★★</span>';
+    return '★'.repeat(rec.bestStars) + '<span class="dim">' + '★'.repeat(3 - rec.bestStars) + '</span>';
+  }
+
+  // 問題選択画面の見出し（戻るボタンの行き先と題名）
+  function setSelectHeader(title, backHash, backLabel) {
+    const back = $('#select-back');
+    back.setAttribute('data-go', backHash);
+    back.querySelector('.lbl').textContent = backLabel;
+    back.querySelector('.ico').textContent = backHash === '#/' ? '⌂' : '◀';
+    $('#select-title').textContent = title;
+  }
+
+  function problemCard(p, showStage) {
+    const rec = PH.storage.getProblem(p.id);
+    const diff = '★'.repeat(p.difficulty) + '<span class="dim">' + '★'.repeat(Math.max(0, 3 - p.difficulty)) + '</span>';
+    const best = rec.cleared
+      ? '<span class="best-stars">' + '★'.repeat(rec.bestStars) + '<span class="dim">' + '★'.repeat(3 - rec.bestStars) + '</span></span>'
+      : '<span class="best-stars dim">★★★</span>';
+    return '<li><a class="problem-card' + (rec.cleared ? ' is-cleared' : '') + '" href="#/play/' + p.id + '">' +
+      '<span class="pc-no">問題<b>' + esc(p.number) + '</b></span>' +
+      '<span class="pc-body">' +
+        (showStage ? '<span class="pc-stage">STAGE ' + p.stage + '</span>' : '') +
+        '<span class="pc-title">' + esc(p.title) + '</span>' +
+        '<span class="pc-meta"><span class="pc-diff" aria-label="難易度' + p.difficulty + '">難易度 ' + diff + '</span></span>' +
+      '</span>' +
+      '<span class="pc-status">' +
+        '<span class="pc-badge">' + (rec.cleared ? 'クリア' : '未クリア') + '</span>' +
+        '<span class="pc-best" aria-label="最高評価">' + best + '</span>' +
+        (rec.cleared && rec.minMisses != null ? '<span class="pc-miss">最少ミス ' + rec.minMisses + '回</span>' : '') +
+      '</span>' +
+    '</a></li>';
+  }
+
+  function renderStageList() {
+    setSelectHeader('ステージをえらぶ', '#/', 'ホーム');
+    const review = PH.storage.reviewProblems().length;
+    $('#select-body').innerHTML =
+      '<button class="review-btn" data-go="#/review">🔁 苦手な問題に挑戦！<span class="review-count">' +
+        (review ? '復習 ' + review + '問' : '復習なし') + '</span></button>' +
+      '<ul class="stage-list">' + PH.STAGES.map(function (st) {
+        const stat = PH.storage.stageStats(st.id);
+        return '<li><a class="stage-card' + (stat.complete ? ' is-complete' : '') + '" href="#/stage/' + st.id + '">' +
+          '<span class="sc-no">STAGE<b>' + st.id + '</b></span>' +
+          '<span class="sc-body">' +
+            '<span class="sc-title">' + esc(st.title) + '</span>' +
+            '<span class="sc-theme">' + esc(st.theme) + '</span>' +
+            '<span class="sc-stars">' + stat.records.map(function (r) { return '<span class="sc-star">' + starsHtml(r) + '</span>'; }).join('') + '</span>' +
+          '</span>' +
+          '<span class="sc-status">' +
+            (stat.complete ? '<span class="sc-badge">STAGE CLEAR</span>' : '') +
+            '<span class="sc-clear">クリア <b>' + stat.cleared + '</b>/' + stat.total + '問</span>' +
+            '<span class="sc-total">★ ' + stat.stars + '/' + stat.maxStars + '</span>' +
+          '</span>' +
+        '</a></li>';
+      }).join('') + '</ul>' +
+      '<p class="select-note">どのステージ・どの問題からでも挑戦できるよ。ミス0・ヒント0でクリアすると ★★★！</p>';
+    renderSoundButtons();
+  }
+
+  function renderStage(stage) {
+    setSelectHeader('STAGE ' + stage.id + '｜' + stage.title, '#/select', 'ステージ');
+    const stat = PH.storage.stageStats(stage.id);
+    $('#select-body').innerHTML =
+      '<div class="stage-intro"><p>' + esc(stage.theme) + '</p>' +
+        '<p class="stage-intro-stat">クリア ' + stat.cleared + '/' + stat.total + '問 ・ ★ ' + stat.stars + '/' + stat.maxStars +
+        (stat.complete ? ' <span class="sc-badge">STAGE CLEAR</span>' : '') + '</p></div>' +
+      '<ul class="problem-list">' + stat.problems.map(function (p) { return problemCard(p, false); }).join('') + '</ul>';
+    renderSoundButtons();
+  }
+
+  function renderReview() {
+    setSelectHeader('苦手な問題に挑戦！', '#/select', 'ステージ');
+    const list = PH.storage.reviewProblems();
+    $('#select-body').innerHTML = list.length
+      ? '<p class="select-note">まだクリアしていない問題と、★★以下の問題だよ。★★★をめざそう！</p>' +
+        '<ul class="problem-list">' + list.map(function (p) { return problemCard(p, true); }).join('') + '</ul>'
+      : '<div class="card review-empty"><p class="review-empty-title">復習する問題はありません！</p><p>すべて★★★をめざそう！ すばらしい！</p>' +
+        '<button class="btn btn-primary" data-go="#/select">ステージ選択へ</button></div>';
     renderSoundButtons();
   }
 
@@ -129,7 +190,13 @@
     const name = parts[0];
     PH.play.unmount();
     if (name === 'select') {
-      renderSelect();
+      renderStageList();
+      show('select');
+    } else if (name === 'stage' && PH.getStage(parts[1])) {
+      renderStage(PH.getStage(parts[1]));
+      show('select');
+    } else if (name === 'review') {
+      renderReview();
       show('select');
     } else if (name === 'howto') {
       howtoPage = 0;
@@ -140,11 +207,16 @@
       show('play');
       PH.play.mount(doc.getElementById('screen-play'), problem, {
         home: function () { go('#/'); },
-        list: function () { go('#/select'); },
+        list: function () { go('#/stage/' + problem.stage); },
+        stages: function () { go('#/select'); },
+        // 次の問題は同じステージの中で進む。ステージ最後なら次のステージの一覧へ
         next: function () {
-          const i = PH.problems.indexOf(problem);
-          const nxt = PH.problems[i + 1];
-          go(nxt ? '#/play/' + nxt.id : '#/select');
+          const list = PH.stageProblems(problem.stage);
+          const nxt = list[list.indexOf(problem) + 1];
+          go(nxt ? '#/play/' + nxt.id : '#/stage/' + problem.stage);
+        },
+        nextStage: function () {
+          go(PH.getStage(problem.stage + 1) ? '#/stage/' + (problem.stage + 1) : '#/select');
         },
       });
       doc.title = '問題' + problem.number + ' ' + problem.title + '｜証明ハンター';
@@ -160,7 +232,7 @@
     PH.sound.setEnabled(PH.storage.getSound());
 
     doc.addEventListener('click', function (e) {
-      const t = e.target.closest('[data-go],[data-sound-toggle],#btn-continue,#howto-prev,#howto-next,#hint-close');
+      const t = e.target.closest('[data-go],[data-sound-toggle],#btn-continue,#howto-prev,#howto-next,#hint-close,#tri-close');
       if (!t) return;
       if (t.hasAttribute('data-go')) {
         PH.sound.play('tap');
@@ -181,12 +253,19 @@
         else go('#/select');
       } else if (t.id === 'hint-close') {
         PH.hints.hide(doc.getElementById('hint-popup'));
+      } else if (t.id === 'tri-close') {
+        const c = PH.play.current();
+        if (c) c.setTriCheck(false);
+        else PH.hints.hide(doc.getElementById('tri-popup'));
       }
     });
 
     // ヒントのポップアップは図形を隠さないので、表示したまま操作を続けられる。Escでも閉じる。
     doc.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') PH.hints.hide(doc.getElementById('hint-popup'));
+      if (e.key !== 'Escape') return;
+      PH.hints.hide(doc.getElementById('hint-popup'));
+      const c = PH.play.current();
+      if (c && c.triCheck) c.setTriCheck(false);
     });
 
     root.addEventListener('hashchange', route);

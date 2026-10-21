@@ -238,8 +238,29 @@
     return ev ? ev.items.map(function (n) { return PH.geometry.elementKey(fig, n); }) : [];
   };
 
+  // 完成した証明文。生徒が集めた順にかかわらず、問題データの evidence の順（標準的な順序）で並べる
+  const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥'];
+  function buildProof(problem) {
+    const lines = problem.evidence.map(function (ev, i) {
+      return {
+        evidenceId: ev.id,
+        reason: ev.proofReason || PH.REASONS[ev.reason].proof,
+        equation: ev.label,
+        no: CIRCLED[i],
+      };
+    });
+    return {
+      intro: problem.proof.intro,
+      lines: lines,
+      summary: lines.map(function (l) { return l.no; }).join('、') + 'より、',
+      condition: PH.CONDITIONS[problem.congruence].label,
+      conclusion: problem.conclusion,
+    };
+  }
+
   PH.Game = Game;
   PH.calcStars = calcStars;
+  PH.buildProof = buildProof;
 
   if (typeof module !== 'undefined' && module.exports) module.exports = { Game: Game, calcStars: calcStars };
 })(typeof window !== 'undefined' ? window : globalThis);
