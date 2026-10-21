@@ -164,7 +164,9 @@ test('どの問題でも、角の操作領域どうしが重ならない（角�
       for (let x = x0; x <= x0 + w; x += 4) {
         for (let y = y0; y <= y0 + h; y += 4) {
           const hits = sectors.filter((s) => inSector(s.a.vertex, s.a.from, s.a.to, s.R, { x, y }));
-          assert.ok(hits.length <= 1, p.id + ' (' + x + ',' + y + ') ' + hits.map((s) => s.a.name).join(','));
+          // 重なってよいのは、同じ頂点で一方の角が他方をふくむ場合だけ（そのときは「どちらを選びますか？」で選ぶ）
+          const nested = hits.every((h) => h.a.vertex === hits[0].a.vertex);
+          assert.ok(hits.length <= 1 || nested, p.id + ' (' + x + ',' + y + ') ' + hits.map((s) => s.a.name).join(','));
         }
       }
     });

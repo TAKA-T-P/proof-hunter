@@ -172,7 +172,7 @@
   PlayController.prototype.handleClick = function (e) {
     const t = e.target.closest('[data-key],[data-act],[data-mode],[data-reason],[data-cond],[data-tool],[data-ev],[data-proof-reason]');
     if (!t || t.disabled) return;
-    if (t.hasAttribute('data-key')) return this.tapElement(this.resolveTapKey(t, e.clientX, e.clientY));
+    if (t.hasAttribute('data-key')) return this.tapFromFigure(t, e.clientX, e.clientY);
     if (t.hasAttribute('data-mode')) return this.setMode(t.getAttribute('data-mode'));
     if (t.hasAttribute('data-reason')) return this.selectReason(t.getAttribute('data-reason'));
     if (t.hasAttribute('data-cond')) return this.selectCondition(t.getAttribute('data-cond'));
@@ -196,22 +196,45 @@
   };
 
   /*
-   * 辺の操作領域は太いので、2本の辺が鋭い角度で交わる頂点の近くでは重なる。
-   * 辺をタップしたときは、重なりの上下関係ではなく「タップした点にいちばん近い辺」を選ぶ。
+   * 図のタップが指しうる要素の候補（geometry.segmentCandidates / angleCandidates）。
+   * 線分ACの上に点Bがあり AC・AB の両方が選べるときなど、候補が2つ以上なら
+   * 「どちらに〜？」のポップアップ（PH.chooser）で選んでもらう。
    */
-  PlayController.prototype.resolveTapKey = function (target, clientX, clientY) {
+  PlayController.prototype.tapCandidates = function (target, clientX, clientY) {
     const key = target.getAttribute('data-key');
-    if (!target.classList.contains('hit-seg') || clientX == null) return key;
     const svg = this.ref('svg');
     const ctm = svg && svg.getScreenCTM && svg.getScreenCTM();
-    if (!ctm) return key;
+    if (!ctm || clientX == null) return [key];
     const q = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
-    let best = key, bestD = Infinity;
-    PH.geometry.getElements(this.problem.figure).segments.forEach(function (s) {
-      const d = PH.geometry.distToSegment(q, s.h1, s.h2);
-      if (d < bestD) { bestD = d; best = s.key; }
+    const fig = this.problem.figure;
+    const g = this.game;
+    let list;
+    if (target.classList.contains('hit-seg')) {
+      list = PH.geometry.segmentCandidates(fig, q);
+    } else {
+      // 角の操作領域の大きさは、描画と同じ条件（角だけを置いているか）で計算する
+      const angleOnly = g.mode === 'angle' || (g.mode === 'mark' && g.markTool.kind === 'ang');
+      list = PH.geometry.angleCandidates(fig, q, angleOnly);
+    }
+    return list.length ? list : [key];
+  };
+
+  PlayController.prototype.tapFromFigure = function (target, clientX, clientY) {
+    const g = this.game;
+    let list = this.tapCandidates(target, clientX, clientY);
+    if (g.mode === 'erase') {
+      // 消すときは、印がついているものだけを候補にする
+      const marked = list.filter(function (k) { return g.userMarks[k] != null; });
+      if (marked.length) list = marked;
+    }
+    if (list.length <= 1) return this.tapElement(list[0]);
+    const byKey = PH.geometry.getElements(this.problem.figure).byKey;
+    const self = this;
+    PH.chooser.open({
+      title: g.mode === 'mark' ? 'どちらに印をつけますか？' : g.mode === 'erase' ? 'どちらの印を消しますか？' : 'どちらを選びますか？',
+      options: list.map(function (k) { return { value: k, label: byKey[k].display }; }),
+      onChoose: function (k) { self.tapElement(k); },
     });
-    return best;
   };
 
   PlayController.prototype.say = function (text, type) {
@@ -761,6 +784,10 @@
   // ---------------------------------------------------------------------
 
   let current = null;
+
+  // 印のアイコン（証明パズルの「図に印をつける」でも使う）
+  PH.markToolIcon = toolIcon;
+  PH.MARK_TOOLS = MARK_TOOLS;
 
   PH.play = {
     mount: function (container, problem, nav) {

@@ -36,9 +36,15 @@
     this.resultBuilt = false;
     this.stageCleared = false;
     this.trayOpen = false;      // カードの領域（解答欄をタップしたときだけ出す）
+    this.userMarks = {};        // 生徒がつけた印（要素キー → 本数）。答え合わせには使わない
+    this.markTool = { kind: 'seg', n: 1 };
+    this.markMode = 'mark';     // 'mark'（印をつける）/ 'erase'（消す）
+    this.markOpen = false;
     this.build();
     this.onClick = this.handleClick.bind(this);
-    this.onResize = this.renderFigure.bind(this);
+    this.onResize = function () { this.renderFigure(); if (this.markOpen) this.renderMarkFigure(); }.bind(this);
+    this.onKey = function (e) { if (e.key === 'Escape' && this.markOpen && !PH.chooser.isOpen()) this.setMarks(false); }.bind(this);
+    doc.addEventListener('keydown', this.onKey);
     this.root.addEventListener('click', this.onClick);
     root.addEventListener('resize', this.onResize);
     PH.storage.setLastProblem(problem.id, 'puzzle');
@@ -61,7 +67,10 @@
       '</header>' +
       '<div class="pz-body" data-ref="body">' +
         '<div class="pz-top">' +
-          '<div class="card figure-card pz-figure"><svg class="figure" data-ref="svg" aria-label="問題の図"></svg></div>' +
+          '<button class="card figure-card pz-figure" data-act="open-marks" aria-label="図を大きくして印をつける">' +
+            '<svg class="figure" data-ref="svg" aria-hidden="true"></svg>' +
+            '<span class="pz-fig-badge" aria-hidden="true">✏️</span>' +
+          '</button>' +
           '<div class="card statement pz-cond">' +
             '<div class="cond-row"><span class="tag tag-given">仮定</span><span class="cond-text">' + p.given.map(esc).join('、') + '</span></div>' +
             '<div class="cond-row"><span class="tag tag-goal">結論</span><span class="cond-text">' + esc(p.conclusion) + '</span></div>' +
@@ -86,12 +95,27 @@
           '<div class="pz-tray-actions"><button class="btn" data-act="undo">この空欄を取り消す</button></div>' +
         '</div>' +
       '</div>' +
-      '<div class="result" data-ref="result" hidden></div>';
+      '<div class="result" data-ref="result" hidden></div>' +
+      // 図に印をつけるウィンドウ（閉じると、つけた印が問題の図に反映される）
+      '<div class="pz-modal" data-ref="markModal" role="dialog" aria-modal="true" aria-label="図に印をつける" hidden>' +
+        '<div class="card pz-modal-box">' +
+          '<div class="pz-modal-head"><span class="pz-modal-title">✏️ 図に印をつける</span>' +
+            '<button class="pz-tray-close" data-act="close-marks" aria-label="閉じる">×</button></div>' +
+          '<div class="pz-modal-fig" data-ref="markFigWrap"><svg class="figure" data-ref="markSvg" role="group" aria-label="印をつける図"></svg></div>' +
+          '<div class="pz-modal-tools" data-ref="markTools"></div>' +
+          '<p class="pz-modal-note">印は考えを整理するための下書きで、答え合わせには関係しないよ。</p>' +
+          '<div class="pz-modal-actions">' +
+            '<button class="btn" data-act="clear-marks">印をすべて消す</button>' +
+            '<button class="btn btn-primary" data-act="close-marks">閉じる</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
   };
 
   PuzzleView.prototype.destroy = function () {
     this.root.removeEventListener('click', this.onClick);
     root.removeEventListener('resize', this.onResize);
+    doc.removeEventListener('keydown', this.onKey);
     clearTimeout(this.flashTimer);
     this.timers.forEach(clearTimeout);
     PH.hints.hide(doc.getElementById('hint-popup'));
@@ -107,8 +131,11 @@
   // ---- 入力 -------------------------------------------------------------
 
   PuzzleView.prototype.handleClick = function (e) {
-    const t = e.target.closest('[data-slot],[data-card],[data-act],[data-ev],[data-proof-reason]');
+    if (this.markOpen && e.target === this.ref('markModal')) return this.setMarks(false);   // 外側をタップで閉じる
+    const t = e.target.closest('[data-key],[data-mark-tool],[data-slot],[data-card],[data-act],[data-ev],[data-proof-reason]');
     if (!t || t.disabled) return;
+    if (t.hasAttribute('data-key')) return this.tapMarkFromFigure(t, e.clientX, e.clientY);
+    if (t.hasAttribute('data-mark-tool')) return this.selectMarkTool(t.getAttribute('data-mark-tool'));
     if (t.hasAttribute('data-slot')) return this.selectSlot(t.getAttribute('data-slot'));
     if (t.hasAttribute('data-card')) return this.placeCard(t.getAttribute('data-card'));
     if (t.hasAttribute('data-ev')) return this.showEvidence(t.getAttribute('data-ev'), false);
@@ -121,10 +148,136 @@
       case 'hint': return this.hint();
       case 'undo': return this.undo();
       case 'close-tray': return this.setTray(false);
+      case 'open-marks': return this.setMarks(true);
+      case 'close-marks': return this.setMarks(false);
+      case 'clear-marks': return this.clearMarks();
       case 'reset': return this.resetCards();
       case 'check': return this.check();
       case 'restart': return this.restart();
     }
+  };
+
+  // ---- 図に印をつける（拡大ウィンドウ） ----------------------------------------
+
+  PuzzleView.prototype.setMarks = function (open) {
+    this.markOpen = !!open;
+    const modal = this.ref('markModal');
+    if (!modal) return;
+    modal.hidden = !this.markOpen;
+    if (this.markOpen) {
+      this.trayOpen = false;
+      PH.hints.hide(doc.getElementById('hint-popup'));
+      PH.sound.play('tap');
+      this.render();
+      this.renderMarkTools();
+      this.renderMarkFigure();
+    } else {
+      this.renderFigure();       // 閉じたら、つけた印を問題の図に反映
+    }
+  };
+
+  PuzzleView.prototype.selectMarkTool = function (v) {
+    if (v === 'erase') {
+      this.markMode = this.markMode === 'erase' ? 'mark' : 'erase';
+    } else {
+      const parts = v.split(':');
+      this.markTool = { kind: parts[0], n: Number(parts[1]) };
+      this.markMode = 'mark';
+    }
+    PH.sound.play('tap');
+    this.renderMarkTools();
+    this.renderMarkFigure();
+  };
+
+  // 印つけはハンターモードと同じ：選んだ種類（辺／角）の要素だけに、選んだ本数の印。同じ印をもう一度で外す
+  PuzzleView.prototype.tapMarkElement = function (key) {
+    if (!this.markOpen || !key) return;
+    const el = PH.geometry.getElements(this.problem.figure).byKey[key];
+    if (!el) return;
+    if (this.markMode === 'erase') {
+      if (this.userMarks[key] == null) return;
+      delete this.userMarks[key];
+    } else {
+      if (el.kind !== this.markTool.kind) return;
+      if (this.userMarks[key] === this.markTool.n) delete this.userMarks[key];
+      else this.userMarks[key] = this.markTool.n;
+    }
+    PH.sound.play('tap');
+    this.renderMarkFigure();
+  };
+
+  PuzzleView.prototype.clearMarks = function () {
+    this.userMarks = {};
+    PH.sound.play('tap');
+    this.renderMarkFigure();
+  };
+
+  /*
+   * 図のタップが指しうる要素の候補（geometry.segmentCandidates / angleCandidates）。
+   * 線分ACの上に点Bがあり AC・AB の両方が選べるときなど、候補が2つ以上なら
+   * 「どちらに〜？」のポップアップ（PH.chooser）で選んでもらう。
+   */
+  PuzzleView.prototype.tapCandidates = function (target, clientX, clientY) {
+    const key = target.getAttribute('data-key');
+    const svg = this.ref('markSvg');
+    const ctm = svg && svg.getScreenCTM && svg.getScreenCTM();
+    if (!ctm || clientX == null) return [key];
+    const q = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+    const fig = this.problem.figure;
+    const list = target.classList.contains('hit-seg')
+      ? PH.geometry.segmentCandidates(fig, q)
+      : PH.geometry.angleCandidates(fig, q, this.markMode === 'mark' && this.markTool.kind === 'ang');
+    return list.length ? list : [key];
+  };
+
+  PuzzleView.prototype.tapMarkFromFigure = function (target, clientX, clientY) {
+    const self = this;
+    let list = this.tapCandidates(target, clientX, clientY);
+    if (this.markMode === 'erase') {
+      const marked = list.filter(function (k) { return self.userMarks[k] != null; });
+      if (marked.length) list = marked;
+    }
+    if (list.length <= 1) return this.tapMarkElement(list[0]);
+    const byKey = PH.geometry.getElements(this.problem.figure).byKey;
+    PH.chooser.open({
+      title: this.markMode === 'erase' ? 'どちらの印を消しますか？' : 'どちらに印をつけますか？',
+      options: list.map(function (k) { return { value: k, label: byKey[k].display }; }),
+      onChoose: function (k) { self.tapMarkElement(k); },
+    });
+  };
+
+  PuzzleView.prototype.renderMarkTools = function () {
+    const self = this;
+    const btn = function (kind, n) {
+      const on = self.markMode === 'mark' && self.markTool.kind === kind && self.markTool.n === n;
+      return '<button class="tool-mark" data-mark-tool="' + kind + ':' + n + '" aria-pressed="' + on + '" aria-label="' +
+        (kind === 'seg' ? '辺の印 ' + n + '本線' : '角の印 円弧' + n + '本') + '">' + PH.markToolIcon(kind, n) + '</button>';
+    };
+    const tools = PH.MARK_TOOLS;
+    this.ref('markTools').innerHTML =
+      '<div class="palette-row"><span class="palette-label">辺の印</span>' +
+        tools.filter(function (t) { return t[0] === 'seg'; }).map(function (t) { return btn('seg', t[1]); }).join('') + '</div>' +
+      '<div class="palette-row"><span class="palette-label">角の印</span>' +
+        tools.filter(function (t) { return t[0] === 'ang'; }).map(function (t) { return btn('ang', t[1]); }).join('') +
+        '<button class="tool-mark tool-erase" data-mark-tool="erase" aria-pressed="' + (this.markMode === 'erase') + '">🧽 消す</button>' +
+      '</div>' +
+      '<p class="pz-modal-guide">' + (this.markMode === 'erase'
+        ? '消したい印がついた辺や角をタップしよう。'
+        : (this.markTool.kind === 'seg' ? '印をつけたい辺をタップしよう。' : '印をつけたい角の内側をタップしよう。')) + '</p>';
+  };
+
+  PuzzleView.prototype.renderMarkFigure = function () {
+    const svg = this.ref('markSvg');
+    if (!svg || !this.markOpen) return;
+    const wrap = this.ref('markFigWrap');
+    wrap.className = 'pz-modal-fig mode-' + (this.markMode === 'erase' ? 'erase' : 'mark');
+    PH.renderer.render(svg, this.problem, {
+      userMarks: this.userMarks,
+      interactive: true,
+      // 印をつけるときは選んだ種類だけ、消すときは辺と角の両方がタップに反応する
+      hit: this.markMode === 'erase' ? { seg: true, ang: true }
+        : { seg: this.markTool.kind === 'seg', ang: this.markTool.kind === 'ang' },
+    });
   };
 
   // カードの領域の表示・非表示
@@ -174,6 +327,8 @@
     this.flashKeys = [];
     this.flashLines = [];
     this.trayOpen = false;
+    this.userMarks = {};
+    this.setMarks(false);
     PH.hints.hide(doc.getElementById('hint-popup'));
     PH.storage.setLastProblem(this.problem.id, 'puzzle');
     this.render();
@@ -321,6 +476,7 @@
     }
     PH.renderer.render(svg, this.problem, {
       flash: this.flashKeys, flashLines: this.flashLines, autoMarks: marks,
+      userMarks: clear ? {} : this.userMarks,
       triangles: clear, interactive: false,
     });
   };

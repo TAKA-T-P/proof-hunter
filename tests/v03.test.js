@@ -342,3 +342,57 @@ test('壊れたパズルの保存データでもエラーにならない', () =>
     assert.equal(PH.storage.getProblem('p01').bestStars, 2);
   });
 });
+
+// ---- 重なった辺・角の候補（「どちらに印をつけますか？」） ---------------------------
+
+test('一直線上に重なる辺：A〜D の間のタップは AB と AD の両方が候補（長い辺が先）、D〜B は AB だけ（p14）', () => {
+  const p = PH.getProblem('p14');
+  const pts = p.figure.points;
+  const k = (n) => geo.elementKey(p.figure, n);
+  const onAD = geo.vec.lerp(pts.A, pts.D, 0.5);
+  assert.deepEqual(geo.segmentCandidates(p.figure, onAD), [k('AB'), k('AD')]);
+  // 線から少しずれたタップでも同じ
+  assert.deepEqual(geo.segmentCandidates(p.figure, geo.vec.add(onAD, { x: 6, y: 2 })), [k('AB'), k('AD')]);
+  assert.deepEqual(geo.segmentCandidates(p.figure, geo.vec.lerp(pts.D, pts.B, 0.5)), [k('AB')]);
+  assert.deepEqual(geo.segmentCandidates(p.figure, geo.vec.lerp(pts.A, pts.E, 0.4)), [k('AC'), k('AE')]);
+});
+
+test('重ならない辺は候補が1つ（どの問題でも辺の中点は1つだけ。p14 の短い辺を除く）', () => {
+  PH.problems.forEach((p) => {
+    geo.getElements(p.figure).segments.forEach((s) => {
+      const c = geo.segmentCandidates(p.figure, geo.vec.lerp(s.p1, s.p2, 0.5));
+      // p14 の AD・AE は AB・AC に重なるので2つ、それ以外は1つ
+      const expectTwo = p.id === 'p14' && (s.name === 'AD' || s.name === 'AE');
+      assert.equal(c.length, expectTwo ? 2 : 1, p.id + ' ' + s.name + ' ' + c.join(','));
+      assert.ok(c.includes(s.key));
+    });
+  });
+});
+
+test('ふくむ角とふくまれる角：∠ABD の中のタップは ∠ABC と ∠ABD が候補（大きい角が先）', () => {
+  // 半直線BDが ∠ABC の内側にある図で、∠ABC・∠ABD・∠DBC をすべて選べるようにした例
+  const fig = {
+    viewBox: [0, 0, 400, 300],
+    points: { A: { x: 60, y: 40 }, B: { x: 200, y: 260 }, C: { x: 360, y: 60 }, D: { x: 210, y: 30 } },
+    lines: [],
+    segments: ['AB', 'BC', 'BD'],
+    angles: ['ABC', 'ABD', 'DBC'],
+  };
+  const k = (n) => geo.angleKey(fig, n);
+  const B = fig.points.B;
+  const inside = (P1, P2) => geo.vec.add(B, geo.vec.mul(geo.bisector(B, P1, P2), 30));
+  assert.deepEqual(geo.angleCandidates(fig, inside(fig.points.A, fig.points.D), true), [k('ABC'), k('ABD')]);
+  assert.deepEqual(geo.angleCandidates(fig, inside(fig.points.D, fig.points.C), true), [k('ABC'), k('DBC')]);
+  // 角の外は候補なし
+  assert.deepEqual(geo.angleCandidates(fig, { x: 200, y: 290 }, true), []);
+});
+
+test('重ならない角は候補が1つ（現在の15問）', () => {
+  PH.problems.forEach((p) => {
+    geo.getElements(p.figure).angles.forEach((a) => {
+      const R = geo.angleHitRadius(p.figure, a, true);
+      const q = geo.vec.add(a.vertex, geo.vec.mul(geo.bisector(a.vertex, a.from, a.to), R * 0.6));
+      assert.deepEqual(geo.angleCandidates(p.figure, q, true), [a.key], p.id + ' ∠' + a.name);
+    });
+  });
+});

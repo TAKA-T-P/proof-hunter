@@ -194,6 +194,53 @@
       : Math.min(ANGLE_HIT_MAX, 0.45 * byPoint, byCrossing);
   }
 
+  // 点 q が、頂点 V・半直線 VP1〜VP2（180°未満）・半径 R の扇形の中にあるか
+  function inSector(V, P1, P2, R, q) {
+    const w = sub(q, V);
+    if (len(w) > R) return false;
+    const u1 = sub(P1, V), u2 = sub(P2, V);
+    const cr = function (a, b) { return a.x * b.y - a.y * b.x; };
+    const s = Math.sign(cr(u1, u2));
+    return Math.sign(cr(u1, w)) * s >= 0 && Math.sign(cr(w, u2)) * s >= 0;
+  }
+
+  function angleSize(a) {
+    const u1 = unit(sub(a.from, a.vertex)), u2 = unit(sub(a.to, a.vertex));
+    return Math.acos(Math.max(-1, Math.min(1, u1.x * u2.x + u1.y * u2.y)));
+  }
+
+  /*
+   * タップした点 q（図の座標）が指しうる辺の候補。
+   * いちばん近い辺と同じ直線上にあって、同じくらい近い辺をすべて返す（長い辺が先）。
+   * 例：線分AC上に点Bがあり、AC・AB が両方とも辺のとき、A〜B の間をタップすると [AC, AB]。
+   */
+  function segmentCandidates(figure, q) {
+    const segs = getElements(figure).segments;
+    let best = null, bestD = Infinity;
+    segs.forEach(function (s) {
+      const d = distToSegment(q, s.p1, s.p2);
+      if (d < bestD) { bestD = d; best = s; }
+    });
+    if (!best) return [];
+    const dir = unit(sub(best.p2, best.p1));
+    const onLine = function (P) { const w = sub(P, best.p1); return Math.abs(w.x * dir.y - w.y * dir.x) < 0.5; };
+    return segs
+      .filter(function (s) { return distToSegment(q, s.p1, s.p2) <= bestD + 2 && onLine(s.p1) && onLine(s.p2); })
+      .sort(function (a, b) { return dist(b.p1, b.p2) - dist(a.p1, a.p2); })
+      .map(function (s) { return s.key; });
+  }
+
+  /*
+   * タップした点 q が操作領域に入っている角の候補（大きい角が先）。
+   * 例：∠ABC の内側に半直線BDがあり、∠ABC・∠ABD が両方とも選べる角のとき、∠ABD の中をタップすると [∠ABC, ∠ABD]。
+   */
+  function angleCandidates(figure, q, angleOnly) {
+    return getElements(figure).angles
+      .filter(function (a) { return inSector(a.vertex, a.from, a.to, angleHitRadius(figure, a, angleOnly), q); })
+      .sort(function (a, b) { return angleSize(b) - angleSize(a); })
+      .map(function (a) { return a.key; });
+  }
+
   // 平行の印の一覧。[始点, 終点] または [始点, 終点, 組番号]（組番号の数だけ矢印を重ねる）
   function parallelLines(figure) {
     return (figure.parallel || []).map(function (e) {
@@ -240,6 +287,9 @@
     parallelLines: parallelLines,
     segmentIntersection: segmentIntersection,
     distToSegment: distToSegment,
+    inSector: inSector,
+    segmentCandidates: segmentCandidates,
+    angleCandidates: angleCandidates,
     vec: { sub: sub, add: add, mul: mul, len: len, dist: dist, unit: unit, normal: normal, lerp: lerp },
     fmt: pt,
     arcPath: arcPath,
