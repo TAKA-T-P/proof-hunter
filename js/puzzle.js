@@ -5,8 +5,10 @@
  * problem.puzzle = { type: 'fill' | 'build', distractors: { equations: [...], reasons: [...] } }
  * だけを持つ（正解の二重管理をしない）。
  *
- *   fill（穴埋め）  … 証明文の理由は表示済み。等式の空欄と合同条件の空欄を埋める
- *   build（組み立て）… 根拠ごとに「理由」と「等式」の空欄を埋め、最後に合同条件を選ぶ（根拠の順番は自由）
+ *   fill（穴埋め）  … 証明文の理由は表示済み。等式の空欄と合同条件の空欄を埋める（解答レベル「おてがる」）
+ *   build（組み立て）… 根拠ごとに「理由」と「等式」の空欄を埋め、最後に合同条件を選ぶ（根拠の順番は自由）（「スタンダード」）
+ *   challenge        … build と同じ形で、等式はカードではなく数学キーパッドで自分で入力する（「チャレンジ」）
+ *                      入力した等式は、カードと同じ形（keys・eq）に変換して同じ判定にかける
  *
  * 判定は validation.js の正規化（AB＝BA、∠ABC＝∠CBA、一直線上の別名の同一視）を使う。
  * 同じ理由の空欄どうしなら等式の順番を入れ替えても正解。
@@ -116,14 +118,44 @@
     });
   }
 
+  // ---- 解答レベル（Ver.0.4） -----------------------------------------------------
+
+  // 3段階の解答レベル。どの問題も3つすべてで遊べる（problem.puzzle.type は Ver.0.3 の標準形式として残っているだけ）
+  PH.PUZZLE_LEVELS = [
+    { id: 'easy',      type: 'fill',      label: 'おてがる',     desc: '等式を選んで穴埋め！' },
+    { id: 'standard',  type: 'build',     label: 'スタンダード', desc: '等式と理由を組み立てよう！' },
+    { id: 'challenge', type: 'challenge', label: 'チャレンジ',   desc: '等式を自分で入力しよう！' },
+  ];
+  PH.getPuzzleLevel = function (id) {
+    return PH.PUZZLE_LEVELS.find(function (l) { return l.id === id; }) || PH.PUZZLE_LEVELS[0];
+  };
+
+  // 入力された等式（'AB=CD' / '∠ABC=∠DEF'）を、カードと同じ形にする。図にない角などで計算できないときは keys が null
+  function inputCard(problem, value) {
+    const v = PH.mathKeypad.parse(value);
+    if (!v) return null;
+    const pre = v.kind === 'ang' ? '∠' : '';
+    const items = [pre + v.left, pre + v.right];
+    let keys = null, eq = null;
+    try {
+      keys = items.map(function (n) { return G().elementKey(problem.figure, n); });
+      eq = V().equationKey(keys[0], keys[1]);
+    } catch (e) {
+      keys = null;
+    }
+    return { id: 'in:' + (eq || v.value), kind: 'eq', text: PH.mathKeypad.pretty(v.value), items: items, keys: keys, eq: eq, input: true };
+  }
+
   // ---- パズル本体 -------------------------------------------------------------
 
   function Puzzle(problem, type) {
     this.problem = problem;
     this.type = type || (problem.puzzle && problem.puzzle.type) || 'fill';
+    this.buildLike = this.type === 'build' || this.type === 'challenge';   // 理由も選ぶ形式
+    this.letters = PH.mathKeypad ? PH.mathKeypad.lettersOf(problem.figure) : [];
     this.cards = {
-      eq: makeEquationCards(problem),
-      reason: this.type === 'build' ? makeReasonCards(problem) : [],
+      eq: this.type === 'challenge' ? [] : makeEquationCards(problem),   // チャレンジでは等式カードを出さない
+      reason: this.buildLike ? makeReasonCards(problem) : [],
       cond: makeConditionCards(),
     };
     this.cardById = {};
@@ -139,15 +171,16 @@
    * 空欄の一覧（画面の上から順）。
    *   fill : { id:'s0', kind:'eq', row:0, fixed:{reason,text,specific} } … 理由は表示済み
    *   build: { id:'r0', kind:'reason', row:0 }, { id:'e0', kind:'eq', row:0 } …
+   *   challenge: build と同じで、等式の空欄に input: true（キーパッドで入力）
    *   共通 : { id:'cond', kind:'cond' }
    */
   Puzzle.prototype.makeSlots = function () {
     const p = this.problem;
     const slots = [];
     p.evidence.forEach(function (ev, i) {
-      if (this.type === 'build') {
+      if (this.buildLike) {
         slots.push({ id: 'r' + i, kind: 'reason', row: i, label: '根拠' + CIRCLED[i] + 'の理由' });
-        slots.push({ id: 'e' + i, kind: 'eq', row: i, label: '根拠' + CIRCLED[i] + 'の等式' });
+        slots.push({ id: 'e' + i, kind: 'eq', row: i, label: '根拠' + CIRCLED[i] + 'の等式', input: this.type === 'challenge' });
       } else {
         slots.push({
           id: 's' + i, kind: 'eq', row: i, label: CIRCLED[i] + 'の等式',
@@ -160,7 +193,8 @@
   };
 
   Puzzle.prototype.reset = function () {
-    this.placed = {};          // 空欄ID → カードID
+    this.placed = {};          // 空欄ID → カードID（チャレンジの等式は 'input'）
+    this.inputs = {};          // チャレンジ：空欄ID → 入力した等式（'AB=CD' など）
     this.active = this.slots[0].id;
     this.misses = 0;
     this.hintsUsed = 0;
@@ -184,7 +218,30 @@
   // 選択中の空欄に入れられるカード
   Puzzle.prototype.cardsForActive = function () {
     const s = this.slot(this.active);
-    return s ? this.cards[s.kind] : [];
+    if (!s || s.input) return [];             // チャレンジの等式はキーパッドで入力
+    return this.cards[s.kind];
+  };
+
+  // 入れたあと、次の空いている空欄へ進む
+  Puzzle.prototype.advanceFrom = function (s) {
+    const idx = this.slots.indexOf(s);
+    const order = this.slots.slice(idx + 1).concat(this.slots.slice(0, idx));
+    const next = order.find(function (x) { return !this.placed[x.id]; }, this);
+    if (next) this.active = next.id;
+  };
+
+  // チャレンジ：選択中の等式の空欄に、入力した等式を入れる（形式が不正なら入れない）
+  Puzzle.prototype.setInput = function (value) {
+    if (this.phase !== 'play') return false;
+    const s = this.slot(this.active);
+    if (!s || !s.input) return false;
+    const v = PH.mathKeypad.parse(value, this.letters);
+    if (!v) return false;
+    this.inputs[s.id] = v.value;
+    this.placed[s.id] = 'input';
+    if (this.result) delete this.result.slotStatus[s.id];
+    this.advanceFrom(s);
+    return true;
   };
 
   // カードを選択中の空欄に入れ、次の空いている空欄へ進む
@@ -193,12 +250,10 @@
     const s = this.slot(this.active);
     const card = this.cardById[cardId];
     if (!s || !card || card.kind !== s.kind) return false;
+    if (s.input) return false;
     this.placed[s.id] = cardId;
     if (this.result) delete this.result.slotStatus[s.id];
-    const idx = this.slots.indexOf(s);
-    const order = this.slots.slice(idx + 1).concat(this.slots.slice(0, idx));
-    const next = order.find(function (x) { return !this.placed[x.id]; }, this);
-    if (next) this.active = next.id;
+    this.advanceFrom(s);
     return true;
   };
 
@@ -206,6 +261,7 @@
   Puzzle.prototype.clearActive = function () {
     if (this.phase !== 'play' || !this.placed[this.active]) return false;
     delete this.placed[this.active];
+    delete this.inputs[this.active];
     if (this.result) delete this.result.slotStatus[this.active];
     return true;
   };
@@ -213,6 +269,7 @@
   Puzzle.prototype.clearAll = function () {
     if (this.phase !== 'play') return false;
     this.placed = {};
+    this.inputs = {};
     this.result = null;
     this.active = this.slots[0].id;
     return true;
@@ -228,17 +285,18 @@
 
   Puzzle.prototype.cardIn = function (slotId) {
     const id = this.placed[slotId];
+    if (id === 'input') return inputCard(this.problem, this.inputs[slotId]);
     return id ? this.cardById[id] : null;
   };
 
-  // 根拠の行ごとの理由（fill は表示済みの理由、build は理由カード）
+  // 根拠の行ごとの理由（fill は表示済みの理由、build・challenge は理由カード）
   Puzzle.prototype.rowReason = function (row) {
-    if (this.type === 'build') return this.cardIn('r' + row);
+    if (this.buildLike) return this.cardIn('r' + row);
     return this.slots[row].fixed;
   };
 
   Puzzle.prototype.eqSlotId = function (row) {
-    return (this.type === 'build' ? 'e' : 's') + row;
+    return (this.buildLike ? 'e' : 's') + row;
   };
 
   /*
@@ -256,6 +314,8 @@
       const row = { row: i, status: 'ok', evidence: null, eqCard: eqCard, reason: reason };
       if (!eqCard) {
         row.status = 'empty';
+      } else if (!eqCard.keys) {
+        row.status = 'wrong-equation';          // 図の上で角にならない入力など
       } else {
         const ev = V().matchEvidence(p, eqCard.keys);
         row.evidence = ev;
@@ -290,10 +350,20 @@
       }
     }
 
+    const challenge = this.type === 'challenge';
+    const MSG = {
+      wrongReason: '等式は合っているよ！ 理由をもう一度考えてみよう。',
+      duplicate: '同じ根拠が2回使われているよ！',
+      fromConclusion: challenge ? 'それは合同が証明できてから使える関係だよ！'
+        : 'それは' + p.conclusion + 'が証明できたら言えることだよ！ 結論はまだ根拠に使えないよ。',
+      wrongEquation: challenge ? 'その2つが等しいと言えるか、図と仮定を確認しよう。' : 'この等式は、まだ言えないよ！',
+      cond: challenge ? '3つの根拠と合同条件の関係を確認しよう。' : 'この3つの根拠では、その合同条件は使えないよ！',
+    };
+
     rows.forEach(function (r) {
       const eqId = self.eqSlotId(r.row);
-      const rsId = self.type === 'build' ? 'r' + r.row : null;
-      const label = (self.type === 'build' ? '根拠' : '') + CIRCLED[r.row];
+      const rsId = self.buildLike ? 'r' + r.row : null;
+      const label = (self.buildLike ? '根拠' : '') + CIRCLED[r.row];
       const sig = eqId + ':' + r.eqCard.id + (rsId ? '/' + self.placed[rsId] : '');
       switch (r.status) {
         case 'ok':
@@ -301,19 +371,19 @@
           if (rsId) slotStatus[rsId] = 'ok';
           break;
         case 'wrong-reason':
-          if (self.type === 'build') {
+          if (self.buildLike) {
             slotStatus[eqId] = 'ok';
-            fail(rsId, sig, '等式は合っているよ！ 理由をもう一度考えてみよう。', label);
+            fail(rsId, sig, MSG.wrongReason, label);
           } else {
             fail(eqId, sig, '「' + r.reason.text + '」で言える等式かな？ 理由と等式の組み合わせを考えよう。', label);
           }
           break;
         case 'duplicate':
           if (rsId) slotStatus[rsId] = 'ok';
-          fail(eqId, sig, '同じ根拠が2回使われているよ！', label);
+          fail(eqId, sig, MSG.duplicate, label);
           break;
         case 'from-conclusion':
-          fail(eqId, sig, 'それは' + p.conclusion + 'が証明できたら言えることだよ！ 結論はまだ根拠に使えないよ。', label);
+          fail(eqId, sig, MSG.fromConclusion, label);
           break;
         case 'irrelevant':
           fail(eqId, sig, 'たしかに等しいけれど、今回の証明では使わない関係だよ。', label);
@@ -322,7 +392,7 @@
           fail(eqId, sig, 'その辺（角）は、2つの三角形の両方にふくまれているかな？', label);
           break;
         default:
-          fail(eqId, sig, 'この等式は、まだ言えないよ！', label);
+          fail(eqId, sig, MSG.wrongEquation, label);
       }
     });
 
@@ -332,7 +402,7 @@
     const expected = allRowsOk ? V().deriveCondition(p, rows.map(function (r) { return r.evidence; })) : p.congruence;
     if (condCard.cond === expected) slotStatus.cond = 'ok';
     else fail('cond', 'cond:' + condCard.id + ':' + rows.map(function (r) { return r.eqCard.id; }).join(','),
-      'この3つの根拠では、その合同条件は使えないよ！', '合同条件');
+      MSG.cond, '合同条件');
 
     this.misses += newMisses;
     const ok = messages.length === 0;
@@ -398,7 +468,9 @@
       : name(ev.items[0]) + 'と' + name(ev.items[1]) + 'に注目しよう！';
     const third = this.type === 'fill'
       ? ev.label + ' を入れよう！'
-      : '理由「' + reasonText(ev) + '」と、等式 ' + ev.label + ' を組み合わせよう！';
+      : this.type === 'challenge'
+        ? ev.label + ' を使おう！ 理由は「' + reasonText(ev) + '」だよ。（等式は自分で入力しよう）'
+        : '理由「' + reasonText(ev) + '」と、等式 ' + ev.label + ' を組み合わせよう！';
     return [
       { text: first, focus: [] },
       { text: second, focus: keys },
@@ -436,8 +508,8 @@
     };
     order.forEach(function (evIndex, row) {
       const ev = p.evidence[evIndex];
-      out[self.eqSlotId(row)] = findEq(ev).id;
-      if (self.type === 'build') {
+      out[self.eqSlotId(row)] = self.type === 'challenge' ? ev.items.join('=') : findEq(ev).id;
+      if (self.buildLike) {
         out['r' + row] = self.cards.reason.find(function (c) { return reasonAccepts(c, ev); }).id;
       }
     });
@@ -446,7 +518,7 @@
   };
 
   PH.Puzzle = Puzzle;
-  PH.puzzleUtil = { reasonText: reasonText, reasonAccepts: reasonAccepts, splitEquation: splitEquation };
+  PH.puzzleUtil = { reasonText: reasonText, reasonAccepts: reasonAccepts, splitEquation: splitEquation, inputCard: inputCard };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = { Puzzle: Puzzle };
 })(typeof window !== 'undefined' ? window : globalThis);

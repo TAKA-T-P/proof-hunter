@@ -808,6 +808,95 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .chooser-option { flex: 1; min-height: 48px; font-size: 1.3rem; font-weight: 900; border-color: var(--blue-600); color: var(--blue); }
 .chooser-cancel { min-height: 36px; font-size: .85rem; color: var(--muted); }
 
+/* =====================================================================
+   Ver.0.4：解答レベル・数学キーパッド
+   ===================================================================== */
+
+:root { --lv-easy: #059669; --lv-standard: #2563eb; --lv-challenge: #dc2626; }
+
+/* 解答レベルの選択（パズルのステージ選択画面） */
+.level-select { margin-bottom: 10px; }
+.level-select-title { margin: 0 0 4px; font-weight: 900; color: var(--purple); }
+.level-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.level-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; min-height: 58px; padding: 4px 4px;
+  border: 2px solid var(--line); border-radius: 12px; background: #fff; text-align: center; line-height: 1.25;
+}
+.level-name { font-weight: 900; font-size: .95rem; }
+.level-desc { font-size: .68rem; font-weight: 700; color: var(--muted); }
+.level-btn.level-easy .level-name { color: var(--lv-easy); }
+.level-btn.level-standard .level-name { color: var(--lv-standard); }
+.level-btn.level-challenge .level-name { color: var(--lv-challenge); }
+.level-btn[aria-pressed="true"] { border-color: var(--gold); background: var(--gold-soft); box-shadow: 0 0 0 2px var(--gold); }
+.level-current { margin: 2px 0 0; font-size: .85rem; }
+.level-current .level-easy { color: var(--lv-easy); }
+.level-current .level-standard { color: var(--lv-standard); }
+.level-current .level-challenge { color: var(--lv-challenge); }
+.level-guide { margin-bottom: 8px; }
+
+/* プレイ画面の解答レベル表示（タップで変更） */
+.pz-level-badge {
+  flex: none; display: flex; flex-direction: column; align-items: center; line-height: 1.1;
+  padding: 3px 8px; border: 0; border-radius: 10px; background: #fff; font-weight: 900; font-size: .78rem;
+}
+.pz-level-badge.pz-level-easy { color: var(--lv-easy); }
+.pz-level-badge.pz-level-standard { color: var(--lv-standard); }
+.pz-level-badge.pz-level-challenge { color: var(--lv-challenge); }
+.pz-level-chg { font-size: .6rem; color: var(--muted); }
+.chooser-message { margin: 0; font-size: .85rem; color: var(--ink); text-align: center; }
+
+/* チャレンジの入力欄 */
+.pz-blank.is-input { font-family: inherit; letter-spacing: .02em; }
+.pz-blank.is-draft { color: #92400e; font-weight: 700; font-size: .9rem; }
+
+/* 数学キーパッド */
+.pz-cards.kind-input { display: flex; flex-direction: column; gap: 6px; }
+.kp-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.kp-kind {
+  display: flex; flex-direction: column; align-items: center; min-height: 44px; padding: 2px 4px;
+  border: 2px solid var(--line); border-radius: 10px; background: #fff; line-height: 1.2;
+}
+.kp-kind-label { font-weight: 900; font-size: .88rem; }
+.kp-kind-sample { font-size: .78rem; color: var(--muted); letter-spacing: .05em; }
+.kp-kind.is-on { border-color: var(--purple); background: var(--purple-soft); }
+.kp-guide { margin: 0; font-size: .82rem; color: var(--muted); text-align: center; }
+.kp-display {
+  text-align: center; font-size: 1.6rem; font-weight: 900; letter-spacing: .08em; padding: 2px 8px;
+  border-radius: 10px; background: #fffbeb; border: 2px solid var(--gold); color: var(--ink);
+}
+.kp-keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px; }
+.kp-key, .kp-op {
+  min-height: 42px; border: 2px solid var(--line); border-radius: 10px; background: #fff;
+  font-size: 1.2rem; font-weight: 900; color: var(--ink);
+}
+.kp-key.is-next { border-color: #93c5fd; }
+.kp-key:disabled, .kp-op:disabled { opacity: .35; }
+.kp-ops { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.kp-op { font-size: 1.05rem; }
+.kp-op.is-next { border-color: var(--gold); background: var(--gold-soft); }
+.kp-op.is-fixed { color: var(--purple); }
+.kp-decide { min-height: 42px; font-size: 1.05rem; }
+.kp-key:active:not(:disabled), .kp-op:active:not(:disabled) { transform: scale(.95); }
+.h-kp-disp { font-size: 18px; font-weight: 900; text-anchor: middle; fill: var(--ink); }
+
+/* 高さの低い画面（スマホ横向きなど）：カード・キーパッドは画面の下に固定したシートにし、小さめにする */
+@media (max-height: 500px) and (orientation: landscape) {
+  .pz-tray {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; margin: 0;
+    max-height: 72vh; max-height: 72dvh; overflow-y: auto;
+    border-radius: 16px 16px 0 0; border-width: 2px 0 0; box-shadow: 0 -4px 12px rgba(30, 58, 138, .18);
+    padding: 4px 16px calc(6px + env(safe-area-inset-bottom));
+  }
+  .screen-puzzle.tray-open .pz-body { padding-bottom: 72vh; padding-bottom: 72dvh; }
+  .kp-kinds { grid-template-columns: 1fr 1fr; }
+  .kp-kind { min-height: 34px; flex-direction: row; justify-content: center; gap: 8px; }
+  .kp-display { font-size: 1.2rem; padding: 0 8px; }
+  .kp-keys { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px; }
+  .kp-key, .kp-op, .kp-decide { min-height: 34px; }
+  .kp-ops { gap: 4px; }
+  .pz-cards.kind-input { gap: 4px; }
+}
+
 /* スマホ縦画面：上（図・仮定・結論）と下（カード）を固定し、証明文だけスクロール */
 @media (max-width: 899px) and (orientation: portrait) {
   .pz-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0; }

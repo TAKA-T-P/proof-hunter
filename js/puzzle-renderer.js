@@ -9,8 +9,7 @@
   'use strict';
   const PH = root.PH = root.PH || {};
   const doc = root.document;
-  const TYPE_LABEL = { fill: '穴埋め', build: '組み立て' };
-  const PLACEHOLDER = { eq: '等式を選ぶ', reason: '理由を選ぶ', cond: '合同条件を選ぶ' };
+  const PLACEHOLDER = { eq: '等式を選ぶ', reason: '理由を選ぶ', cond: '合同条件を選ぶ', input: '等式を入力' };
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -28,7 +27,11 @@
     this.root = container;
     this.problem = problem;
     this.nav = nav;
-    this.puzzle = new PH.Puzzle(problem);
+    // 解答レベル（おてがる／スタンダード／チャレンジ）。記録はレベルごとに別々
+    this.level = PH.getPuzzleLevel(PH.storage.getPuzzleLevel());
+    this.recordMode = 'puzzle:' + this.level.id;
+    this.puzzle = new PH.Puzzle(problem, this.level.type);
+    this.drafts = {};           // チャレンジ：等式の空欄ごとの入力途中の内容（キーパッド）。図を開いても消えない
     this.flashKeys = [];
     this.flashLines = [];
     this.flashTimer = null;
@@ -43,8 +46,10 @@
     this.build();
     this.onClick = this.handleClick.bind(this);
     this.onResize = function () { this.renderFigure(); if (this.markOpen) this.renderMarkFigure(); }.bind(this);
-    this.onKey = function (e) { if (e.key === 'Escape' && this.markOpen && !PH.chooser.isOpen()) this.setMarks(false); }.bind(this);
+    this.onKey = this.handleKey.bind(this);
+    this.onPaste = this.handlePaste.bind(this);
     doc.addEventListener('keydown', this.onKey);
+    doc.addEventListener('paste', this.onPaste);
     this.root.addEventListener('click', this.onClick);
     root.addEventListener('resize', this.onResize);
     PH.storage.setLastProblem(problem.id, 'puzzle');
@@ -57,12 +62,12 @@
 
   PuzzleView.prototype.build = function () {
     const p = this.problem;
-    const type = this.puzzle.type;
     this.root.innerHTML =
       '<header class="play-header">' +
         '<button class="head-btn" data-act="home" aria-label="ホームに戻る"><span class="ico">⌂</span><span class="lbl">ホーム</span></button>' +
         '<div class="play-title"><span class="play-no">証明パズル ・ 問題' + esc(p.number) + '</span><span class="play-name">' + esc(p.title) + '</span></div>' +
-        '<span class="pz-type pz-type-' + type + '">' + TYPE_LABEL[type] + '</span>' +
+        '<button class="pz-level-badge pz-level-' + this.level.id + '" data-act="change-level" aria-label="解答レベル：' + this.level.label + '（変更する）">' +
+          esc(this.level.label) + '<span class="pz-level-chg">変更</span></button>' +
         '<button class="head-btn head-hint" data-act="hint" aria-label="ヒント"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
       '</header>' +
       '<div class="pz-body" data-ref="body">' +
@@ -116,6 +121,7 @@
     this.root.removeEventListener('click', this.onClick);
     root.removeEventListener('resize', this.onResize);
     doc.removeEventListener('keydown', this.onKey);
+    doc.removeEventListener('paste', this.onPaste);
     clearTimeout(this.flashTimer);
     this.timers.forEach(clearTimeout);
     PH.hints.hide(doc.getElementById('hint-popup'));
@@ -132,8 +138,9 @@
 
   PuzzleView.prototype.handleClick = function (e) {
     if (this.markOpen && e.target === this.ref('markModal')) return this.setMarks(false);   // 外側をタップで閉じる
-    const t = e.target.closest('[data-key],[data-mark-tool],[data-slot],[data-card],[data-act],[data-ev],[data-proof-reason]');
+    const t = e.target.closest('[data-key],[data-mark-tool],[data-kp],[data-slot],[data-card],[data-act],[data-ev],[data-proof-reason]');
     if (!t || t.disabled) return;
+    if (t.hasAttribute('data-kp')) return this.keypadAction(t.getAttribute('data-kp'));
     if (t.hasAttribute('data-key')) return this.tapMarkFromFigure(t, e.clientX, e.clientY);
     if (t.hasAttribute('data-mark-tool')) return this.selectMarkTool(t.getAttribute('data-mark-tool'));
     if (t.hasAttribute('data-slot')) return this.selectSlot(t.getAttribute('data-slot'));
@@ -154,7 +161,114 @@
       case 'reset': return this.resetCards();
       case 'check': return this.check();
       case 'restart': return this.restart();
+      case 'change-level': return this.changeLevel();
     }
+  };
+
+  // ---- チャレンジ：数学キーパッド --------------------------------------------------
+
+  PuzzleView.prototype.activeInputSlot = function () {
+    const s = this.puzzle.slot(this.puzzle.active);
+    return s && s.input ? s : null;
+  };
+
+  // 空欄ごとの入力途中の内容。決定ずみの等式があれば読み込む
+  PuzzleView.prototype.draftFor = function (slotId) {
+    if (!this.drafts[slotId]) {
+      const kp = PH.mathKeypad.create(this.puzzle.letters);
+      if (this.puzzle.inputs[slotId]) kp.load(this.puzzle.inputs[slotId]);
+      this.drafts[slotId] = kp;
+    }
+    return this.drafts[slotId];
+  };
+
+  PuzzleView.prototype.keypadAction = function (action) {
+    const s = this.activeInputSlot();
+    if (!s || !this.trayOpen) return;
+    const kp = this.draftFor(s.id);
+    let ok = false;
+    if (action.indexOf('kind:') === 0) {
+      const kind = action.slice(5);
+      // 辺⇔角の切りかえは、その空欄の入力をリセットする
+      ok = kp.kind !== kind && kp.setKind(kind);
+    } else if (action.indexOf('key:') === 0) ok = kp.press(action.slice(4));
+    else if (action === 'eq') ok = kp.pressEq();
+    else if (action === 'back') ok = kp.backspace();
+    else if (action === 'clear') { ok = !kp.isEmpty(); kp.clear(); }
+    else if (action === 'decide') return this.decideInput();
+    if (ok) PH.sound.play('tap');
+    this.render();
+  };
+
+  // 決定：等式を空欄に入れて、キーパッドを閉じる（形式が不完全なら決定できない）
+  PuzzleView.prototype.decideInput = function () {
+    const s = this.activeInputSlot();
+    if (!s) return;
+    const kp = this.draftFor(s.id);
+    if (!kp.complete()) return;
+    if (this.puzzle.setInput(kp.value())) {
+      PH.sound.play('tap');
+      this.setTray(false);
+    }
+  };
+
+  // PCのキーボード：A〜Z・=・Backspace・Enter・Esc（キーパッドが開いているとき）
+  PuzzleView.prototype.handleKey = function (e) {
+    if (PH.chooser.isOpen()) return;
+    if (e.key === 'Escape') {
+      if (this.markOpen) return this.setMarks(false);
+      if (this.trayOpen) return this.setTray(false);
+      return;
+    }
+    const s = this.activeInputSlot();
+    if (!s || !this.trayOpen || this.markOpen || e.ctrlKey || e.metaKey || e.altKey) return;
+    const kp = this.draftFor(s.id);
+    const key = e.key;
+    if (/^[a-zA-Z]$/.test(key)) {
+      if (!kp.kind) kp.setKind('seg');
+      if (kp.press(key.toUpperCase())) PH.sound.play('tap');
+    } else if (key === '=' || key === '＝') {
+      kp.pressEq();
+    } else if (key === '<' || key === '∠') {
+      if (kp.kind !== 'ang') kp.setKind('ang');
+    } else if (key === 'Backspace') {
+      kp.backspace();
+    } else if (key === 'Enter') {
+      e.preventDefault();
+      return this.decideInput();
+    } else {
+      return;
+    }
+    e.preventDefault();
+    this.render();
+  };
+
+  // 貼り付け：正しい形式の等式だけを受け付ける（不正な文字列は無視）
+  PuzzleView.prototype.handlePaste = function (e) {
+    const s = this.activeInputSlot();
+    if (!s || !this.trayOpen || this.markOpen) return;
+    const text = e.clipboardData && e.clipboardData.getData('text');
+    const kp = this.draftFor(s.id);
+    if (text && kp.load(text)) {
+      e.preventDefault();
+      this.render();
+    }
+  };
+
+  // ---- 解答レベルの変更（プレイ中） ---------------------------------------------------
+
+  PuzzleView.prototype.changeLevel = function () {
+    const self = this;
+    const others = PH.PUZZLE_LEVELS.filter(function (l) { return l.id !== self.level.id; });
+    PH.chooser.open({
+      title: '解答レベルを変更する',
+      message: '解答形式を変更すると、今の解答内容はリセットされます。変更しますか？',
+      options: others.map(function (l) { return { value: l.id, label: l.label }; }),
+      onChoose: function (id) {
+        PH.storage.setPuzzleLevel(id);
+        self.nav.reload();       // 新しい形式で最初から（ミス・ヒント・印もリセット。保存ずみの最高評価は変わらない）
+      },
+    });
   };
 
   // ---- 図に印をつける（拡大ウィンドウ） ----------------------------------------
@@ -165,6 +279,7 @@
     if (!modal) return;
     modal.hidden = !this.markOpen;
     if (this.markOpen) {
+      this.reopenTray = this.trayOpen;
       this.trayOpen = false;
       PH.hints.hide(doc.getElementById('hint-popup'));
       PH.sound.play('tap');
@@ -173,6 +288,7 @@
       this.renderMarkFigure();
     } else {
       this.renderFigure();       // 閉じたら、つけた印を問題の図に反映
+      if (this.reopenTray) { this.reopenTray = false; this.setTray(true); }
     }
   };
 
@@ -305,6 +421,7 @@
   };
 
   PuzzleView.prototype.undo = function () {
+    delete this.drafts[this.puzzle.active];
     if (this.puzzle.clearActive()) {
       PH.sound.play('tap');
       this.render();
@@ -314,6 +431,7 @@
   PuzzleView.prototype.resetCards = function () {
     if (this.puzzle.clearAll()) {
       PH.sound.play('tap');
+      this.drafts = {};
       this.trayOpen = false;
       this.render();
       this.ref('scroll').scrollTop = 0;
@@ -327,6 +445,7 @@
     this.flashKeys = [];
     this.flashLines = [];
     this.trayOpen = false;
+    this.drafts = {};
     this.userMarks = {};
     this.setMarks(false);
     PH.hints.hide(doc.getElementById('hint-popup'));
@@ -340,7 +459,19 @@
   PuzzleView.prototype.revealActive = function () {
     const sc = this.ref('scroll');
     const el = this.root.querySelector('.pz-blank.is-active');
-    if (!sc || !el || sc.scrollHeight <= sc.clientHeight) return;
+    if (!sc || !el) return;
+    if (sc.scrollHeight <= sc.clientHeight) {
+      // 証明文が独立してスクロールしない画面（スマホ横向き・PCなど）：
+      // ページ全体を動かして、選んだ空欄を画面の下のカード・キーパッドより上に見せる
+      const tray = this.ref('tray');
+      const r = el.getBoundingClientRect();
+      const fixedTray = tray && !tray.hidden && root.getComputedStyle(tray).position === 'fixed';
+      // シートは下からすべり出るアニメーション中なので、位置ではなく高さから計算する
+      const bottomLimit = fixedTray ? root.innerHeight - tray.offsetHeight - 8 : root.innerHeight - 8;
+      if (r.bottom > bottomLimit) root.scrollBy(0, r.bottom - bottomLimit);
+      else if (r.top < 64) root.scrollBy(0, r.top - 64);
+      return;
+    }
     const top = el.offsetTop - sc.offsetTop;
     if (top < sc.scrollTop + 8) sc.scrollTop = Math.max(0, top - 8);
     else if (top + el.offsetHeight > sc.scrollTop + sc.clientHeight - 8) sc.scrollTop = top + el.offsetHeight - sc.clientHeight + 8;
@@ -407,10 +538,10 @@
     }
     PH.sound.play('success');
     PH.hints.hide(doc.getElementById('hint-popup'));
-    const stageBefore = PH.storage.stageStats(this.problem.stage, 'puzzle').complete;
-    const saved = PH.storage.recordClear(this.problem.id, z.stars, z.misses, 'puzzle');
+    const stageBefore = PH.storage.stageStats(this.problem.stage, this.recordMode).complete;
+    const saved = PH.storage.recordClear(this.problem.id, z.stars, z.misses, this.recordMode);
     this.improved = saved.improved;
-    this.stageCleared = !stageBefore && PH.storage.stageStats(this.problem.stage, 'puzzle').complete;
+    this.stageCleared = !stageBefore && PH.storage.stageStats(this.problem.stage, this.recordMode).complete;
     this.showSuccess();
     this.render();
     root.scrollTo(0, 0);
@@ -487,12 +618,19 @@
     const card = z.cardIn(slotId);
     const status = z.result && z.result.slotStatus[slotId];
     const cls = ['pz-blank', 'kind-' + s.kind];
+    if (s.input) cls.push('is-input');
     if (z.active === slotId) cls.push('is-active');
     if (card) cls.push('is-filled');
     if (status === 'ng') cls.push('is-ng');
     if (status === 'ok') cls.push('is-ok');
+    let text = card ? card.text : PLACEHOLDER[s.input ? 'input' : s.kind];
+    const draft = s.input && this.drafts[slotId];
+    if (draft && draft.kind && !draft.isEmpty() && draft.value() !== z.inputs[slotId]) {
+      cls.push('is-draft');
+      text = draft.display() + '（入力中）';
+    }
     return '<button class="' + cls.join(' ') + '" data-slot="' + slotId + '" aria-label="' + esc(s.label) + '">' +
-      esc(card ? card.text : PLACEHOLDER[s.kind]) + '</button>';
+      esc(text) + '</button>';
   };
 
   PuzzleView.prototype.renderProof = function () {
@@ -501,7 +639,7 @@
     const proof = PH.buildProof(p);
     const self = this;
     let rows;
-    if (z.type === 'build') {
+    if (z.buildLike) {
       rows = p.evidence.map(function (_, i) {
         return '<li class="pz-row"><span class="pz-row-no">根拠' + proof.lines[i].no + '</span>' +
           '<div class="pz-row-body">' + self.blank('r' + i) +
@@ -526,15 +664,24 @@
     const s = z.slot(z.active);
     const current = z.placed[z.active];
     const kindName = { eq: '等式', reason: '理由', cond: '合同条件' }[s.kind];
-    this.ref('trayHead').innerHTML = '<span class="pz-tray-target">' + esc(s.label) + '</span>' +
-      '<span class="pz-tray-note">に入れる' + kindName + 'をタップ</span>';
-    const cards = z.cardsForActive();
     this.ref('tray').hidden = !this.trayOpen;
+    this.root.classList.toggle('tray-open', this.trayOpen);
     const box = this.ref('cards');
-    box.className = 'pz-cards kind-' + s.kind;
-    box.innerHTML = cards.map(function (c) {
-      return '<button class="pz-card' + (c.id === current ? ' is-current' : '') + '" data-card="' + c.id + '">' + esc(c.text) + '</button>';
-    }).join('');
+    if (s.input) {
+      // チャレンジ：等式カードは出さず、数学キーパッドで入力する
+      this.ref('trayHead').innerHTML = '<span class="pz-tray-target">' + esc(s.label) + '</span>' +
+        '<span class="pz-tray-note">等しい辺（角）を入力しよう！</span>';
+      box.className = 'pz-cards kind-input';
+      box.innerHTML = this.trayOpen ? PH.mathKeypad.render(this.draftFor(s.id)) : '';
+    } else {
+      this.ref('trayHead').innerHTML = '<span class="pz-tray-target">' + esc(s.label) + '</span>' +
+        '<span class="pz-tray-note">に入れる' + kindName + 'をタップ</span>';
+      const cards = z.cardsForActive();
+      box.className = 'pz-cards kind-' + s.kind;
+      box.innerHTML = cards.map(function (c) {
+        return '<button class="pz-card' + (c.id === current ? ' is-current' : '') + '" data-card="' + c.id + '">' + esc(c.text) + '</button>';
+      }).join('');
+    }
     const empty = z.emptyCount();
     const btn = this.ref('checkBtn');
     btn.disabled = empty > 0;
@@ -545,7 +692,7 @@
     const res = z.result;
     if (!res) {
       fb.innerHTML = empty > 0
-        ? '<p class="pz-msg-guide">解答欄をタップして、カードを選ぼう。</p>'
+        ? '<p class="pz-msg-guide">' + (z.type === 'challenge' ? '解答欄をタップして、理由を選んだり等式を入力したりしよう。' : '解答欄をタップして、カードを選ぼう。') + '</p>'
         : '<p class="pz-msg-guide">すべて埋まったよ。「答え合わせ」を押そう！</p>';
     } else {
       const open = res.messages.filter(function (m) { return res.slotStatus[m.slotId] === 'ng'; });
@@ -556,6 +703,22 @@
         : '<p class="pz-msg-info">直したところで、もう一度「答え合わせ」を押そう！</p>';
     }
   };
+
+  // そのレベルの全15問をクリアしているときの案内（レベルは自動では変えない）
+  PuzzleView.prototype.levelGuide = function () {
+    const mode = this.recordMode;
+    const all = PH.problems.every(function (p) { return PH.storage.getProblem(p.id, mode).cleared; });
+    return all ? '<p class="result-guide level-guide">' + esc(levelAllClearText(this.level.id)) + '</p>' : '';
+  };
+
+  function levelAllClearText(id) {
+    return {
+      easy: 'おてがる全問クリア！ 次はスタンダードに挑戦してみよう！',
+      standard: 'スタンダード全問クリア！ チャレンジにも挑戦してみよう！',
+      challenge: '証明マスターへの道をクリア！ ノートでも証明を書いてみよう！',
+    }[id];
+  }
+  PH.levelAllClearText = levelAllClearText;
 
   // 完成画面：生徒が組み立てた順で証明全文を表示する
   PuzzleView.prototype.buildResult = function () {
@@ -586,7 +749,7 @@
           '<div class="result-banner is-puzzle">' +
             '<div class="result-title">証明パズル完成！</div>' +
             '<div class="result-stars" aria-label="評価 星' + z.stars + 'つ">' + starsText(z.stars) + '</div>' +
-            '<div class="result-meta"><span>ミス ' + z.misses + '回</span><span class="sep">・</span><span>ヒント ' + z.hintsUsed + '回</span></div>' +
+            '<div class="result-meta"><span>' + esc(this.level.label) + '</span><span class="sep">・</span><span>ミス ' + z.misses + '回</span><span class="sep">・</span><span>ヒント ' + z.hintsUsed + '回</span></div>' +
             (this.improved ? '<span class="best">ベスト更新！</span>' : '') +
           '</div>' +
           '<div class="result-actions">' +
@@ -601,7 +764,7 @@
         (this.stageCleared
           ? '<div class="stage-clear-banner"><span class="scb-title">STAGE CLEAR！</span><span class="scb-sub">証明パズル STAGE ' + stage.id + '「' + esc(stage.title) + '」をすべてクリアしたよ！</span></div>'
           : '') +
-        guide +
+        guide + this.levelGuide() +
         '<div class="result-body">' +
           '<div class="card proof-sheet">' +
             '<h2 class="proof-title">完成した証明</h2>' +

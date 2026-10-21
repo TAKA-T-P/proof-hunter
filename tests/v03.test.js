@@ -325,7 +325,7 @@ test('パズルの評価はハンターモードと別に保存され、Ver.0.2 
     assert.deepEqual(PH.storage.getLastPlay(), { mode: 'puzzle', id: 'p04' });
     assert.equal(PH.storage.getLastProblem(), 'p01');                    // ハンターの「最後の問題」は残る
     const saved = JSON.parse(mem[PH.storage.KEY]);
-    assert.equal(saved.version, 3);
+    assert.ok(saved.version >= 3);
     assert.equal(saved.problems.p01.bestStars, 3);
     assert.equal(saved.puzzleProblems.p01.bestStars, 1);
     assert.equal(saved.lastMode, 'puzzle');

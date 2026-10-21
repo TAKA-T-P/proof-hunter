@@ -1,7 +1,7 @@
 /*
  * chooser.js — 「どちらに印をつけますか？」のような、候補から1つを選ぶ小さなポップアップ（両モード共通）
  *
- * PH.chooser.open({ title, options: [{ value, label }], onChoose(value) })
+ * PH.chooser.open({ title, message?, options: [{ value, label }], onChoose(value) })
  * キャンセル（ボタン・外側のタップ・Esc）では何もしない。
  */
 (function (root) {
@@ -24,7 +24,7 @@
     box.hidden = true;
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
-    box.innerHTML = '<div class="card chooser-box"><p class="chooser-title"></p><div class="chooser-options"></div>' +
+    box.innerHTML = '<div class="card chooser-box"><p class="chooser-title"></p><p class="chooser-message"></p><div class="chooser-options"></div>' +
       '<button class="btn chooser-cancel" data-choose-cancel>キャンセル</button></div>';
     doc.body.appendChild(box);
     box.addEventListener('click', function (e) {
@@ -48,6 +48,9 @@
     const el = ensure();
     current = opts;
     el.querySelector('.chooser-title').textContent = opts.title;
+    const msg = el.querySelector('.chooser-message');
+    msg.textContent = opts.message || '';
+    msg.hidden = !opts.message;
     el.querySelector('.chooser-options').innerHTML = opts.options.map(function (o, i) {
       return '<button class="btn chooser-option" data-choose="' + i + '">' + esc(o.label) + '</button>';
     }).join('');

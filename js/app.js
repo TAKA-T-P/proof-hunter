@@ -12,7 +12,8 @@
  *   #/puzzle/review          証明パズル：苦手な問題
  *   #/puzzle/play/<id>       証明パズル：プレイ
  *   #/howto  #/howto/puzzle  あそびかた（ハンター／パズル）
- * 記録・評価はモードごとに別々（storage.js の mode 引数）。
+ * 記録・評価はモードごとに別々。証明パズルは、さらに解答レベル（おてがる／スタンダード／チャレンジ）ごとに別々
+ * （storage.js の mode 引数：'hunter' / 'puzzle:<レベル>'）。
  */
 (function (root) {
   'use strict';
@@ -46,6 +47,12 @@
 
   const SCREENS = ['title', 'select', 'howto', 'play', 'puzzle'];
 
+  // 記録の種類：ハンターはそのまま、パズルは選んでいる解答レベルの記録
+  function recMode(mode) {
+    return mode === 'puzzle' ? 'puzzle:' + PH.storage.getPuzzleLevel() : 'hunter';
+  }
+  function currentLevel() { return PH.getPuzzleLevel(PH.storage.getPuzzleLevel()); }
+
   function show(name) {
     SCREENS.forEach(function (s) {
       const el = doc.getElementById('screen-' + s);
@@ -69,7 +76,7 @@
     cont.hidden = !problem;
     if (problem) {
       cont.querySelector('.cont-sub').textContent =
-        (last.mode === 'puzzle' ? '証明パズル' : 'ハンター') + '・問題' + problem.number;
+        (last.mode === 'puzzle' ? '証明パズル（' + currentLevel().label + '）' : 'ハンター') + '・問題' + problem.number;
     }
     renderSoundButtons();
   }
@@ -100,20 +107,17 @@
   }
 
   function problemCard(mode, p, showStage) {
-    const rec = PH.storage.getProblem(p.id, mode);
+    const rec = PH.storage.getProblem(p.id, recMode(mode));
     const diff = '★'.repeat(p.difficulty) + '<span class="dim">' + '★'.repeat(Math.max(0, 3 - p.difficulty)) + '</span>';
     const best = rec.cleared
       ? '<span class="best-stars">' + '★'.repeat(rec.bestStars) + '<span class="dim">' + '★'.repeat(3 - rec.bestStars) + '</span></span>'
       : '<span class="best-stars dim">★★★</span>';
-    const typeTag = mode === 'puzzle'
-      ? '<span class="pz-type pz-type-' + p.puzzle.type + '">' + (p.puzzle.type === 'build' ? '組み立て' : '穴埋め') + '</span>'
-      : '';
     return '<li><a class="problem-card' + (rec.cleared ? ' is-cleared' : '') + '" href="' + MODES[mode].play(p.id) + '">' +
       '<span class="pc-no">問題<b>' + esc(p.number) + '</b></span>' +
       '<span class="pc-body">' +
         (showStage ? '<span class="pc-stage">STAGE ' + p.stage + '</span>' : '') +
         '<span class="pc-title">' + esc(p.title) + '</span>' +
-        '<span class="pc-meta">' + typeTag + '<span class="pc-diff" aria-label="難易度' + p.difficulty + '">難易度 ' + diff + '</span></span>' +
+        '<span class="pc-meta"><span class="pc-diff" aria-label="難易度' + p.difficulty + '">難易度 ' + diff + '</span></span>' +
       '</span>' +
       '<span class="pc-status">' +
         '<span class="pc-badge">' + (rec.cleared ? 'クリア' : '未クリア') + '</span>' +
@@ -123,18 +127,39 @@
     '</a></li>';
   }
 
+  function levelSelector() {
+    const cur = PH.storage.getPuzzleLevel();
+    return '<div class="level-select"><p class="level-select-title">解答レベルをえらぼう！</p><div class="level-btns">' +
+      PH.PUZZLE_LEVELS.map(function (l) {
+        return '<button class="level-btn level-' + l.id + '" data-level="' + l.id + '" aria-pressed="' + (l.id === cur) + '">' +
+          '<span class="level-name">' + esc(l.label) + '</span><span class="level-desc">' + esc(l.desc) + '</span></button>';
+      }).join('') + '</div></div>';
+  }
+
+  function levelLine() {
+    return '<p class="level-current">現在の解答レベル：<b class="level-' + currentLevel().id + '">' + esc(currentLevel().label) + '</b></p>';
+  }
+
+  // そのレベルの全15問をクリアしたときの案内（レベルは自動で変えない）
+  function levelGuide() {
+    const rm = recMode('puzzle');
+    const all = PH.problems.every(function (p) { return PH.storage.getProblem(p.id, rm).cleared; });
+    return all ? '<p class="result-guide level-guide">' + esc(PH.levelAllClearText(currentLevel().id)) + '</p>' : '';
+  }
+
   function renderStageList(mode) {
     const M = MODES[mode];
     setSelectHeader(mode, (mode === 'puzzle' ? '証明パズル｜' : '') + 'ステージをえらぶ', '#/', 'ホーム');
-    const review = PH.storage.reviewProblems(mode).length;
+    const review = PH.storage.reviewProblems(recMode(mode)).length;
     $('#select-body').innerHTML =
       '<p class="mode-lead">' + (mode === 'puzzle'
         ? '🧩 <b>証明パズル</b>：カードを組み合わせて、証明文を完成させよう！'
         : '🔍 <b>ハンターモード</b>：図をタップして、3つの根拠を探し出せ！') + '</p>' +
+      (mode === 'puzzle' ? levelSelector() + levelGuide() : '') +
       '<button class="review-btn" data-go="' + M.review + '">🔁 苦手な問題に挑戦！<span class="review-count">' +
         (review ? '復習 ' + review + '問' : '復習なし') + '</span></button>' +
       '<ul class="stage-list">' + PH.STAGES.map(function (st) {
-        const stat = PH.storage.stageStats(st.id, mode);
+        const stat = PH.storage.stageStats(st.id, recMode(mode));
         return '<li><a class="stage-card' + (stat.complete ? ' is-complete' : '') + '" href="' + M.stage(st.id) + '">' +
           '<span class="sc-no">STAGE<b>' + st.id + '</b></span>' +
           '<span class="sc-body">' +
@@ -154,9 +179,9 @@
 
   function renderStage(mode, stage) {
     setSelectHeader(mode, (mode === 'puzzle' ? 'パズル ' : '') + 'STAGE ' + stage.id + '｜' + stage.title, MODES[mode].select, 'ステージ');
-    const stat = PH.storage.stageStats(stage.id, mode);
+    const stat = PH.storage.stageStats(stage.id, recMode(mode));
     $('#select-body').innerHTML =
-      '<div class="stage-intro"><p>' + esc(stage.theme) + '</p>' +
+      '<div class="stage-intro"><p>' + esc(stage.theme) + '</p>' + (mode === 'puzzle' ? levelLine() : '') +
         '<p class="stage-intro-stat">クリア ' + stat.cleared + '/' + stat.total + '問 ・ ★ ' + stat.stars + '/' + stat.maxStars +
         (stat.complete ? ' <span class="sc-badge">STAGE CLEAR</span>' : '') + '</p></div>' +
       '<ul class="problem-list">' + stat.problems.map(function (p) { return problemCard(mode, p, false); }).join('') + '</ul>';
@@ -164,12 +189,12 @@
 
   function renderReview(mode) {
     setSelectHeader(mode, (mode === 'puzzle' ? 'パズル：' : '') + '苦手な問題に挑戦！', MODES[mode].select, 'ステージ');
-    const list = PH.storage.reviewProblems(mode);
-    $('#select-body').innerHTML = list.length
+    const list = PH.storage.reviewProblems(recMode(mode));
+    $('#select-body').innerHTML = (mode === 'puzzle' ? levelLine() : '') + (list.length
       ? '<p class="select-note">まだクリアしていない問題と、★★以下の問題だよ。★★★をめざそう！</p>' +
         '<ul class="problem-list">' + list.map(function (p) { return problemCard(mode, p, true); }).join('') + '</ul>'
       : '<div class="card review-empty"><p class="review-empty-title">復習する問題はありません！</p><p>すべて★★★をめざそう！ すばらしい！</p>' +
-        '<button class="btn btn-primary" data-go="' + MODES[mode].select + '">ステージ選択へ</button></div>';
+        '<button class="btn btn-primary" data-go="' + MODES[mode].select + '">ステージ選択へ</button></div>');
   }
 
   // ---- あそびかた（モード別） -----------------------------------------------
@@ -205,27 +230,32 @@
     puzzle: [
       {
         title: '図と仮定・結論を確認しよう！',
-        text: '上の図と、仮定（使える情報）・結論（証明するゴール）をよく見よう。',
+        text: '上の図と、仮定（使える情報）・結論（証明するゴール）をよく見よう。図をタップすると、大きくして印もつけられるよ。',
         art: '<svg viewBox="0 0 200 120"><polygon points="50,15 15,100 85,100" class="h-tri1"/><rect x="100" y="28" width="90" height="22" rx="6" class="h-btn h-on"/><text x="145" y="44" class="h-btxt">仮定</text><rect x="100" y="64" width="90" height="22" rx="6" class="h-btn"/><text x="145" y="80" class="h-btxt">結論</text></svg>',
       },
       {
-        title: '証明の空欄を見つけよう！',
-        text: '証明文の中の空欄をタップすると、その空欄が選ばれるよ。最初の空欄は自動で選ばれているよ。',
-        art: '<svg viewBox="0 0 200 120"><rect x="20" y="10" width="160" height="100" rx="8" class="h-paper"/><line x1="35" y1="30" x2="120" y2="30" class="h-rule"/><rect x="45" y="44" width="90" height="20" rx="5" class="h-blank"/><line x1="35" y1="80" x2="110" y2="80" class="h-rule"/><rect x="45" y="88" width="90" height="16" rx="5" class="h-blank2"/><text x="140" y="62" class="h-finger">👆</text></svg>',
+        title: '解答レベルをえらぼう！',
+        text: '「おてがる」は正しい等式を選んで穴埋め、「スタンダード」は等式と理由を組み立て、「チャレンジ」は選択肢なしで等式を自分で入力！',
+        art: '<svg viewBox="0 0 200 120"><rect x="6" y="30" width="58" height="56" rx="8" class="h-btn h-on"/><text x="35" y="63" class="h-btxt">おてがる</text><rect x="71" y="30" width="58" height="56" rx="8" class="h-btn"/><text x="100" y="63" class="h-btxt">スタンダード</text><rect x="136" y="30" width="58" height="56" rx="8" class="h-btn"/><text x="165" y="63" class="h-btxt">チャレンジ</text></svg>',
       },
       {
-        title: '正しいカードをタップして入れよう！',
-        text: '下のカードをタップすると、選んだ空欄に入って、次の空欄へ進むよ。入れたカードは何度でも変えられるよ。',
+        title: '空欄をタップして、カードを入れよう！',
+        text: '証明文の空欄をタップすると、下に入れられるカードが出るよ。カードをタップすると空欄に入るよ。入れたカードは何度でも変えられるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="14" width="85" height="26" rx="8" class="h-btn h-on"/><text x="52" y="32" class="h-btxt">AB＝CB</text><rect x="105" y="14" width="85" height="26" rx="8" class="h-btn"/><text x="147" y="32" class="h-btxt">BD＝BD</text><rect x="10" y="50" width="85" height="26" rx="8" class="h-btn"/><text x="52" y="68" class="h-btxt">AB＝AD</text><rect x="105" y="50" width="85" height="26" rx="8" class="h-btn"/><text x="147" y="68" class="h-btxt">AD＝CD</text><text x="40" y="104" class="h-finger">👆</text></svg>',
       },
       {
         title: '理由と等式の組み合わせを確認しよう！',
-        text: '「組み立て」では、理由と等式をセットで選ぶよ。等式が合っていても、理由がちがうと正解にならないよ。',
+        text: '「スタンダード」と「チャレンジ」では、理由と等式をセットで考えるよ。等式が合っていても、理由がちがうと正解にならないよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="15" y="16" width="170" height="24" rx="8" class="h-btn h-on"/><text x="100" y="33" class="h-btxt">共通な辺だから</text><rect x="45" y="48" width="110" height="24" rx="8" class="h-btn"/><text x="100" y="65" class="h-btxt">BD＝BD</text><text x="100" y="100" class="h-star">✓</text></svg>',
       },
       {
+        title: 'チャレンジはキーパッドで入力！',
+        text: '「辺の等式」を選んで、A → B → ＝ → C → D と押すと AB＝CD。角は「角の等式」を選んで ∠ABC＝∠DEF の形で入力しよう。最後に「決定」！',
+        art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="28" rx="8" class="h-paper"/><text x="100" y="28" class="h-kp-disp">AB＝C＿</text><rect x="20" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="37" y="64" class="h-btxt">A</text><rect x="62" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="79" y="64" class="h-btxt">B</text><rect x="104" y="46" width="34" height="26" rx="6" class="h-btn h-on"/><text x="121" y="64" class="h-btxt">C</text><rect x="146" y="46" width="34" height="26" rx="6" class="h-btn h-on"/><text x="163" y="64" class="h-btxt">D</text><rect x="20" y="80" width="34" height="26" rx="6" class="h-btn"/><text x="37" y="98" class="h-btxt">∠</text><rect x="62" y="80" width="34" height="26" rx="6" class="h-btn"/><text x="79" y="98" class="h-btxt">＝</text><rect x="104" y="80" width="76" height="26" rx="6" class="h-btn h-on"/><text x="142" y="98" class="h-btxt">決定</text></svg>',
+      },
+      {
         title: '証明を完成させよう！',
-        text: 'すべて埋めたら「答え合わせ」！ まちがえた所は赤くなるので、そこだけ直してもう一度答え合わせしよう。',
+        text: 'すべて埋めたら「答え合わせ」！ まちがえた所は赤くなるので、そこだけ直してもう一度。★はレベルごとに記録されるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="104" rx="8" class="h-paper"/><line x1="45" y1="30" x2="150" y2="30" class="h-rule"/><line x1="45" y1="48" x2="135" y2="48" class="h-rule"/><line x1="45" y1="66" x2="145" y2="66" class="h-rule"/><text x="100" y="98" class="h-star">★★★</text></svg>',
       },
     ],
@@ -267,6 +297,7 @@
       nextStage: function () {
         go(PH.getStage(problem.stage + 1) ? M.stage(problem.stage + 1) : M.select);
       },
+      reload: function () { route(); },
     };
   }
 
@@ -318,8 +349,15 @@
     PH.sound.setEnabled(PH.storage.getSound());
 
     doc.addEventListener('click', function (e) {
-      const t = e.target.closest('[data-go],[data-sound-toggle],#btn-continue,#howto-prev,#howto-next,#hint-close,#tri-close');
+      const t = e.target.closest('[data-go],[data-level],[data-sound-toggle],#btn-continue,#howto-prev,#howto-next,#hint-close,#tri-close');
       if (!t) return;
+      if (t.hasAttribute('data-level')) {
+        if (PH.storage.setPuzzleLevel(t.getAttribute('data-level'))) {
+          PH.sound.play('tap');
+          renderStageList('puzzle');
+        }
+        return;
+      }
       if (t.hasAttribute('data-go')) {
         PH.sound.play('tap');
         go(t.getAttribute('data-go'));
