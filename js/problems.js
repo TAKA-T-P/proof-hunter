@@ -12,11 +12,11 @@
   // 等しい理由の選択肢。label: 選択肢表示 / short: スロット表示 / proof: 証明文での書き方
   PH.REASONS = {
     given:         { label: '仮定より',               short: '仮定より', proof: '仮定より' },
-    common:        { label: '共通な辺だから',         short: '共通な辺', proof: '共通な辺だから' },
-    commonAngle:   { label: '共通な角だから',         short: '共通な角', proof: '共通な角だから' },
-    vertical:      { label: '対頂角だから',           short: '対頂角',   proof: '対頂角は等しいから' },
-    alternate:     { label: '平行線の錯角だから',     short: '錯角',     proof: '平行線の錯角は等しいから' },
-    corresponding: { label: '平行線の同位角だから',   short: '同位角',   proof: '平行線の同位角は等しいから' },
+    common:        { label: '共通な辺より',           short: '共通な辺', proof: '共通な辺だから' },
+    commonAngle:   { label: '共通な角より',           short: '共通な角', proof: '共通な角だから' },
+    vertical:      { label: '対頂角より',             short: '対頂角',   proof: '対頂角は等しいから' },
+    alternate:     { label: '平行線の錯角より',       short: '錯角',     proof: '平行線の錯角は等しいから' },
+    corresponding: { label: '平行線の同位角より',     short: '同位角',   proof: '平行線の同位角は等しいから' },
   };
 
   // 三角形の合同条件（中学数学の標準的な表現）

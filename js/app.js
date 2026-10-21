@@ -154,8 +154,8 @@
     },
     {
       title: '理由を選んで根拠ゲット！',
-      text: '「仮定より」「共通な辺だから」など、正しい理由を選んで「根拠を確定」！',
-      art: '<svg viewBox="0 0 200 120"><rect x="20" y="10" width="160" height="28" rx="8" class="h-btn h-on"/><text x="100" y="29" class="h-btxt">仮定より</text><rect x="20" y="46" width="160" height="28" rx="8" class="h-btn"/><text x="100" y="65" class="h-btxt">共通な辺だから</text><rect x="20" y="82" width="160" height="28" rx="8" class="h-btn"/><text x="100" y="101" class="h-btxt">対頂角だから</text></svg>',
+      text: '「仮定より」「共通な辺より」など、正しい理由を選んで「根拠を確定」！',
+      art: '<svg viewBox="0 0 200 120"><rect x="20" y="10" width="160" height="28" rx="8" class="h-btn h-on"/><text x="100" y="29" class="h-btxt">仮定より</text><rect x="20" y="46" width="160" height="28" rx="8" class="h-btn"/><text x="100" y="65" class="h-btxt">共通な辺より</text><rect x="20" y="82" width="160" height="28" rx="8" class="h-btn"/><text x="100" y="101" class="h-btxt">対頂角より</text></svg>',
     },
     {
       title: '3つの根拠を集めよう！',

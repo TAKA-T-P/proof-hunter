@@ -423,6 +423,7 @@
         this.say('この根拠はもう見つけているよ！', 'info');
         break;
       case 'irrelevant':
+        PH.sound.play('soft');
         this.say('たしかに等しいね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！', 'info');
         break;
       case 'wrong-reason':
