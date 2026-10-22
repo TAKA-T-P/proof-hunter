@@ -1230,3 +1230,13 @@ body[data-screen="rank"], body[data-screen="rank-play"] { background: linear-gra
   .rank-top { max-width: 920px; }
   .rank-courses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ハンター：「詳しい理由を説明する」（多段階証明の根拠） */
+.btn-explain { width: 100%; margin-top: 6px; min-height: 40px; border-color: #b45309; color: #92400e; background: #fffbeb; font-weight: 900; }
+.btn-explain:disabled { opacity: .45; }
+.explain-note { margin: 2px 0 0; font-size: .74rem; color: var(--muted); text-align: center; }
+.explain-target { margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: .88rem; }
+.explain-target b { color: #92400e; }
+.explain-back { min-height: 30px; padding: 1px 10px; font-size: .78rem; margin-left: auto; }
+.step-bar li.is-sub { font-size: .9em; opacity: .95; }
+.step-bar li.is-sub b { background: none; color: inherit; }

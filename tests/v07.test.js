@@ -60,7 +60,23 @@ function solveStep(g) {
   return g.confirmStep();
 }
 
+
+// ハンター：前のステップで導く根拠（fromStep）は「詳しい理由を説明する」→ ステップを解く → 根拠に登録
+function explainEv(g, ev) {
+  const p = g.problem;
+  g.setMode(geo.isAngleName(ev.items[0]) ? 'angle' : 'side');
+  g.clearSelection();
+  g.tap(k(p, ev.items[0]));
+  g.tap(k(p, ev.items[1]));
+  const r = g.explain();
+  if (r.status !== 'explain') return r;
+  let last = null;
+  while (g.phase === 'step') { last = solveStep(g); assert.equal(last.status, 'correct'); }
+  return { status: last && last.registered && last.registered.id === ev.id ? 'correct' : 'not-registered', last };
+}
+
 function answer(g, ev, reason) {
+  if (ev.fromStep) return explainEv(g, ev);
   const p = g.problem;
   g.setMode(geo.isAngleName(ev.items[0]) ? 'angle' : 'side');
   g.clearSelection();
@@ -73,7 +89,7 @@ function answer(g, ev, reason) {
 function solveHunter(p) {
   const g = new PH.Game(p);
   assert.equal(chooseTriangles(g).status, 'ok');
-  while (g.phase === 'step') assert.equal(solveStep(g).status, 'correct');
+  assert.equal(g.phase, 'collect');                     // 三角形 → すぐに根拠（ステップは「詳しい理由を説明する」で解く）
   p.evidence.forEach((ev) => assert.equal(answer(g, ev, ev.reason).status, 'correct', p.id + ' ' + ev.label));
   g.selectCondition(p.congruence);
   assert.equal(g.confirmCondition().ok, true);
@@ -251,7 +267,7 @@ test('データ検証：ID重複・依存先なし・循環参照・導けない
 // ---- 21-4 両モード ---------------------------------------------------------------------
 
 MULTI.forEach((p) => {
-  test(p.id + ': ハンターで、三角形 → 前半のステップ → 根拠 → 合同条件 → 最終結論（→ 後半のステップ）と解いて★★★', () => {
+  test(p.id + ': ハンターで、三角形 → 根拠（導く根拠は「詳しい理由を説明する」でステップを解く）→ 合同条件 → 最終結論（→ 後半のステップ）と解いて★★★', () => {
     const g = solveHunter(p);
     assert.equal(g.phase, 'clear');
     assert.equal(g.stars, 3);
@@ -262,6 +278,11 @@ MULTI.forEach((p) => {
   test(p.id + ': ハンターの誤答（理由・式の比較）はミス1回、同じ誤答では増えない', () => {
     const g = new PH.Game(p);
     chooseTriangles(g);
+    assert.equal(g.phase, 'collect');
+    const target = p.evidence.find((e) => e.fromStep);
+    g.setMode('angle');
+    g.tap(k(p, target.items[0])); g.tap(k(p, target.items[1]));
+    assert.equal(g.explain().status, 'explain');
     assert.equal(g.phase, 'step');
     const s = g.currentStep();
     if (s.type === 'compare') throw new Error('最初のステップは理由を選ぶステップ');
@@ -322,6 +343,9 @@ test('ハンター：式の比較は、2つの式の右辺（共通部分）を�
   const p = PH.getProblem('p23');
   const g = new PH.Game(p);
   chooseTriangles(g);
+  g.setMode('angle');
+  g.tap(k(p, '∠ACE')); g.tap(k(p, '∠BCD'));
+  assert.equal(g.explain().status, 'explain');
   solveStep(g);                                         // s1
   solveStep(g);                                         // s2
   const s = g.currentStep();
@@ -341,6 +365,8 @@ test('ハンター：式の比較は、2つの式の右辺（共通部分）を�
   const r = g.confirmStep();
   assert.equal(r.status, 'correct');
   assert.equal(r.stageDone, 'pre');
+  assert.equal(r.registered.id, 'e3');                  // 説明した根拠 ∠ACE＝∠BCD が登録される
+  assert.deepEqual(g.found, ['e3']);
   assert.equal(g.phase, 'collect');
 });
 
@@ -348,6 +374,11 @@ test('ハンターのヒント：ステップごとの3段階。最終段階を�
   const p = PH.getProblem('p21');
   const g = new PH.Game(p);
   chooseTriangles(g);
+  assert.equal(g.useHint().targetId, 'e1');             // 根拠の収集中は、まだ見つけていない根拠のヒント
+  g.hintLevels = {}; g.hintsUsed = 0;
+  g.setMode('angle');
+  g.tap(k(p, '∠ABD')); g.tap(k(p, '∠ACE'));
+  g.explain();
   let h = g.useHint();
   assert.equal(h.targetId, 's1');
   assert.equal(h.text, 'どんな図形の性質が使えるかな？');

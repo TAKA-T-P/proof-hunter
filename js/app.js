@@ -245,7 +245,7 @@
       },
       {
         title: '新しい根拠を導こう！（STAGE 7）',
-        text: '「AB＝ACより、二等辺三角形の底角は等しいから」のように定理の理由を選んだり、∠ACE＝∠ACD＋60°、∠BCD＝∠ACD＋60° の右辺（同じ部分）をタップして ∠ACE＝∠BCD を導いたりするよ。導いた等式は、合同の根拠に使えるよ。',
+        text: '理由を1つ選ぶだけでは言えない根拠（∠ACE＝∠BCD など）は、2つの角を選んで「詳しい理由を説明する」！ 定理の理由を選んだり、∠ACE＝∠ACD＋60°、∠BCD＝∠ACD＋60° の右辺（同じ部分）をタップして ∠ACE＝∠BCD を導いたりすると、根拠に登録されるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="28" class="h-btxt">∠ACE</text><rect x="110" y="10" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="28" class="h-btxt">∠ACD＋60°</text><rect x="10" y="46" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="64" class="h-btxt">∠BCD</text><rect x="110" y="46" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="64" class="h-btxt">∠ACD＋60°</text><text x="100" y="104" class="h-btxt">→ ∠ACE＝∠BCD</text></svg>',
       },
       {

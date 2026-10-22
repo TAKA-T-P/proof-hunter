@@ -6,6 +6,9 @@
  *         'triangle'（証明する三角形と頂点の対応を選ぶ） → 'collect' → 'congruence' → 'final'（合同から結論を導く） → 'clear'
  * mode  : 'side'（辺選択） / 'angle'（角選択） / 'mark'（印つけ） / 'erase'（印を消す） / 'tri'（三角形を選ぶ）
  *         辺選択では辺だけ、角選択では角だけがタップに反応する（頂点付近の誤選択を防ぐ）。
+ * Ver.0.8：多段階証明（proofSteps）のハンターは「三角形 → 根拠 → 合同条件 → 結論」の順。前のステップで導く根拠（fromStep）は、
+ *         根拠の収集で2つの要素を選んで「詳しい理由を説明する」（explain）を押すと、そのステップ（定理・角の式・式の比較）を解き、
+ *         解きおえるとその根拠が登録されて根拠の収集にもどる。
  * Ver.0.8：直角三角形の合同条件の問題（PH.isRightProblem）は、根拠の欄が「直角・斜辺・他の1辺（鋭角）」になる。
  *         role（今集めている欄）に合わない根拠は 'wrong-role'（例：他の1辺を斜辺の欄に入れた）。欄はタップで切りかえられる。
  */
@@ -36,7 +39,7 @@
     this.stepCounted = {};       // ミスに数えたステップの誤答
     this.phase = this.hasFinal ? 'triangle' : 'collect';
     this.mode = this.hasFinal ? 'tri' : 'side';
-    if (!this.hasFinal && this.engine && this.engine.available('pre').length) this.enterSteps('pre');
+    this.explaining = null;      // 「詳しい理由を説明する」で説明している根拠のID
     this.answerMode = this.mode; // 印つけ等から「解答にもどる」ときの戻り先
     this.triSel = [];            // 選んだ三角形（頂点の配列。1つ目が青、2つ目が黄）
     this.triCounted = {};        // ミスに数えた三角形の誤答（同じ誤答の再判定ではミスを増やさない）
@@ -191,7 +194,8 @@
     if (this.phase === 'final') return this.finalReasons();
     // Ver.0.8：直角の欄は「直角であることの理由」、ほかの欄では直角専用の理由を出さない
     if (this.isRight() && this.role === 'right') return PH.rightTriangle.RIGHT_REASONS.slice();
-    const list = this.problem.reasons.filter(function (r) { return !(PH.REASONS[r] && PH.REASONS[r].rightOnly); });
+    // 「導いた等式より」（meta）は選択肢に出さない（導く根拠は「詳しい理由を説明する」で説明する）
+    const list = this.problem.reasons.filter(function (r) { return !(PH.REASONS[r] && (PH.REASONS[r].rightOnly || PH.REASONS[r].meta)); });
     if (this.isSameTwice()) {
       const id = this.selectionKind() === 'ang' ? 'commonAngle' : 'common';
       if (list.indexOf(id) < 0) list.splice(1, 0, id);
@@ -265,8 +269,7 @@
       this.mode = 'side';
       this.answerMode = 'side';
       this.triangles = [tris[0].slice(), tris[1].slice()];
-      if (this.engine && this.engine.available('pre').length) this.enterSteps('pre');
-      else this.applyRoleMode();
+      this.applyRoleMode();
       return { status: 'ok', ok: true, miss: false };
     }
     const r = { status: 'wrong', ok: false, miss: false };
@@ -403,13 +406,88 @@
 
   // ---- 多段階証明のステップ（Ver.0.7） ------------------------------------------
 
+  // 「詳しい理由を説明する」が使える問題か（前のステップで導く根拠がある）
+  Game.prototype.canExplain = function () {
+    return !!this.engine && this.problem.evidence.some(function (ev) { return !!ev.fromStep; });
+  };
+
+  // そのステップを導くのに必要なステップ（自分をふくむ。dependsOn をたどる）
+  Game.prototype.stepChain = function (id) {
+    const out = [];
+    const self = this;
+    (function visit(x) {
+      const s = self.engine.step(x);
+      if (!s || out.indexOf(x) >= 0) return;
+      out.push(x);
+      (s.dependsOn || []).forEach(visit);
+    })(id);
+    return out;
+  };
+
+  /*
+   * 「詳しい理由を説明する」：選んだ2つの要素が、前のステップで導く根拠なら、そのステップを解く段階へ。
+   *   explain       … 説明のステップへ進んだ（解きおえると根拠に登録される）
+   *   duplicate     … もう見つけた根拠
+   *   wrong-role    … 直角三角形の問題で、今の欄に合わない
+   *   not-explain   … 理由を選ぶだけで言える根拠（説明のステップはない）
+   *   from-conclusion / not-common / wrong-equation / irrelevant … 根拠ではない
+   */
+  Game.prototype.explain = function () {
+    if (this.phase !== 'collect' || this.selection.length !== 2 || !this.canExplain()) return { status: 'incomplete', miss: false };
+    const keys = this.selection.slice();
+    const kind = keys[0].slice(0, 3) === 'ang' ? 'ang' : 'seg';
+    const ev = PH.validation.matchEvidence(this.problem, keys);
+    let r;
+    if (!ev) {
+      const st = PH.validation.equationStatus(this.problem, keys);
+      r = { status: st, miss: st !== 'irrelevant', kind: kind };
+    } else if (this.found.indexOf(ev.id) >= 0) {
+      r = { status: 'duplicate', miss: false, evidence: ev, kind: kind };
+    } else if (this.isRight() && this.roleOf(ev) !== this.role) {
+      r = { status: 'wrong-role', miss: true, evidence: ev, kind: kind, role: this.roleOf(ev), want: this.role };
+    } else if (!ev.fromStep) {
+      r = { status: 'not-explain', miss: true, evidence: ev, kind: kind };
+    } else {
+      this.explaining = ev.id;
+      this.explainFrom = this.answerMode;          // もどったときの辺選択・角選択
+      this.enterSteps('pre');
+      return { status: 'explain', miss: false, evidence: ev, kind: kind };
+    }
+    if (r.miss) this.misses++;
+    this.clearSelection();
+    return r;
+  };
+
+  // 説明している根拠（なければ null）
+  Game.prototype.explainingEvidence = function () { return this.explaining ? this.evidenceById(this.explaining) : null; };
+
+  // 説明をやめて根拠の収集にもどる（解きおえたステップは証明済みのまま）
+  Game.prototype.cancelExplain = function () {
+    if (this.phase !== 'step' || !this.explaining) return false;
+    this.explaining = null;
+    this.stepId = null;
+    this.phase = 'collect';
+    this.mode = this.answerMode = this.explainFrom || 'side';
+    this.applyRoleMode();
+    return true;
+  };
+
+  // 今解けるステップ（説明中は、その根拠を導くのに必要なステップだけ）
+  Game.prototype.availableSteps = function (stage) {
+    const list = this.engine.available(stage);
+    const ev = stage === 'pre' ? this.explainingEvidence() : null;
+    if (!ev) return list;
+    const chain = this.stepChain(ev.fromStep);
+    return list.filter(function (s) { return chain.indexOf(s.id) >= 0; });
+  };
+
   // 前半（'pre'）・後半（'post'）のステップの段階に入る。解けるステップのうち最初のものを選ぶ
   Game.prototype.enterSteps = function (stage) {
     this.phase = stage === 'post' ? 'post' : 'step';
     this.mode = 'step';
     this.answerMode = 'step';
     this.clearSelection();
-    this.stepId = this.engine.available(stage)[0].id;
+    this.stepId = this.availableSteps(stage)[0].id;
     this.stepChoice = null;
     this.cmpPick = {};
   };
@@ -422,7 +500,7 @@
 
   // 解けるステップのうち、別のものに切りかえる（独立したステップはどの順番でもよい）
   Game.prototype.selectStep = function (id) {
-    if ((this.phase !== 'step' && this.phase !== 'post') || this.engine.status(id) !== 'available') return false;
+    if ((this.phase !== 'step' && this.phase !== 'post') || !this.availableSteps(this.stepStage()).some(function (s) { return s.id === id; })) return false;
     this.stepId = id;
     this.stepChoice = null;
     this.cmpPick = {};
@@ -501,20 +579,33 @@
     this.engine.complete(s.id);
     this.clearSelection();
     const stage = this.stepStage();
-    const next = this.engine.available(stage);
+    const next = this.availableSteps(stage);
     if (next.length) {
       this.stepId = next[0].id;
       this.stepChoice = null;
       this.cmpPick = {};
       this.mode = 'step';
     } else if (stage === 'pre') {
-      // 前半のステップがすべて終わった → 3つの根拠を集める
+      // 説明のステップがすべて終わった → 説明した根拠を登録して、根拠の収集にもどる
+      const ev = this.explainingEvidence();
+      this.explaining = null;
       this.stepId = null;
       this.phase = 'collect';
-      this.mode = 'side';
-      this.answerMode = 'side';
-      this.applyRoleMode();
+      this.mode = this.answerMode = this.explainFrom || 'side';
       r.stageDone = 'pre';
+      if (ev && this.engine.canUse(ev) && this.found.indexOf(ev.id) < 0) {
+        this.found.push(ev.id);
+        this.establish(ev);
+        r.registered = ev;
+        if (this.found.length === this.total()) {
+          this.phase = 'congruence';
+          r.complete = true;
+        } else if (this.isRight()) {
+          const self = this;
+          this.role = this.roles.find(function (x) { return !self.roleFound(x); }) || null;
+        }
+      }
+      this.applyRoleMode();
     } else {
       this.stepId = null;
       this.finish();

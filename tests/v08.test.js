@@ -56,10 +56,26 @@ function solveStep(g) {
   return g.confirmStep();
 }
 
-// 根拠を答える（role を渡すと、その欄を選んでから）
+
+// ハンター：前のステップで導く根拠（fromStep）は「詳しい理由を説明する」→ ステップを解く → 根拠に登録
+function explainEv(g, ev) {
+  const p = g.problem;
+  g.setMode(geo.isAngleName(ev.items[0]) ? 'angle' : 'side');
+  g.clearSelection();
+  g.tap(k(p, ev.items[0]));
+  g.tap(k(p, ev.items[1]));
+  const r = g.explain();
+  if (r.status !== 'explain') return r;
+  let last = null;
+  while (g.phase === 'step') { last = solveStep(g); assert.equal(last.status, 'correct'); }
+  return { status: last && last.registered && last.registered.id === ev.id ? 'correct' : 'not-registered', last };
+}
+
+// 根拠を答える（role を渡すと、その欄を選んでから）。前のステップで導く根拠は「詳しい理由を説明する」で
 function answer(g, ev, reason, role) {
   const p = g.problem;
   if (role) g.selectRole(role);
+  if (ev.fromStep && reason === 'proved') return explainEv(g, ev);
   g.setMode(geo.isAngleName(ev.items[0]) ? 'angle' : 'side');
   g.clearSelection();
   g.tap(k(p, ev.items[0]));
@@ -906,4 +922,95 @@ test('段位認定の記録がない・壊れている保存データでも起�
       assert.equal(S.getRank('basic').best, null);
     });
   });
+});
+
+// =====================================================================================
+// ハンター：多段階証明は「三角形 → 根拠」。導く根拠は「詳しい理由を説明する」でステップを解く
+// =====================================================================================
+
+test('ハンター（多段階証明）：最初からステップには入らず、根拠の収集から始まる。「導いた等式より」は理由に出さない', () => {
+  ['p21', 'p22', 'p23', 'p24', 'p27', 'p30'].forEach((id) => {
+    const p = P(id);
+    const g = new PH.Game(p);
+    if (g.phase === 'triangle') assert.equal(chooseTriangles(g).status, 'ok');
+    assert.equal(g.phase, 'collect', id);
+    assert.equal(g.canExplain(), true);
+    g.selectRole(g.roles.find((r) => r !== 'right') || null);
+    assert.ok(!g.availableReasons().includes('proved'), id);
+  });
+  // 通常の問題には「詳しい理由を説明する」はない
+  assert.equal(new PH.Game(P('p01')).canExplain(), false);
+  assert.equal(new PH.Game(P('p25')).canExplain(), false);
+});
+
+test('ハンター：「詳しい理由を説明する」の判定（説明する根拠・理由を選ぶだけの根拠・等しくない組・やめる）', () => {
+  const p = P('p24');                                    // ∠BAD＝∠CAE は角の式で説明する
+  const g = new PH.Game(p);
+  chooseTriangles(g);
+  const pick = (a, b) => { g.setMode(geo.isAngleName(a) ? 'angle' : 'side'); g.clearSelection(); g.tap(k(p, a)); g.tap(k(p, b)); };
+  // 理由を選ぶだけで言える根拠（AB＝AC：正三角形の辺）→ ミス
+  pick('AB', 'AC');
+  let r = g.explain();
+  assert.equal(r.status, 'not-explain');
+  assert.equal(g.misses, 1);
+  // 等しくない組 → ミス
+  pick('∠BAD', '∠DAC');
+  assert.equal(g.explain().status, 'wrong-equation');
+  assert.equal(g.misses, 2);
+  // 説明する根拠に理由を選んで確定 → ミス（理由1つでは言えない）
+  pick('∠BAD', '∠CAE');
+  g.selectReason('given');
+  assert.equal(g.confirmEvidence().status, 'not-proved');
+  assert.equal(g.misses, 3);
+  // 説明する → 角の式 → やめる → もう一度説明すると、解いたステップは残っている
+  pick('∠CAE', '∠BAD');                                  // 左右を入れかえてもよい
+  r = g.explain();
+  assert.equal(r.status, 'explain');
+  assert.equal(r.evidence.id, 'e3');
+  assert.equal(g.phase, 'step');
+  assert.equal(g.explainingEvidence().id, 'e3');
+  assert.equal(solveStep(g).status, 'correct');          // s1
+  assert.equal(g.cancelExplain(), true);
+  assert.equal(g.phase, 'collect');
+  assert.equal(g.mode, 'angle');
+  assert.equal(g.found.length, 0);
+  pick('∠BAD', '∠CAE');
+  g.explain();
+  assert.equal(g.currentStep().id, 's2');                // s1 は証明済み
+  solveStep(g);
+  const last = solveStep(g);                             // s3（式を比べる）
+  assert.equal(last.registered.id, 'e3');
+  assert.deepEqual(g.found, ['e3']);
+  assert.equal(g.phase, 'collect');
+  // 登録ずみの根拠をもう一度 → 重複（ミスにしない）
+  pick('∠BAD', '∠CAE');
+  assert.equal(g.explain().status, 'duplicate');
+  assert.equal(g.misses, 3);
+  // ほかの根拠を集めて完成
+  assert.equal(answer(g, p.evidence[0], 'equilateralSides').status, 'correct');
+  assert.equal(answer(g, p.evidence[1], 'equilateralSides').status, 'correct');
+  assert.equal(g.phase, 'congruence');
+  finishHunter(g);
+});
+
+test('ハンター：直角三角形の問題では、説明する根拠も今の欄（鋭角）で説明する', () => {
+  const p = P('p30');
+  const g = new PH.Game(p);
+  const acute = evOf(p, 'acute');
+  g.setMode('angle');
+  g.tap(k(p, acute.items[0])); g.tap(k(p, acute.items[1]));
+  const r = g.explain();                                 // 今の欄は「直角」
+  assert.equal(r.status, 'wrong-role');
+  assert.equal(g.misses, 1);
+  assert.equal(explainEv(g, acute).status, 'wrong-role');
+  g.selectRole('acute');
+  assert.equal(explainEv(g, acute).status, 'correct');
+  assert.equal(g.role, 'right');                         // 次の空いている欄へ
+});
+
+test('証明パズルは従来どおり（ステップの行と根拠の行）', () => {
+  const z = new PH.Puzzle(P('p24'), 'build');
+  assert.ok(z.slots.some((s) => s.id === 'st:s1'));
+  fill(z, z.solution());
+  assert.equal(z.check().status, 'clear');
 });

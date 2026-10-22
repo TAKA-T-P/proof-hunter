@@ -202,6 +202,8 @@
       case 'confirm-tri': return this.confirmTriangles();
       case 'confirm-final': return this.confirmFinal();
       case 'confirm-step': return this.confirmStep();
+      case 'explain': return this.explainEvidence();
+      case 'explain-cancel': return this.cancelExplain();
       case 'final-flash': return this.flashFinal();
     }
   };
@@ -257,8 +259,7 @@
       this.setTriCheck(false);
       this.popMessage('三角形が決まった！');
       this.say(triName(g.triangles[0]) + 'と' + triName(g.triangles[1]) + 'で証明しよう！（対応する頂点は「三角形確認」ボタンで見られるよ）' +
-        (g.phase === 'step' ? 'まず、根拠に使う新しい関係を導こう。'
-          : g.isRight() ? 'まず、2つの三角形の直角を確かめよう。' : '次は3つの根拠を見つけよう。'), 'ok');
+        (g.isRight() ? 'まず、2つの三角形の直角を確かめよう。' : '次は3つの根拠を見つけよう。'), 'ok');
     } else {
       const text = 'この2つの三角形で、結論を導けるかな？ 結論の辺・角をふくむ三角形に注目しよう！';
       this.say(text, 'ng');
@@ -347,6 +348,42 @@
     this.render();
   };
 
+  // 「詳しい理由を説明する」：選んだ等式が、式や定理で説明する根拠なら、説明のステップへ
+  PlayController.prototype.explainEvidence = function () {
+    const g = this.game;
+    const p = this.problem;
+    const r = g.explain();
+    if (r.status === 'incomplete') return;
+    const what = r.kind === 'ang' ? '角' : '辺';
+    if (r.status === 'explain') {
+      PH.sound.play('tap');
+      PH.hints.hide(doc.getElementById('hint-popup'));
+      this.say(r.evidence.label + ' を説明しよう！ ' + (g.currentStep().type === 'theorem' ? '使う図形の性質を選ぼう。' : '角の関係を式で表そう。'), 'ok');
+      this.focusPanel = true;
+      this.render();
+      return;
+    }
+    const text = {
+      duplicate: 'この根拠はもう見つけているよ！',
+      'not-explain': '等しい' + what + 'は見つけられたね！ それは、理由を1つ選ぶだけで言える関係だよ。下の「等しい理由」から選ぼう。',
+      'wrong-role': r.evidence && wrongRoleText(p, r),
+      irrelevant: 'たしかに等しいね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！',
+      'from-conclusion': 'それは' + PH.congruenceText(p) + 'が証明できたら言えることだよ！ まだ根拠には使えないよ。',
+    }[r.status] || 'この2つが等しいとは、まだ言えないよ！ 説明できる等式を選ぼう。';
+    this.say(text, r.miss ? 'ng' : 'info');
+    PH.sound.play(r.miss ? 'wrong' : 'soft');
+    if (r.miss) this.shake = true;
+    this.render();
+  };
+
+  PlayController.prototype.cancelExplain = function () {
+    if (this.game.cancelExplain()) {
+      PH.sound.play('tap');
+      this.say('根拠の選択にもどったよ。説明できたステップは「証明済みの事実」に残っているよ。', 'info');
+      this.render();
+    }
+  };
+
   PlayController.prototype.confirmStep = function () {
     const g = this.game;
     const r = g.confirmStep();
@@ -357,9 +394,15 @@
       this.popMessage(s.type === 'compare' ? '新しい根拠を発見！' : '証明できた！');
       this.flash(stepKeys(this.problem, s), 1200);
       if (r.stageDone === 'post') return this.cleared();
-      if (r.stageDone === 'pre') {
-        this.say(s.label + ' を導けた！ 次は、合同を示す3つの根拠を集めよう。' +
-          (this.game.isRight() ? 'まず、2つの三角形の直角を確かめよう。' : '') + '導いた等式も根拠に使えるよ。', 'ok');
+      if (r.stageDone === 'pre' && r.registered) {
+        // 説明できた根拠を登録して、根拠の収集にもどる
+        this.newSlot = r.registered.id;
+        this.bumpCounter = true;
+        this.popMessage('根拠発見！');
+        this.flash(g.evidenceKeys(r.registered.id), 1200);
+        this.say(r.registered.label + ' を説明できた！ 根拠に登録したよ。' + (r.complete ? '3つの根拠がそろった！ 合同条件を見極めよう！' : 'ほかの根拠も見つけよう。'), 'ok');
+      } else if (r.stageDone === 'pre') {
+        this.say(s.label + ' を導けた！', 'ok');
       } else {
         this.say(s.label + ' を導けた！ 次のステップへ進もう。', 'ok');
       }
@@ -677,6 +720,9 @@
       case 'duplicate':
         this.say('この根拠はもう見つけているよ！', 'info');
         break;
+      case 'not-proved':
+        this.say(r.evidence.label + ' は、理由を1つ選ぶだけでは言えないよ。「📝 詳しい理由を説明する」で説明しよう！', 'ng');
+        break;
       case 'irrelevant':
         PH.sound.play('soft');
         this.say('たしかに等しいね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！', 'info');
@@ -877,15 +923,24 @@
     });
   };
 
-  // STEP の表示（結論が辺・角の等しさの問題だけ）：三角形 → 根拠 → 合同条件 → 結論
+  /*
+   * STEP の表示：三角形 → 根拠 → 合同条件 → 結論（→ 後半のステップ）
+   * 多段階証明では、根拠の中で「詳しい理由を説明する」ときのステップ（定理・角の式・式を比べる）を、根拠の下の小さな手順として表示する
+   */
   PlayController.prototype.stepBar = function () {
     const g = this.game;
     if (!g.hasFinal && !g.engine) return '';
+    const ORDER = ['triangle', 'collect', 'congruence', 'final', 'clear'];
+    const at = function (ph) { return ORDER.indexOf(ph === 'step' ? 'collect' : ph === 'post' ? 'final' : ph); };
+    const now = at(g.phase);
     let steps = [['triangle', '三角形'], ['collect', '根拠'], ['congruence', '合同条件'], ['final', '結論']];
     if (!g.hasFinal) steps = steps.filter(function (s) { return s[0] !== 'triangle' && s[0] !== 'final'; });
-    let cur = steps.findIndex(function (s) { return s[0] === g.phase; });
+    const items = steps.map(function (st) {
+      const i = at(st[0]);
+      return { label: st[1], state: i < now || (st[0] === 'final' && g.phase === 'post') ? 'is-done' : i === now ? 'is-now' : '' };
+    });
     if (g.engine) {
-      // 前半のステップ（同じ種類が続くものは1つにまとめる）と、後半のステップを加える
+      // 説明のステップ（同じ種類が続くものは1つにまとめる）は根拠の下に、後半のステップは最後に
       const NAME = { theorem: '定理を使う', expression: '角の式', compare: '式を比べる' };
       const groups = [];
       PH.proofEngine.stepsOf(this.problem, 'pre').forEach(function (s) {
@@ -893,18 +948,18 @@
         if (last && last.type === s.type) last.ids.push(s.id);
         else groups.push({ type: s.type, ids: [s.id] });
       });
-      const pre = groups.map(function (gr) { return ['pre:' + gr.ids.join(','), NAME[gr.type], gr.ids]; });
-      const post = PH.proofEngine.stepsOf(this.problem, 'post').map(function (s) { return ['post:' + s.id, s.short, [s.id]]; });
-      const at = g.hasFinal ? 1 : 0;
-      steps = steps.slice(0, at).concat(pre, steps.slice(at), post);
-      if (g.phase === 'step' || g.phase === 'post') {
-        cur = steps.findIndex(function (st) { return st[2] && st[2].indexOf(g.stepId) >= 0; });
-      } else if (g.phase !== 'clear') {
-        cur = steps.findIndex(function (st) { return st[0] === g.phase; });
-      }
+      const stateOf = function (ids) {
+        if (ids.every(function (id) { return g.engine.done[id]; })) return 'is-done';
+        return ids.indexOf(g.stepId) >= 0 && (g.phase === 'step' || g.phase === 'post') ? 'is-now' : '';
+      };
+      const pre = groups.map(function (gr) { return { label: NAME[gr.type], state: stateOf(gr.ids), sub: true }; });
+      const ci = items.findIndex(function (it) { return it.label === '根拠'; });
+      items.splice.apply(items, [ci + 1, 0].concat(pre));
+      PH.proofEngine.stepsOf(this.problem, 'post').forEach(function (s) { items.push({ label: s.short, state: stateOf([s.id]) }); });
     }
-    return '<ol class="step-bar" aria-label="証明の手順">' + steps.map(function (s, i) {
-      return '<li class="' + (i < cur ? 'is-done' : i === cur ? 'is-now' : '') + '"><b>' + (i + 1) + '</b>' + s[1] + '</li>';
+    let n = 0;
+    return '<ol class="step-bar" aria-label="証明の手順">' + items.map(function (it) {
+      return '<li class="' + it.state + (it.sub ? ' is-sub' : '') + '">' + (it.sub ? '<b>↳</b>' : '<b>' + (++n) + '</b>') + it.label + '</li>';
     }).join('') + '</ol>';
   };
 
@@ -915,8 +970,10 @@
     const proof = PH.buildProof(this.problem);
     const no = {};
     proof.stepLines.forEach(function (l) { no[l.stepId] = l.no; });
-    const avail = g.engine.available(g.stepStage());
-    let html = '<div class="panel-head">🔗 ' + (s.type === 'compare' ? '2つの式を比べよう' : s.type === 'expression' ? '角の関係を見つけよう' : '定理を使おう') + '</div>' + this.stepBar();
+    const avail = g.availableSteps(g.stepStage());
+    const target = g.explainingEvidence();
+    let html = '<div class="panel-head">🔗 ' + (s.type === 'compare' ? '2つの式を比べよう' : s.type === 'expression' ? '角の関係を見つけよう' : '定理を使おう') + '</div>' + this.stepBar() +
+      (target ? '<p class="explain-target">説明する根拠：<b>' + esc(target.label) + '</b><button class="btn explain-back" data-act="explain-cancel">◀ 根拠の選択にもどる</button></p>' : '');
     // 解けるステップが2つ以上なら、どれから解いてもよい
     if (avail.length > 1) {
       html += '<div class="step-tabs" role="group" aria-label="解けるステップ">' + avail.map(function (a) {
@@ -1107,6 +1164,11 @@
             esc(PH.REASONS[id].label) + '</button>';
         }).join('') +
       '</div>' +
+      // 多段階証明：前のステップで導く根拠は、理由を選ぶかわりに「詳しい理由を説明する」（2つ選べばどの組でも押せる）
+      (!final && g.canExplain()
+        ? '<button class="btn btn-explain" data-act="explain"' + (n === 2 ? '' : ' disabled') + '>📝 詳しい理由を説明する</button>' +
+          '<p class="explain-note">理由を1つ選ぶだけでは言えない等式は、式や図形の性質を使って説明しよう。</p>'
+        : '') +
       '<div class="panel-actions">' +
         '<button class="btn" data-act="clear-sel"' + (n ? '' : ' disabled') + '>選択解除</button>' +
         (final
