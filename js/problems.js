@@ -28,10 +28,18 @@
     perpendicular:       { label: '垂直な2直線がつくる角より', short: '垂直', proof: '垂直な2直線がつくる角だから', rightOnly: true },
     squareAngle:         { label: '正方形の角より',         short: '正方形の角', proof: '正方形の角だから', rightOnly: true },
     squareSides:         { label: '正方形の辺より',         short: '正方形の辺', proof: '正方形の4辺は等しいから' },
+    // Ver.0.9：平行四辺形の性質（平行四辺形だと分かっている四角形にだけ使える。quadOnly：四角形の根拠だけで選ぶ）と、
+    //          平行を導く理由（錯角・同位角が等しい → 2直線は平行）。rel: 'parallel' は平行の関係（AB∥DC）の理由
+    parallelogramSides:     { label: '平行四辺形の対辺は等しい', short: '平行四辺形の対辺', proof: '平行四辺形の対辺は等しいから', quadOnly: true },
+    parallelogramParallel:  { label: '平行四辺形の対辺は平行', short: '平行四辺形の対辺（平行）', proof: '平行四辺形の対辺は平行だから', quadOnly: true, rel: 'parallel' },
+    parallelogramAngles:    { label: '平行四辺形の対角は等しい', short: '平行四辺形の対角', proof: '平行四辺形の対角は等しいから', quadOnly: true },
+    parallelogramDiagonals: { label: '平行四辺形の対角線はそれぞれの中点で交わる', short: '平行四辺形の対角線', proof: '平行四辺形の対角線はそれぞれの中点で交わるから', quadOnly: true },
+    alternateConverse:      { label: '錯角が等しいから（平行）', short: '錯角が等しい', proof: '錯角が等しいから', quadOnly: true, rel: 'parallel' },
+    correspondingConverse:  { label: '同位角が等しいから（平行）', short: '同位角が等しい', proof: '同位角が等しいから', quadOnly: true, rel: 'parallel' },
   };
 
   // 結論の種類（Ver.0.5）。conclusionType がない問題は三角形の合同
-  PH.CONCLUSION_TYPES = ['triangleCongruence', 'equalSide', 'equalAngle', 'isoscelesTriangle'];
+  PH.CONCLUSION_TYPES = ['triangleCongruence', 'equalSide', 'equalAngle', 'isoscelesTriangle', 'parallelogram'];
   PH.conclusionType = function (p) { return p.conclusionType || 'triangleCongruence'; };
   // 合同を示したあと、対応する辺・角の等しさを導く問題か（三角形選択・最終結論のステップがある）
   PH.hasFinalStep = function (p) { return PH.conclusionType(p) !== 'triangleCongruence' && !!p.finalStep; };
@@ -39,6 +47,12 @@
   PH.congruenceText = function (p) { return '△' + p.triangles[0].join('') + '≡△' + p.triangles[1].join(''); };
   // 最終結論の理由（辺なら対応する辺、角なら対応する角）
   PH.finalReasonFor = function (p) { return p.finalStep.relationType === 'angle' ? 'correspondingAngles' : 'correspondingSides'; };
+  // Ver.0.9：結論が「四角形…は平行四辺形」の問題（js/parallelogram-rules.js）。
+  //   hasLemma … 平行四辺形の根拠を集める前に、三角形の合同を示す部分（triangles・evidence・congruence・finalStep）がある
+  PH.isQuadProblem = function (p) { return !!p && PH.conclusionType(p) === 'parallelogram'; };
+  PH.hasLemma = function (p) { return PH.isQuadProblem(p) && Array.isArray(p.triangles) && p.triangles.length === 2; };
+  // 三角形の合同を示す部分がある問題か（平行四辺形だけの問題は、三角形・合同条件がない）
+  PH.hasCongruence = function (p) { return !PH.isQuadProblem(p) || PH.hasLemma(p); };
 
   // 三角形の合同条件（中学数学の標準的な表現）
   PH.CONDITIONS = {
@@ -48,6 +62,14 @@
     // Ver.0.8：直角三角形の合同条件（2つの三角形が直角三角形であることが前提。js/right-triangle.js で判定）
     RHA: { label: '直角三角形の斜辺と1つの鋭角がそれぞれ等しい', right: true },
     RHS: { label: '直角三角形の斜辺と他の1辺がそれぞれ等しい', right: true },
+  };
+  // Ver.0.9：平行四辺形になるための条件（成立条件）。判定は js/parallelogram-rules.js
+  PH.PARALLELOGRAM_CONDITIONS = {
+    PP_PARALLEL_PAIRS:      { label: '2組の対辺がそれぞれ平行', no: '①', definition: true },
+    PP_EQUAL_SIDES:         { label: '2組の対辺がそれぞれ等しい', no: '②' },
+    PP_EQUAL_ANGLES:        { label: '2組の対角がそれぞれ等しい', no: '③' },
+    PP_BISECT_DIAGONALS:    { label: '対角線がそれぞれの中点で交わる', no: '④' },
+    PP_PARALLEL_EQUAL_PAIR: { label: '1組の対辺が平行で、その長さが等しい', no: '⑤' },
   };
   PH.CONDITION_ORDER = ['SSS', 'SAS', 'ASA'];
   PH.RIGHT_CONDITION_ORDER = ['SSS', 'SAS', 'ASA', 'RHA', 'RHS'];
@@ -75,6 +97,7 @@
     { id: 6, title: '合同から結論を導け！', theme: 'どの三角形を合同にする？ 合同から辺・角の等しさを証明しよう！' },
     { id: 7, title: '証明をつなげろ！', theme: '新しい根拠を導き、それを使って証明を完成させよう！' },
     { id: 8, title: '直角三角形を攻略せよ！', theme: '直角を確かめ、斜辺を見つけて、直角三角形の合同条件を使いこなそう！' },
+    { id: 9, title: '平行四辺形を証明せよ！', theme: '何を示せば平行四辺形といえる？ 5つの成立条件から逆算して根拠を集めよう！' },
   ];
 
   // 合同条件を選ぶときのヒント（問題データから呼び出す共通文）
@@ -2142,6 +2165,418 @@
       learningPoints: [
         '三角形の内角の和・角の差を使って、2つの角を同じ式で表す。',
         '三段論法で導いた鋭角の等しさを、直角三角形の合同に使う。',
+      ],
+    }
+  );
+
+  // ==================================================================
+  // Ver.0.9 追加問題（STAGE 9）：平行四辺形になることの証明
+  //   教材「証明練習プリント」の 平行四辺形 ③④（5つの成立条件）・⑦（対角線の中点）をもとにした
+  //   （図の座標は作り直し、仮定・結論・証明の流れは原本の模範解答どおり）。
+  //   conclusionType: 'parallelogram' … 結論は「四角形…は平行四辺形」。targetQuadrilateral が証明する四角形（周に沿った順）
+  //   parallelogram … 平行四辺形の根拠（evidence。2つ）と成立条件（condition）。根拠の rel: 'parallel' は平行の関係（AB∥DC）、
+  //     via … 錯角・同位角から平行を導くときの、等しい2つの角。alternatives … ほかの道すじで示せる成立条件（選んでもミスにしない）
+  //   p35 は三角形の合同（triangles・evidence・congruence・finalStep）で角の等しさを導いてから、平行四辺形の根拠を集める。
+  //   p36 は仮定の平行四辺形（knownParallelograms）の性質と中点（midpoints）を使う多段階証明（proofSteps）。
+  //   evidence: [] … 三角形の合同を示す部分がない問題（平行四辺形の根拠は parallelogram.evidence）
+  // ==================================================================
+  function ppHints(a, b, c, focus) {
+    return [{ text: a }, { text: b, focus: focus || [] }, { text: c, focus: focus || [] }];
+  }
+
+  PH.problems.push(
+    // ------------------------------------------------------------------
+    {
+      id: 'p31',
+      number: '31',
+      title: '2組の対辺を見つけろ！',
+      difficulty: 1,
+      stage: 9,
+      statement: '四角形ABCDで、AB＝DC、AD＝BC のとき、四角形ABCDは平行四辺形であることを証明しよう。',
+      given: ['AB＝DC', 'AD＝BC'],
+      conclusion: '四角形ABCDは平行四辺形',
+      conclusionType: 'parallelogram',
+      targetQuadrilateral: ['A', 'B', 'C', 'D'],
+      figure: {
+        viewBox: [0, 0, 460, 330],
+        points: {
+          A: { x: 120, y: 60,  label: [-8, -20] },
+          B: { x: 40,  y: 280, label: [-18, 14] },
+          C: { x: 340, y: 280, label: [16, 16] },
+          D: { x: 420, y: 60,  label: [12, -18] },
+        },
+        lines: [],
+        segments: ['AB', 'BC', 'CD', 'DA'],
+        angles: ['DAB', 'ABC', 'BCD', 'CDA'],
+        parallel: [],
+      },
+      reasons: [],
+      evidence: [],
+      parallelogram: {
+        intro: ['四角形ABCDにおいて'],
+        reasons: ['given', 'parallelogramSides', 'parallelogramParallel'],
+        evidence: [
+          { id: 'q1', items: ['AB', 'DC'], reason: 'given', label: 'AB＝DC', mark: 1 },
+          { id: 'q2', items: ['AD', 'BC'], reason: 'given', label: 'AD＝BC', mark: 2 },
+        ],
+        condition: 'PP_EQUAL_SIDES',
+        alternatives: [],
+        distractors: { equations: ['AB＝BC', 'AD＝DC', 'AB∥DC'], reasons: [] },
+      },
+      puzzle: { type: 'fill', distractors: { equations: [], reasons: [] } },
+      hints: {
+        q1: ppHints('向かい合う辺（対辺）に注目しよう！ 仮定に書かれている等しい辺はどれかな？',
+          '仮定の「AB＝DC」を図で探そう。辺ABと辺DCをタップ！', 'AB＝DC。仮定より等しいね！', ['AB', 'DC']),
+        q2: ppHints('もう1組の対辺はどれかな？', '辺ADと辺BCに注目しよう！', 'AD＝BC。仮定より等しいね！', ['AD', 'BC']),
+        pcondition: [
+          { text: '向かい合う辺に注目しよう！ 集めた2つの根拠は、どの辺とどの辺の関係かな？' },
+          { text: '2組の対辺がそれぞれ等しいことを示せないかな？' },
+          { text: 'AB＝DC、AD＝BC が言えれば、平行四辺形の成立条件が使えるよ！「2組の対辺がそれぞれ等しい」を選ぼう！' },
+        ],
+      },
+      explanation: '四角形ABCDの向かい合う辺（対辺）は、ABとDC、ADとBCの2組です。仮定から2組の対辺がそれぞれ等しいので、平行四辺形になるための条件「2組の対辺がそれぞれ等しい」が使えます。「平行四辺形の対辺は等しい」は、平行四辺形だと分かってから使える性質なので、ここでは使えません。',
+      learningPoints: [
+        '四角形の対辺（向かい合う辺）を見つける。',
+        '2組の対辺がそれぞれ等しい四角形は平行四辺形である（成立条件）。',
+        '「平行四辺形の対辺は等しい」（性質）とは、推論の向きが逆であることに注意する。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p32',
+      number: '32',
+      title: '2組の対角を見つけろ！',
+      difficulty: 1,
+      stage: 9,
+      statement: '四角形ABCDで、∠A＝∠C、∠B＝∠D のとき、四角形ABCDは平行四辺形であることを証明しよう。',
+      given: ['∠A＝∠C', '∠B＝∠D'],
+      conclusion: '四角形ABCDは平行四辺形',
+      conclusionType: 'parallelogram',
+      targetQuadrilateral: ['A', 'B', 'C', 'D'],
+      figure: {
+        viewBox: [0, 0, 450, 340],
+        points: {
+          A: { x: 100, y: 70,  label: [-10, -20] },
+          B: { x: 50,  y: 290, label: [-18, 14] },
+          C: { x: 350, y: 290, label: [16, 16] },
+          D: { x: 400, y: 70,  label: [14, -18] },
+        },
+        lines: [],
+        segments: ['AB', 'BC', 'CD', 'DA'],
+        angles: ['DAB', 'ABC', 'BCD', 'CDA'],
+        parallel: [],
+      },
+      reasons: [],
+      evidence: [],
+      parallelogram: {
+        intro: ['四角形ABCDにおいて'],
+        reasons: ['given', 'parallelogramAngles', 'alternate'],
+        evidence: [
+          { id: 'q1', items: ['∠DAB', '∠BCD'], reason: 'given', given: '∠A＝∠C', label: '∠DAB＝∠BCD', mark: 1 },
+          { id: 'q2', items: ['∠ABC', '∠CDA'], reason: 'given', given: '∠B＝∠D', label: '∠ABC＝∠CDA', mark: 2 },
+        ],
+        condition: 'PP_EQUAL_ANGLES',
+        alternatives: [],
+        distractors: { equations: ['∠DAB＝∠ABC', '∠BCD＝∠CDA', 'AB＝BC'], reasons: [] },
+      },
+      puzzle: { type: 'fill', distractors: { equations: [], reasons: [] } },
+      hints: {
+        q1: ppHints('向かい合う角（対角）に注目しよう！ ∠A と向かい合う角はどれかな？',
+          '∠A（∠DAB）と ∠C（∠BCD）に注目しよう！ 角の内側をタップしよう。', '∠DAB＝∠BCD。仮定の ∠A＝∠C だね！', ['∠DAB', '∠BCD']),
+        q2: ppHints('もう1組の対角はどれかな？', '∠B（∠ABC）と ∠D（∠CDA）に注目しよう！', '∠ABC＝∠CDA。仮定の ∠B＝∠D だね！', ['∠ABC', '∠CDA']),
+        pcondition: [
+          { text: '向かい合う角（対角）に注目しよう！ 集めた根拠は、どの角とどの角の関係かな？' },
+          { text: '2組の対角がそれぞれ等しいことを示せないかな？' },
+          { text: '∠A＝∠C、∠B＝∠D が言えれば、「2組の対角がそれぞれ等しい」が使えるよ！' },
+        ],
+      },
+      explanation: '四角形ABCDの対角（向かい合う角）は、∠Aと∠C、∠Bと∠Dの2組です。仮定から2組の対角がそれぞれ等しいので、平行四辺形になるための条件「2組の対角がそれぞれ等しい」が使えます。∠Aと∠Bのような隣り合う角と取りちがえないようにしましょう。',
+      learningPoints: [
+        '四角形の対角（向かい合う角）を見つける。',
+        '2組の対角がそれぞれ等しい四角形は平行四辺形である（成立条件）。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p33',
+      number: '33',
+      title: '対角線の中点を見抜け！',
+      difficulty: 1,
+      stage: 9,
+      statement: '四角形ABCDの対角線ACとBDの交点をOとする。AO＝CO、BO＝DO のとき、四角形ABCDは平行四辺形であることを証明しよう。',
+      given: ['AO＝CO', 'BO＝DO'],
+      conclusion: '四角形ABCDは平行四辺形',
+      conclusionType: 'parallelogram',
+      targetQuadrilateral: ['A', 'B', 'C', 'D'],
+      figure: {
+        viewBox: [0, 0, 460, 330],
+        points: {
+          A: { x: 120, y: 60,  label: [-8, -20] },
+          B: { x: 40,  y: 290, label: [-18, 14] },
+          C: { x: 340, y: 290, label: [16, 16] },
+          D: { x: 420, y: 60,  label: [12, -18] },
+          O: { x: 230, y: 175, label: [0, -22] },
+        },
+        lines: [['A', 'O', 'C'], ['B', 'O', 'D']],
+        segments: ['AB', 'BC', 'CD', 'DA', 'AO', 'OC', 'BO', 'OD'],
+        angles: ['AOB', 'BOC', 'COD', 'DOA'],
+        parallel: [],
+      },
+      reasons: [],
+      evidence: [],
+      parallelogram: {
+        intro: ['四角形ABCDにおいて', '対角線ACとBDの交点をOとする。'],
+        reasons: ['given', 'vertical', 'parallelogramDiagonals'],
+        evidence: [
+          { id: 'q1', items: ['AO', 'CO'], reason: 'given', label: 'AO＝CO', mark: 1 },
+          { id: 'q2', items: ['BO', 'DO'], reason: 'given', label: 'BO＝DO', mark: 2 },
+        ],
+        condition: 'PP_BISECT_DIAGONALS',
+        alternatives: [],
+        distractors: { equations: ['AO＝BO', 'AO＝DO', 'AC＝BD'], reasons: [] },
+      },
+      puzzle: { type: 'fill', distractors: { equations: [], reasons: [] } },
+      hints: {
+        q1: ppHints('対角線が交わる点Oに注目しよう！', '対角線ACは、点Oで AO と CO に分かれるね。辺AOと辺COをタップ！', 'AO＝CO。仮定より等しいね！', ['AO', 'CO']),
+        q2: ppHints('もう1本の対角線BDにも注目しよう！', 'BO と DO に注目しよう！', 'BO＝DO。仮定より等しいね！', ['BO', 'DO']),
+        pcondition: [
+          { text: '対角線が交わる点に注目しよう！' },
+          { text: 'それぞれの対角線が2等分されているか調べよう！' },
+          { text: 'AO＝CO、BO＝DOなら、対角線がそれぞれの中点で交わるね！' },
+        ],
+      },
+      explanation: '対角線ACとBDの交点Oについて、AO＝CO なので O は AC の中点、BO＝DO なので O は BD の中点です。対角線がそれぞれの中点で交わるので、四角形ABCDは平行四辺形です。',
+      learningPoints: [
+        '四角形の対角線と、その交点を見つける。',
+        '対角線がそれぞれの中点で交わる四角形は平行四辺形である（成立条件）。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p34',
+      number: '34',
+      title: '平行で長さも等しい1組の対辺',
+      difficulty: 2,
+      stage: 9,
+      statement: '四角形ABCDで、AD∥BC、AD＝BC のとき、四角形ABCDは平行四辺形であることを証明しよう。',
+      given: ['AD∥BC', 'AD＝BC'],
+      conclusion: '四角形ABCDは平行四辺形',
+      conclusionType: 'parallelogram',
+      targetQuadrilateral: ['A', 'B', 'C', 'D'],
+      figure: {
+        viewBox: [0, 0, 480, 330],
+        points: {
+          A: { x: 150, y: 60,  label: [-8, -20] },
+          B: { x: 40,  y: 290, label: [-18, 14] },
+          C: { x: 330, y: 290, label: [16, 16] },
+          D: { x: 440, y: 60,  label: [12, -18] },
+        },
+        lines: [],
+        segments: ['AB', 'BC', 'CD', 'DA'],
+        angles: ['DAB', 'ABC', 'BCD', 'CDA'],
+        // 仮定の AD∥BC（矢印1つ）
+        parallel: [['A', 'D', 1], ['B', 'C', 1]],
+      },
+      reasons: [],
+      evidence: [],
+      parallelogram: {
+        intro: ['四角形ABCDにおいて'],
+        reasons: ['given', 'parallelogramSides', 'parallelogramParallel'],
+        evidence: [
+          { id: 'q1', items: ['AD', 'BC'], rel: 'parallel', reason: 'given', label: 'AD∥BC', mark: 1 },
+          { id: 'q2', items: ['AD', 'BC'], reason: 'given', label: 'AD＝BC', mark: 1 },
+        ],
+        condition: 'PP_PARALLEL_EQUAL_PAIR',
+        alternatives: [],
+        distractors: { equations: ['AB∥DC', 'AB＝DC', 'AD＝AB'], reasons: [] },
+      },
+      puzzle: { type: 'fill', distractors: { equations: [], reasons: [] } },
+      hints: {
+        q1: ppHints('仮定に書かれている平行な辺はどれかな？',
+          '辺ADと辺BCに注目しよう！ 2つの辺を選んだら、「＝」を「∥」に切りかえよう。', 'AD∥BC。仮定より平行だね！', ['AD', 'BC']),
+        q2: ppHints('平行な辺ADとBCの長さはどうかな？', '辺ADと辺BCをもう一度選んで、今度は「＝」で考えよう！', 'AD＝BC。仮定より等しいね！', ['AD', 'BC']),
+        pcondition: [
+          { text: '平行な辺と、長さが等しい辺に注目しよう！' },
+          { text: 'AD∥BC と AD＝BC は、どちらも同じ1組の対辺 AD と BC のことだね。' },
+          { text: '1組の対辺が平行で長さも等しいので、「1組の対辺が平行で、その長さが等しい」を選ぼう！' },
+        ],
+      },
+      explanation: 'ADとBCは向かい合う辺（対辺）です。この1組の対辺が平行で、長さも等しいので、平行四辺形になるための条件「1組の対辺が平行で、その長さが等しい」が使えます。平行な辺と等しい辺が別の組の対辺（AD∥BC と AB＝DC など）では、平行四辺形とはいえないことがあるので注意しましょう。',
+      learningPoints: [
+        '平行の関係（∥）と、長さの関係（＝）を区別して根拠にする。',
+        '1組の対辺が平行で、その長さが等しい四角形は平行四辺形である（同じ1組の対辺であること）。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p35',
+      number: '35',
+      title: '合同から平行を導け！',
+      difficulty: 3,
+      stage: 9,
+      statement: '四角形ABCDで、AB∥DC、AB＝DC である。対角線BDをひき、三角形の合同を利用して、2組の対辺がそれぞれ平行であることから、四角形ABCDは平行四辺形であることを証明しよう。',
+      given: ['AB∥DC', 'AB＝DC'],
+      conclusion: '四角形ABCDは平行四辺形',
+      conclusionType: 'parallelogram',
+      targetQuadrilateral: ['A', 'B', 'C', 'D'],
+      // 平行四辺形の根拠を集める前に、△ABD≡△CDB から ∠ADB＝∠CBD を導く（STAGE 6 と同じ手順）
+      triangles: [['A', 'B', 'D'], ['C', 'D', 'B']],
+      figure: {
+        viewBox: [0, 0, 460, 330],
+        points: {
+          A: { x: 130, y: 60,  label: [-8, -20] },
+          B: { x: 40,  y: 290, label: [-18, 14] },
+          C: { x: 330, y: 290, label: [16, 16] },
+          D: { x: 420, y: 60,  label: [12, -18] },
+        },
+        lines: [],
+        segments: ['AB', 'BC', 'CD', 'DA', 'BD'],
+        angles: ['ABD', 'CDB', 'ADB', 'CBD', 'DAB', 'BCD'],
+        // 仮定の AB∥DC（矢印1つ）
+        parallel: [['B', 'A', 1], ['C', 'D', 1]],
+      },
+      reasons: ['given', 'common', 'alternate', 'vertical'],
+      evidence: [
+        { id: 'e1', items: ['AB', 'CD'], reason: 'given', label: 'AB＝CD', mark: 1 },
+        { id: 'e2', items: ['∠ABD', '∠CDB'], reason: 'alternate', label: '∠ABD＝∠CDB', mark: 1,
+          parallelGroup: 1, proofReason: 'AB∥DCより、平行線の錯角は等しいから' },
+        { id: 'e3', items: ['BD', 'DB'], reason: 'common', label: 'BD＝DB', mark: 'common' },
+      ],
+      extraTruths: [],
+      congruence: 'SAS',
+      finalStep: { relationType: 'angle', items: ['∠ADB', '∠CBD'], reason: 'correspondingAngles', label: '∠ADB＝∠CBD' },
+      proof: { intro: '△ABDと△CDBにおいて' },
+      parallelogram: {
+        intro: [],
+        reasons: ['given', 'alternateConverse', 'correspondingConverse', 'parallelogramParallel'],
+        evidence: [
+          { id: 'q1', items: ['AB', 'DC'], rel: 'parallel', reason: 'given', label: 'AB∥DC', mark: 1 },
+          { id: 'q2', items: ['AD', 'BC'], rel: 'parallel', reason: 'alternateConverse', via: ['∠ADB', '∠CBD'], label: 'AD∥BC', mark: 2 },
+        ],
+        condition: 'PP_PARALLEL_PAIRS',
+        // 仮定の AB∥DC・AB＝DC から「1組の対辺が平行で、その長さが等しい」でも示せる（選んでもミスにしない）
+        alternatives: ['PP_PARALLEL_EQUAL_PAIR'],
+        distractors: { equations: ['AD＝BC', 'AD＝AB', 'AB＝BD'], reasons: [] },
+      },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['AB＝BD', 'AD＝AB', '∠ABD＝∠ADB'],
+          reasons: ['vertical'],
+          triangles: ['ABD/CBD', 'ABD/DCB'],
+          finals: ['∠ABD＝∠CDB', 'AD＝AB'],
+        },
+      },
+      hints: {
+        triangleSelection: [
+          { text: 'AD∥BC を示すには、どの2つの角が等しければよいかな？ 対角線BDに注目しよう。' },
+          { text: '錯角 ∠ADB と ∠CBD をふくむ、2つの三角形を見つけよう！', focus: ['∠ADB', '∠CBD'] },
+          { text: '△ABDと△CDBに注目しよう。対応する頂点は A↔C、B↔D、D↔B だよ。', focus: ['∠ADB', '∠CBD'] },
+        ],
+        e1: stepHints('仮定から等しい辺を探そう。', '辺ABと辺CDに注目しよう！', 'AB＝CD。仮定より等しいね！', ['AB', 'CD']),
+        e2: stepHints('AB∥DC だから、平行線と交わる直線BDに注目しよう。', '∠ABDと∠CDBを比べてみよう！ 錯角だね。', '∠ABD＝∠CDB。平行線の錯角だから等しいね！', ['∠ABD', '∠CDB']),
+        e3: stepHints('2つの三角形に共通する辺はないかな？', '辺BDに注目！ 同じ辺を2回タップしよう。', 'BD＝DB。共通な辺だから等しいね！', ['BD']),
+        congruence: sasHints('∠ABD', '辺ABと辺BD'),
+        finalStep: [
+          { text: '合同な三角形で、対応する角にはどんな性質があるかな？' },
+          { text: 'AD∥BC を示すのに使う角 ∠ADB と ∠CBD を、合同な三角形の対応関係で確認しよう！', focus: ['∠ADB', '∠CBD'] },
+          { text: '「合同な図形の対応する角は等しい」という性質を使おう！', focus: ['∠ADB', '∠CBD'] },
+        ],
+        q1: ppHints('平行四辺形の定義は「2組の対辺がそれぞれ平行」だね。仮定に書かれている平行な辺はどれかな？',
+          '辺ABと辺DCに注目しよう！ 2つの辺を選んだら、「＝」を「∥」に切りかえよう。', 'AB∥DC。仮定より平行だね！', ['AB', 'DC']),
+        q2: ppHints('もう1組の対辺 AD と BC は平行かな？ 合同から導いた角に注目しよう。',
+          '∠ADB＝∠CBD は、直線ADとBCが直線BDと交わってできる錯角だね。', '錯角が等しいから AD∥BC だね！ 辺ADと辺BCを選んで「∥」にし、理由「錯角が等しいから」を選ぼう。', ['∠ADB', '∠CBD']),
+        pcondition: [
+          { text: '集めた2つの根拠は、どんな関係かな？' },
+          { text: 'AB∥DC と AD∥BC。2組の対辺がどちらも平行だね。' },
+          { text: '「2組の対辺がそれぞれ平行」を選ぼう！ これは平行四辺形の定義そのものだよ。' },
+        ],
+      },
+      explanation: 'AB∥DCより錯角 ∠ABD＝∠CDB。AB＝CD、BD＝DB と合わせて △ABD≡△CDB（2組の辺とその間の角）です。合同な図形の対応する角は等しいので ∠ADB＝∠CBD。これは直線AD・BCと直線BDがつくる錯角なので、錯角が等しいから AD∥BC。AB∥DC と合わせて、2組の対辺がそれぞれ平行（平行四辺形の定義）です。仮定の「AB∥DC、AB＝DC」から「1組の対辺が平行で、その長さが等しい」を使って示すこともできます。',
+      learningPoints: [
+        '平行を示すために、どの錯角が等しければよいかを考え、合同な三角形を見つける。',
+        '錯角が等しいならば、2直線は平行である（平行線の性質の逆）。',
+        '2組の対辺がそれぞれ平行な四角形は平行四辺形である（定義）。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p36',
+      number: '36',
+      title: '平行四辺形の性質を使え！',
+      difficulty: 3,
+      stage: 9,
+      statement: '平行四辺形ABCDの対角線ACとBDの交点をOとし、線分OB、ODの中点をそれぞれE、Fとする。このとき、四角形AECFは平行四辺形であることを証明しよう。',
+      given: ['四角形ABCDは平行四辺形', 'Oは対角線ACとBDの交点', 'E、Fはそれぞれ線分OB、ODの中点'],
+      conclusion: '四角形AECFは平行四辺形',
+      conclusionType: 'parallelogram',
+      targetQuadrilateral: ['A', 'E', 'C', 'F'],
+      // 仮定で平行四辺形と分かっている四角形（その性質は使える）と、仮定の中点
+      knownParallelograms: [['A', 'B', 'C', 'D']],
+      midpoints: [{ point: 'E', of: 'OB' }, { point: 'F', of: 'OD' }],
+      figure: {
+        viewBox: [0, 0, 540, 340],
+        points: {
+          A: { x: 150, y: 60,  label: [-8, -20] },
+          B: { x: 40,  y: 300, label: [-18, 14] },
+          C: { x: 390, y: 300, label: [16, 16] },
+          D: { x: 500, y: 60,  label: [12, -18] },
+          O: { x: 270, y: 180, label: [2, -20] },
+          E: { x: 155, y: 240, label: [-20, 2] },
+          F: { x: 385, y: 120, label: [18, 0] },
+        },
+        lines: [['A', 'O', 'C'], ['B', 'E', 'O', 'F', 'D']],
+        segments: ['AB', 'BC', 'CD', 'DA', 'AE', 'EC', 'CF', 'FA', 'AO', 'OC', 'BE', 'EO', 'OF', 'FD'],
+        angles: ['AOE', 'COF'],
+        parallel: [],
+      },
+      reasons: [],
+      evidence: [],
+      proofSteps: [
+        { id: 's1', type: 'theorem', rule: 'parallelogramDiagonalsBisect', quad: 'ABCD', premiseLabel: '四角形ABCDは平行四辺形',
+          lead: '四角形ABCDは平行四辺形だから、', items: ['OB', 'OD'], label: 'OB＝OD', short: '対角線の性質', dependsOn: [],
+          proofText: '平行四辺形の対角線はそれぞれの中点で交わるから、' },
+        { id: 's2', type: 'theorem', rule: 'halfSegments', premise: ['OB', 'OD'], premiseLabel: 'OB＝OD',
+          lead: 'OB＝OD で、E、Fはそれぞれ OB、OD の中点だから、', items: ['OE', 'OF'], label: 'OE＝OF', short: '中点で半分', dependsOn: ['s1'],
+          proofText: '仮定より OE＝1/2OB、OF＝1/2OD であるから、{s1}より、' },
+      ],
+      parallelogram: {
+        intro: ['四角形AECFにおいて、対角線ACとEFは点Oで交わる。'],
+        reasons: ['given', 'parallelogramDiagonals', 'parallelogramSides', 'vertical'],
+        evidence: [
+          { id: 'q1', items: ['OA', 'OC'], reason: 'parallelogramDiagonals', label: 'OA＝OC', mark: 1 },
+          { id: 'q2', items: ['OE', 'OF'], reason: 'proved', fromStep: 's2', label: 'OE＝OF', mark: 2 },
+        ],
+        condition: 'PP_BISECT_DIAGONALS',
+        alternatives: [],
+        distractors: { equations: ['AE＝CF', 'OA＝OE', 'AE∥CF'], reasons: [] },
+      },
+      puzzle: { type: 'build', distractors: { equations: [], reasons: [] } },
+      hints: {
+        q1: ppHints('四角形ABCDは平行四辺形だね。対角線ACに注目しよう。',
+          '点Oは対角線ACとBDの交点だね。OA と OC を比べよう！', 'OA＝OC。平行四辺形の対角線はそれぞれの中点で交わるからだね！', ['OA', 'OC']),
+        q2: ppHints('四角形AECFのもう1本の対角線 EF は、点Oで2等分されているかな？',
+          'OE と OF に注目しよう！ OE＝1/2OB、OF＝1/2OD だね。', 'OE と OF を選んで「詳しい理由を説明する」を押そう！ 平行四辺形の性質と中点を使って説明するよ。', ['OE', 'OF']),
+        s1: stepHints('四角形ABCDは平行四辺形だね。対角線について、どんな性質があったかな？', '平行四辺形の対角線は、それぞれの中点で交わるよ。',
+          '「平行四辺形の対角線はそれぞれの中点で交わる」を使おう！ OB＝OD だね。', ['OB', 'OD']),
+        s2: stepHints('E、Fは、それぞれ OB、OD の中点だね。', 'OE＝1/2OB、OF＝1/2OD。OB＝OD だから…？',
+          '等しい線分の半分の長さは等しいね！ OE＝OF だよ。', ['OE', 'OF']),
+        pcondition: [
+          { text: '四角形AECFの対角線はどれとどれかな？' },
+          { text: '対角線ACとEFは、点Oでそれぞれ2等分されているかな？' },
+          { text: 'OA＝OC、OE＝OF なので、「対角線がそれぞれの中点で交わる」を選ぼう！' },
+        ],
+      },
+      explanation: '四角形ABCDは平行四辺形なので、平行四辺形の性質から OA＝OC、OB＝OD です。E、FはOB、ODの中点なので OE＝1/2OB、OF＝1/2OD、OB＝OD より OE＝OF。四角形AECFの対角線ACとEFは、それぞれ点Oで2等分されるので、「対角線がそれぞれの中点で交わる」から四角形AECFは平行四辺形です。',
+      learningPoints: [
+        '平行四辺形だと分かっている四角形（仮定）の性質を使って、新しい事実を導く。',
+        '証明したい四角形の性質を、平行四辺形だと分かる前に使わない。',
+        '対角線がそれぞれの中点で交わる四角形は平行四辺形である（成立条件）。',
       ],
     }
   );

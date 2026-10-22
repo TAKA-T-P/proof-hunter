@@ -8,6 +8,8 @@ require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
 require('../js/right-triangle.js');
+require('../js/quadrilateral.js');
+require('../js/parallelogram-rules.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -22,12 +24,15 @@ require('../js/rank-questions.js');
 require('../js/rank-game.js');
 
 const PH = globalThis.PH;
+// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => p.stage <= 8);
 const val = PH.validation;
 const geo = PH.geometry;
 const RQ = PH.rankQuestions;
 const R = PH.rank;
 const CFG = PH.rankConfig;
-const ALL = RQ.all();
+// Ver.0.6〜0.8 のミニ問題（Ver.0.9 の平行四辺形のカテゴリ para は v09.test.js で確かめる）
+const ALL = RQ.all().filter((q) => q.category !== 'para');
 const k = (p, n) => geo.elementKey(p.figure, n);
 
 // 正解の選択肢を選んで確定する（記号入力は正解の文字列を入れる）
@@ -82,7 +87,7 @@ test('既存20問からミニ問題を生成でき、IDが重複しない', () =
   assert.equal(new Set(ALL.map((q) => q.id)).size, ALL.length);
   // すべての元問題が使われている（同じ内容の問題はまとめるが、各問題から1つ以上）
   const sources = new Set(ALL.map((q) => q.sourceId));
-  PH.problems.forEach((p) => assert.ok(sources.has(p.id), p.id));
+  TRI.forEach((p) => assert.ok(sources.has(p.id), p.id));
   // どの問題も、選択式か記号入力のどちらかで出題できる
   ALL.forEach((q) => {
     assert.ok(q.choice || q.input, q.id);
@@ -97,7 +102,7 @@ test('既存20問からミニ問題を生成でき、IDが重複しない', () =
 test('問題の種類が偏りすぎない。解答箇所はどれも1つで、「対応する頂点」だけを問う問題はない', () => {
   const by = (f) => ALL.reduce((m, q) => { m[f(q)] = (m[f(q)] || 0) + 1; return m; }, {});
   const cats = by((q) => q.category);
-  RQ.CATEGORIES.forEach((c) => assert.ok(cats[c] >= 5, c + ': ' + cats[c]));
+  RQ.CATEGORIES.filter((c) => c !== 'para').forEach((c) => assert.ok(cats[c] >= 5, c + ': ' + cats[c]));
   ALL.forEach((q) => {
     assert.equal(q.blanks, 1, q.id);
     if (q.choice) assert.equal(q.choice.blanks.length, 1, q.id);
@@ -351,7 +356,8 @@ test('同じ問題を短時間に出さない・同じ元問題が続かない�
     // 最初の10問で、等しい辺・角／理由／合同条件／合同からの結論 がすべて出る（証明する三角形は難しいので11問目から）
     // Ver.0.7 の「定理・三段論法」は重み 0.5 で、出ることも出ないこともある
     // Ver.0.8 の「直角三角形」も重みが軽いので同じ（コースを指定しないときは、すべての問題から出題）
-    const first = [...new Set(out.slice(0, 10).map((c) => c.q.category))].filter((c) => c !== 'theorem' && c !== 'right').sort();
+    // Ver.0.9 の「平行四辺形」も重みが軽いので同じ
+    const first = [...new Set(out.slice(0, 10).map((c) => c.q.category))].filter((c) => c !== 'theorem' && c !== 'right' && c !== 'para').sort();
     assert.deepEqual(first, ['cond', 'eq', 'final', 'reason'], 'seed ' + seed);
     assert.ok(!out.slice(0, 10).some((c) => c.q.category === 'corr'), 'seed ' + seed);
     assert.ok(out.slice(10).some((c) => c.q.category === 'corr'), 'seed ' + seed);

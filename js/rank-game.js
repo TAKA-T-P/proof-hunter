@@ -316,7 +316,7 @@
       correct: this.correct, misses: this.misses, passes: this.passes, answered: this.answered,
       effectiveScore: score, rank: grade.rank, rankName: grade.name, maxCombo: this.maxCombo,
       penaltyMs: this.penaltyMs(),
-      criteriaVersion: C().criteriaVersion, seed: this.seed, track: this.track,
+      criteriaVersion: C().criteriaVersion, questionPoolVersion: C().questionPoolVersion, seed: this.seed, track: this.track,
       wrongs: this.wrongs.slice(0, C().reviewLimit),
     };
     if (this.onFinish) this.onFinish(this.result);

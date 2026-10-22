@@ -497,19 +497,28 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
   }
   .screen-play .play-header { position: static; margin: 0; flex: none; }
   .play-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0; }
+  /*
+   * 図の領域の高さは Ver.0.9 で以前の約85%（下の問題文・解答欄のスクロール領域を広げる）。
+   * 図は幅で大きさが決まる（縦横比を保つ）ので、図の幅を85%にして高さを85%にし、あいた幅をボタンの列に回す。
+   *   以前の図の幅 ＝ 100vw − 158px → 0.85 倍になるよう、ボタンの列の幅を 15vw ＋ 94px にする（枠・余白は少し細く）
+   */
   .play-stage {
     flex: none; flex-direction: row; align-items: stretch; gap: 8px;
-    padding: 4px 12px; border-bottom: 1px solid var(--line);
+    padding: 3px 12px; border-bottom: 1px solid var(--line);
     background: var(--bg); box-shadow: 0 3px 8px rgba(30, 58, 138, .08); position: relative; z-index: 1;
   }
-  .play-stage .figure-card { flex: 1; min-width: 0; padding: 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .play-stage .figure { max-height: 38vh; max-height: 38dvh; }
+  .play-stage .figure-card { flex: 1; min-width: 0; padding: 2px; border-width: 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .play-stage .figure { max-height: 32vh; max-height: 32dvh; }
   .play-stage .pt-label { font-size: 30px; }
   .play-stage .toolbar {
-    flex: none; width: 116px;
-    grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); gap: 6px;
+    flex: none; width: calc(15vw + 94px);
+    grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); gap: 4px;
   }
-  .play-stage .tool { min-height: 0; }
+  /* ボタンは低くなるぶん横に広げ、アイコンと文字を少し小さくする */
+  .play-stage .tool { min-height: 0; padding: 0 2px; border-radius: 10px; gap: 0; }
+  .play-stage .tool .ico { font-size: 1.05rem; }
+  .play-stage .tool .lbl { font-size: .68rem; }
+  .play-stage .tool-tri .lbl { font-size: .64rem; }
   /* 図が小さいので、モード表示は図の枠の色・ボタンの状態・解答欄の見出しで示す */
   .mode-badge { display: none; }
   .pop-msg { font-size: 1.05rem; padding: 6px 14px; }
@@ -575,8 +584,6 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .sc-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .sc-title { font-weight: 800; font-size: 1.05rem; }
 .sc-theme { font-size: .8rem; color: var(--muted); line-height: 1.4; }
-.sc-stars { display: flex; flex-wrap: wrap; gap: 8px; color: var(--gold); font-size: .95rem; }
-.sc-star .dim { font-size: .8rem; }
 .sc-status { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: .8rem; }
 .sc-clear b { font-size: 1.1rem; color: var(--navy); }
 .sc-total { color: var(--gold-dark); font-weight: 800; }
@@ -1241,3 +1248,38 @@ body[data-screen="rank"], body[data-screen="rank-play"] { background: linear-gra
 .explain-back { min-height: 30px; padding: 1px 10px; font-size: .78rem; margin-left: auto; }
 .step-bar li.is-sub { font-size: .9em; opacity: .95; }
 .step-bar li.is-sub b { background: none; color: inherit; }
+
+/* ---- Ver.0.9：平行四辺形 ------------------------------------------------------------ */
+/* 証明する四角形（薄く塗る）。「四角形確認」では対辺・対角を組ごとに同じ色、対角線は点線 */
+.quad-area { fill: rgba(16, 185, 129, .09); stroke: none; }
+.quad-check .quad-area { fill: rgba(16, 185, 129, .14); }
+.quad-side { stroke-width: 7; stroke-linecap: round; opacity: .55; }
+.quad-side.q-pair-0 { stroke: #2563eb; }
+.quad-side.q-pair-1 { stroke: #f59e0b; }
+.quad-ang { stroke: none; opacity: .35; }
+.quad-ang.q-pair-0 { fill: #2563eb; }
+.quad-ang.q-pair-1 { fill: #f59e0b; }
+.quad-diag { stroke: #6b7280; stroke-width: 2; stroke-dasharray: 6 5; }
+.quad-o { fill: none; stroke: #dc2626; stroke-width: 2.5; }
+.parallel.mark-auto { stroke: var(--green); }
+/* 「＝⇔∥」の切りかえ（2つの辺の間の記号がボタン） */
+.eq-rel { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-width: 46px; padding: 2px 6px;
+  border: 2px solid var(--blue-600); border-radius: 10px; background: #fff; color: var(--blue); font-size: 1.35rem; font-weight: 900; line-height: 1.05; cursor: pointer; }
+.eq-rel small { font-size: .6rem; font-weight: 700; color: var(--blue-600); }
+.eq-rel:hover { background: var(--blue-50); }
+/* 四角形確認のポップアップ */
+.quad-name { margin: 0 0 6px; font-weight: 900; font-size: 1.05rem; }
+.quad-parts { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin: 0 0 6px; align-items: center; }
+.quad-parts dt { font-weight: 800; color: #374151; }
+.quad-parts dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.q-chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-weight: 800; font-size: .9rem; border: 2px solid; background: #fff; }
+.q-chip.q-pair-0 { color: #1d4ed8; border-color: #2563eb; }
+.q-chip.q-pair-1 { color: #b45309; border-color: #f59e0b; }
+.q-chip.q-diag { color: #374151; border-color: #9ca3af; border-style: dashed; }
+.quad-o { font-weight: 800; color: #dc2626; font-size: .9rem; }
+/* 証明文の平行四辺形の部分 */
+.proof-quad { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #cbd5e1; }
+.proof-quad:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.pz-quad { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #cbd5e1; }
+.pz-quad:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.pz-final-no { margin: 0 0 4px; font-size: .85rem; color: #6b7280; }

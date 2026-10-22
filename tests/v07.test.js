@@ -8,6 +8,8 @@ require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
 require('../js/right-triangle.js');
+require('../js/quadrilateral.js');
+require('../js/parallelogram-rules.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -22,13 +24,15 @@ require('../js/rank-questions.js');
 require('../js/rank-game.js');
 
 const PH = globalThis.PH;
+// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => p.stage <= 8);
 const val = PH.validation;
 const geo = PH.geometry;
 const E = PH.angleExpr;
 const R = PH.proofRules;
 const k = (p, n) => geo.elementKey(p.figure, n);
 // STAGE 7 の多段階証明（STAGE 8 の p27・p30 も proofSteps を持つが、直角三角形の欄があるので v08.test.js で確かめる）
-const MULTI = PH.problems.filter((p) => p.proofSteps && p.stage === 7);
+const MULTI = TRI.filter((p) => p.proofSteps && p.stage === 7);
 const TYPES = ['fill', 'build', 'challenge'];
 
 function fill(z, placement) {
@@ -105,13 +109,13 @@ function solveHunter(p) {
 // ---- 問題データ ---------------------------------------------------------------------
 
 test('STAGE 7「証明をつなげろ！」は p21〜p24 の多段階証明', () => {
-  assert.equal(PH.problems.length, 30);
+  assert.equal(PH.problems.length, 36);
   assert.equal(PH.getStage(7).title, '証明をつなげろ！');
   assert.deepEqual(PH.stageProblems(7).map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
   assert.deepEqual(MULTI.map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
   // p01〜p20 は proofSteps を持たない（従来の形式）
-  PH.problems.filter((p) => p.stage <= 6).forEach((p) => assert.equal(p.proofSteps, undefined, p.id));
+  TRI.filter((p) => p.stage <= 6).forEach((p) => assert.equal(p.proofSteps, undefined, p.id));
 });
 
 test('新しい4問の仮定・推論ステップ・結論（教材の模範解答どおり）', () => {
@@ -339,29 +343,31 @@ test('完成した証明文の例：p23 は ①AC＝BC ②CE＝CD ③④ 角の�
   assert.deepEqual(p22.post, [{ stepId: 's2', reason: '∠DCB＝∠DBCより、2つの角が等しい三角形は二等辺三角形だから、', conclusion: '△DBCは二等辺三角形' }]);
 });
 
-test('ハンター：式の比較は、2つの式の右辺（共通部分）を選んでから2つの角を選ぶ', () => {
+test('ハンター：式の比較は、2つの式の右辺（共通部分）を選ぶ。「詳しい理由を説明する」で選んだ2つの角は、もう一度選ばない', () => {
   const p = PH.getProblem('p23');
   const g = new PH.Game(p);
   chooseTriangles(g);
   g.setMode('angle');
-  g.tap(k(p, '∠ACE')); g.tap(k(p, '∠BCD'));
+  g.tap(k(p, '∠BCD')); g.tap(k(p, '∠ACE'));
   assert.equal(g.explain().status, 'explain');
   solveStep(g);                                         // s1
   solveStep(g);                                         // s2
   const s = g.currentStep();
   assert.equal(s.type, 'compare');
   assert.equal(g.setMode('angle'), false);              // 共通部分を選ぶ前は角を選べない
+  assert.equal(g.canConfirmStep(), false);
   g.pickPart('s1', 'target'); g.pickPart('s2', 'value');
   assert.equal(g.commonFound(), false);
   assert.equal(g.cmpPickedBoth(), true);
+  assert.equal(g.selection.length, 0);
   g.pickPart('s1', 'value');
   assert.equal(g.commonFound(), true);
-  assert.equal(g.mode, 'angle');
-  // 等しくない2つの角はミス
-  g.tap(k(p, '∠ACE')); g.tap(k(p, '∠ACD'));
-  assert.equal(g.confirmStep().status, 'wrong');
-  assert.equal(g.misses, 1);
-  g.tap(k(p, '∠BCD')); g.tap(k(p, '∠ACE'));          // 左右を入れかえても正解
+  // 共通部分が見つかると、最初に選んだ ∠BCD・∠ACE が入った状態になり、「決定」を押すだけ
+  assert.equal(g.cmpPrefilled(), true);
+  assert.deepEqual(g.selection, [k(p, '∠BCD'), k(p, '∠ACE')]);
+  assert.equal(g.mode, 'step');
+  assert.equal(g.canConfirmStep(), true);
+  assert.equal(g.misses, 0);
   const r = g.confirmStep();
   assert.equal(r.status, 'correct');
   assert.equal(r.stageDone, 'pre');
@@ -461,8 +467,10 @@ test('段位認定：定理・三段論法のミニ問題（1か所解答・正�
   assert.equal(cmp.input.check('∠ACE=∠ACD'), false);
   // 出題の割合：定理・三段論法は既存カテゴリのおよそ半分（重み 0.5）
   const cnt = {};
+  // Ver.0.8 までのミニ問題で確かめる（Ver.0.9 の平行四辺形の割合は v09.test.js）
+  const pool = PH.rankQuestions.all().filter((q) => q.category !== 'para');
   for (let seed = 1; seed <= 20; seed++) {
-    const g = new PH.RankGame({ seed });
+    const g = new PH.RankGame({ seed, pool });
     g.start(0);
     for (let i = 0; i < 40; i++) {
       cnt[g.current.q.category] = (cnt[g.current.q.category] || 0) + 1;
@@ -477,7 +485,7 @@ test('段位認定：定理・三段論法のミニ問題（1か所解答・正�
 // ---- 21-5 回帰 -----------------------------------------------------------------------
 
 test('回帰：p01〜p20 はステップの段階がなく、従来どおりの流れ・証明文・パズルの空欄', () => {
-  PH.problems.filter((p) => p.stage <= 6).forEach((p) => {
+  TRI.filter((p) => p.stage <= 6).forEach((p) => {
     const g = new PH.Game(p);
     assert.equal(g.engine, null, p.id);
     assert.equal(g.phase, PH.hasFinalStep(p) ? 'triangle' : 'collect', p.id);

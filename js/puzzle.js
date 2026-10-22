@@ -17,6 +17,12 @@
  *   直角の行 … 等式（∠ABC＝∠DEF＝90°）は表示済み。おてがるは理由も表示済み、スタンダード・チャレンジは理由（rreason）を選ぶ
  *   斜辺・他の1辺・鋭角の行 … その役割の等式を入れる（他の1辺を斜辺の行に入れると 'wrong-role'）
  *   合同条件のカードは5つ。3つの合同条件を選んだときは、ミスに数えずに選び直してもらう
+ *
+ * Ver.0.9：結論が平行四辺形の問題（PH.isQuadProblem）は、証明文の最後に平行四辺形の部分がある。
+ *   根拠の行 … おてがる { id:'qs0', kind:'qeq', fixed } / スタンダード { id:'qr0', kind:'qreason' } ＋ { id:'qe0', kind:'qeq' }
+ *              チャレンジ … qe0 をキーパッドで入力（等式・平行。最初の入力の種類はその行の根拠に合わせて自動で決める）
+ *   成立条件 … { id:'pcond', kind:'pcond' }（5つのカード）。ほかの道すじで示せる条件（alternatives）はミスに数えない
+ *   三角形の合同の部分がない問題（p31〜p34・p36）は、三角形・合同条件の空欄を作らない。p36 のステップの行は平行四辺形の部分に入る
  */
 (function (root) {
   'use strict';
@@ -131,6 +137,57 @@
     return PH.conditionOrder(problem).map(function (c, i) {
       return { id: 'c' + i, kind: 'cond', cond: c, text: PH.CONDITIONS[c].label };
     });
+  }
+
+  // ---- Ver.0.9：平行四辺形の部分のカード ------------------------------------------------
+
+  function quadEvidence(problem) { return (problem.parallelogram && problem.parallelogram.evidence) || []; }
+
+  // 等式・平行のカード（'AB＝DC'・'AD∥BC'）。key は平行四辺形の事実のキー
+  function quadCard(problem, label) {
+    const f = PH.parallelogram.parseFact(label);
+    return { kind: 'qeq', text: label, items: f.items, rel: f.rel, key: PH.parallelogram.factKey(problem.figure, f.items, f.rel) };
+  }
+
+  function makeQuadEquationCards(problem) {
+    const seen = {};
+    const out = [];
+    quadEvidence(problem).map(function (e) { return e.label; }).concat(problem.parallelogram.distractors.equations || []).forEach(function (label) {
+      const c = quadCard(problem, label);
+      if (!c.key || seen[c.key]) return;
+      seen[c.key] = true;
+      out.push(c);
+    });
+    return shuffle(out, problem.id + ':qeq').map(function (c, i) { c.id = 'qq' + i; return c; });
+  }
+
+  function makeQuadReasonCards(problem) {
+    const out = [];
+    const texts = {};
+    const pz = problem.parallelogram;
+    quadEvidence(problem).map(function (e) { return e.reason; }).concat(pz.reasons, (pz.distractors && pz.distractors.reasons) || []).forEach(function (r) {
+      if (!PH.REASONS[r] || PH.REASONS[r].meta || texts[r]) return;
+      texts[r] = true;
+      out.push({ kind: 'qreason', reason: r, text: PH.REASONS[r].proof, specific: false });
+    });
+    return shuffle(out, problem.id + ':qreason').map(function (c, i) { c.id = 'qr' + i; return c; });
+  }
+
+  function makeQuadConditionCards() {
+    return PH.PARALLELOGRAM_CONDITION_ORDER.map(function (c, i) {
+      return { id: 'pc' + i, kind: 'pcond', cond: c, text: PH.PARALLELOGRAM_CONDITIONS[c].label };
+    });
+  }
+
+  // チャレンジで入力した等式・平行（'AB=DC'・'AD∥BC'）をカードと同じ形に
+  function quadInputCard(problem, value) {
+    const v = PH.mathKeypad.parse(value);
+    if (!v || v.kind === 'tri') return null;
+    const pre = v.kind === 'ang' ? '∠' : '';
+    const items = [pre + v.left, pre + v.right];
+    const rel = v.kind === 'par' ? 'parallel' : 'eq';
+    return { id: 'in:' + v.value, kind: 'qeq', text: PH.mathKeypad.pretty(v.value), items: items, rel: rel,
+      key: PH.parallelogram.factKey(problem.figure, items, rel), input: true };
   }
 
   // ---- Ver.0.7：多段階証明のステップのカード ------------------------------------------
@@ -285,13 +342,20 @@
     this.right = !!(PH.isRightProblem && PH.isRightProblem(problem));
     this.rowRoles = this.right ? this.rowEv.map(function (ev) { return PH.rightTriangle.roleOf(problem, ev); }) : [];
     this.preSteps = this.multi ? PH.proofEngine.stepsOf(problem, 'pre') : [];
+    // Ver.0.9：平行四辺形の部分。tri … 三角形の合同の部分があるか（平行四辺形だけの問題は false）
+    this.quad = !!(PH.isQuadProblem && PH.isQuadProblem(problem));
+    this.tri = !this.quad || PH.hasLemma(problem);
+    this.qrowEv = quadEvidence(problem).filter(function (ev) { return !ev.fromStep; });
     this.postSteps = this.multi ? PH.proofEngine.stepsOf(problem, 'post') : [];
     const triCards = this.hasFinal && this.type === 'build' ? makeTriCards(problem) : { tri1: [], tri2: [] };
     this.cards = {
       eq: this.type === 'challenge' ? [] : makeEquationCards(problem),   // チャレンジでは等式カードを出さない
       reason: this.buildLike ? makeReasonCards(problem) : [],
       rreason: this.buildLike ? makeRightReasonCards(problem) : [],
-      cond: makeConditionCards(problem),
+      cond: this.tri ? makeConditionCards(problem) : [],
+      qeq: this.quad && this.type !== 'challenge' ? makeQuadEquationCards(problem) : [],
+      qreason: this.quad && this.buildLike ? makeQuadReasonCards(problem) : [],
+      pcond: this.quad ? makeQuadConditionCards() : [],
       tripair: this.hasFinal && this.type === 'fill' ? makeTriPairCards(problem) : [],
       tri1: triCards.tri1,
       tri2: triCards.tri2,
@@ -329,7 +393,7 @@
         slots.push({ id: 't2', kind: 'tri2', label: '2つ目の三角形（頂点の対応）' });
       } else slots.push({ id: 'tri', kind: 'tri', label: '証明する三角形', input: true, inputKind: 'tri' });
     }
-    this.preSteps.forEach(function (st) { this.stepSlots(st).forEach(function (x) { slots.push(x); }); }, this);
+    if (this.tri) this.preSteps.forEach(function (st) { this.stepSlots(st).forEach(function (x) { slots.push(x); }); }, this);
     const RT = PH.rightTriangle;
     this.rowEv.forEach(function (ev, i) {
       const role = this.rowRoles[i];
@@ -358,7 +422,7 @@
         });
       }
     }, this);
-    slots.push({ id: 'cond', kind: 'cond', label: '合同条件' });
+    if (this.tri) slots.push({ id: 'cond', kind: 'cond', label: '合同条件' });
     if (this.hasFinal) {
       if (this.type === 'fill') {
         slots.push({ id: 'fe', kind: 'final', label: '結論', fixed: { text: PH.REASONS[PH.finalReasonFor(p)].proof } });
@@ -368,7 +432,28 @@
       }
     }
     this.postSteps.forEach(function (st) { this.stepSlots(st).forEach(function (x) { slots.push(x); }); }, this);
+    if (this.quad) this.quadSlots().forEach(function (x) { slots.push(x); });
     return slots;
+  };
+
+  // Ver.0.9：平行四辺形の部分の空欄（根拠の行 → 根拠を導くステップ（平行四辺形だけの問題）→ 成立条件）
+  Puzzle.prototype.quadSlots = function () {
+    const out = [];
+    this.qrowEv.forEach(function (ev, i) {
+      const name = '平行四辺形の根拠' + CIRCLED[i];
+      // チャレンジの入力の種類：その行の根拠に合わせて最初の種類を決める（毎回「＝／∥」を選ばせない）
+      const first = ev.rel === 'parallel' ? 'par' : G().isAngleName(ev.items[0]) ? 'ang' : 'seg';
+      const kinds = [first].concat(['seg', 'ang', 'par'].filter(function (k) { return k !== first; }));
+      if (this.buildLike) {
+        out.push({ id: 'qr' + i, kind: 'qreason', qrow: i, label: name + 'の理由' });
+        out.push({ id: 'qe' + i, kind: 'qeq', qrow: i, label: name + 'の関係', input: this.type === 'challenge', inputKinds: kinds });
+      } else {
+        out.push({ id: 'qs' + i, kind: 'qeq', qrow: i, label: name + 'の関係', fixed: { reason: ev.reason, text: reasonText(ev), specific: false } });
+      }
+    }, this);
+    if (!this.tri) this.preSteps.forEach(function (st) { this.stepSlots(st).forEach(function (x) { out.push(x); }); }, this);
+    out.push({ id: 'pcond', kind: 'pcond', label: '成立条件' });
+    return out;
   };
 
   /*
@@ -391,6 +476,7 @@
   Puzzle.prototype.inputKinds = function (slotId) {
     const s = this.slot(slotId);
     if (!s || !s.input) return null;
+    if (s.inputKinds) return s.inputKinds.slice();
     return s.inputKind === 'tri' ? ['tri'] : ['seg', 'ang'];
   };
 
@@ -455,7 +541,7 @@
     // 三角形の欄には図の上の三角形の組だけ、等式の欄には辺・角の等式だけが入る
     if (s.inputKind === 'tri') {
       if (v.kind !== 'tri' || !this.isTriangle(v.left.split('')) || !this.isTriangle(v.right.split(''))) return false;
-    } else if (v.kind === 'tri') return false;
+    } else if (this.inputKinds(s.id).indexOf(v.kind) < 0) return false;    // 等式の欄に平行・三角形は入れない
     this.inputs[s.id] = v.value;
     this.placed[s.id] = 'input';
     if (this.result) delete this.result.slotStatus[s.id];
@@ -506,6 +592,7 @@
     const id = this.placed[slotId];
     if (id === 'input') {
       const s = this.slot(slotId);
+      if (s && s.kind === 'qeq') return quadInputCard(this.problem, this.inputs[slotId]);
       return s && s.inputKind === 'tri' ? inputTriangles(this.inputs[slotId]) : inputCard(this.problem, this.inputs[slotId]);
     }
     return id ? this.cardById[id] : null;
@@ -621,8 +708,56 @@
 
   // ステップの式の番号（証明文の ③④⑤ など）
   Puzzle.prototype.stepNo = function (id) {
-    const l = PH.buildProof(this.problem).stepLines.find(function (x) { return x.stepId === id; });
+    const proof = PH.buildProof(this.problem);
+    const l = proof.stepLines.concat(proof.quad ? proof.quad.stepLines : []).find(function (x) { return x.stepId === id; });
     return l ? l.no : '';
+  };
+
+  // ---- Ver.0.9：平行四辺形の部分の判定 ----------------------------------------------------
+
+  Puzzle.prototype.qEqSlotId = function (i) { return (this.buildLike ? 'qe' : 'qs') + i; };
+
+  /*
+   * 平行四辺形の根拠の各行：ok / empty / wrong-reason / duplicate / derived（ステップで導く関係）
+   *   / target-property（証明する四角形の性質）/ irrelevant / wrong-equation
+   */
+  Puzzle.prototype.evaluateQuadRows = function () {
+    const p = this.problem;
+    const used = {};
+    const rows = [];
+    for (let i = 0; i < this.qrowEv.length; i++) {
+      const eqCard = this.cardIn(this.qEqSlotId(i));
+      const reason = this.buildLike ? this.cardIn('qr' + i) : this.slot('qs' + i).fixed;
+      const row = { row: i, status: 'ok', evidence: null, eqCard: eqCard, reason: reason };
+      if (!eqCard) row.status = 'empty';
+      else if (!eqCard.key) row.status = 'wrong-equation';
+      else {
+        const ev = PH.parallelogram.matchEvidence(p, eqCard.key);
+        row.evidence = ev;
+        if (!ev) row.status = PH.parallelogram.equationStatus(p, eqCard.key);
+        else if (ev.fromStep) row.status = 'derived';
+        else if (!reason) row.status = 'empty';
+        else if (!reasonAccepts(reason, ev)) row.status = 'wrong-reason';
+        else if (used[ev.id]) row.status = 'duplicate';
+        else used[ev.id] = true;
+      }
+      rows.push(row);
+    }
+    return rows;
+  };
+
+  // 成立条件：根拠の行がすべて正しければ、その根拠（とステップで導いた根拠）から導いた条件と比べる
+  Puzzle.prototype.evaluateQuadCondition = function () {
+    const p = this.problem;
+    const card = this.cardIn('pcond');
+    if (!card) return { status: 'empty' };
+    const rows = this.evaluateQuadRows();
+    if (!rows.every(function (r) { return r.status === 'ok'; })) {
+      return { status: card.cond === p.parallelogram.condition ? 'ok' : 'wrong-condition', card: card, rows: rows };
+    }
+    const ids = rows.map(function (r) { return r.evidence.id; }).concat(quadEvidence(p).filter(function (ev) { return ev.fromStep; }).map(function (ev) { return ev.id; }));
+    const r = PH.parallelogram.checkCondition(p, ids, card.cond);
+    return { status: r.ok ? 'ok' : r.status, card: card, rows: rows };
   };
 
   /*
@@ -798,20 +933,25 @@
         case 'not-common':
           fail(eqId, sig, 'その辺（角）は、2つの三角形の両方にふくまれているかな？', label);
           break;
+        case 'outside':
+          fail(eqId, sig, '合同を証明したい2つの三角形の辺や角を選ぼう。', label);
+          break;
         default:
           fail(eqId, sig, MSG.wrongEquation, label);
       }
     });
 
     // 合同条件：根拠がすべて正しければ、その3つから導いた条件と比べる
-    const condCard = this.cardIn('cond');
-    const allRowsOk = rows.every(function (r) { return r.status === 'ok'; });
-    const fixedEv = p.evidence.filter(function (ev) { return ev.fromStep; });
-    const expected = allRowsOk ? V().deriveCondition(p, rows.map(function (r) { return r.evidence; }).concat(fixedEv)) : p.congruence;
-    if (condCard.cond === expected) slotStatus.cond = 'ok';
-    else if (this.right && !PH.CONDITIONS[condCard.cond].right) note('cond', MSG.condClassic, '合同条件');   // ミスに数えない
-    else fail('cond', 'cond:' + condCard.id + ':' + rows.map(function (r) { return r.eqCard.id; }).join(','),
-      MSG.cond, '合同条件');
+    if (this.tri) {
+      const condCard = this.cardIn('cond');
+      const allRowsOk = rows.every(function (r) { return r.status === 'ok'; });
+      const fixedEv = p.evidence.filter(function (ev) { return ev.fromStep; });
+      const expected = allRowsOk ? V().deriveCondition(p, rows.map(function (r) { return r.evidence; }).concat(fixedEv)) : p.congruence;
+      if (condCard.cond === expected) slotStatus.cond = 'ok';
+      else if (this.right && !PH.CONDITIONS[condCard.cond].right) note('cond', MSG.condClassic, '合同条件');   // ミスに数えない
+      else fail('cond', 'cond:' + condCard.id + ':' + rows.map(function (r) { return r.eqCard.id; }).join(','),
+        MSG.cond, '合同条件');
+    }
 
     // 最終結論（Ver.0.5）：合同な図形の対応する辺・角から導く結論と、その理由
     if (this.hasFinal) {
@@ -827,6 +967,53 @@
       } else if (f.status === 'not-goal') fail('fe', fsig, MSG.finalNotGoal, '結論');
       else if (f.status === 'evidence') fail('fe', fsig, MSG.finalEvidence, '結論');
       else fail('fe', fsig, MSG.finalWrong, '結論');
+    }
+
+    // Ver.0.9：平行四辺形の部分（根拠の行と成立条件）
+    if (this.quad) {
+      const QMSG = {
+        targetProperty: 'それは平行四辺形だと証明できてから使える性質だよ！「平行四辺形の性質」と「平行四辺形になるための条件」を区別しよう。',
+        wrongEquation: challenge ? 'その関係が言えるか、図と仮定を確認しよう。' : 'その関係は、まだ言えないよ！',
+        alternative: 'その条件でも平行四辺形といえる場合があるよ。今回は集めた根拠を使って考えよう！（ミスには数えないよ）',
+        mixed: '平行な辺と長さが等しい辺は、同じ1組の対辺かな？',
+        cond: challenge ? '集めた根拠と成立条件の関係を確認しよう。' : 'この根拠では、その成立条件は使えないよ！',
+      };
+      this.evaluateQuadRows().forEach(function (r) {
+        const eqId = self.qEqSlotId(r.row);
+        const rsId = self.buildLike ? 'qr' + r.row : null;
+        const label = '平行四辺形の根拠' + CIRCLED[r.row];
+        const sig = eqId + ':' + r.eqCard.id + (rsId ? '/' + self.placed[rsId] : '');
+        switch (r.status) {
+          case 'ok':
+            slotStatus[eqId] = 'ok';
+            if (rsId) slotStatus[rsId] = 'ok';
+            break;
+          case 'wrong-reason':
+            if (self.buildLike) { slotStatus[eqId] = 'ok'; fail(rsId, sig, MSG.wrongReason, label); }
+            else fail(eqId, sig, '「' + r.reason.text + '」で言える関係かな？ 理由と関係の組み合わせを考えよう。', label);
+            break;
+          case 'duplicate':
+            if (rsId) slotStatus[rsId] = 'ok';
+            fail(eqId, sig, MSG.duplicate, label);
+            break;
+          case 'derived':
+            fail(eqId, sig, 'その等式は、ステップで導いた等式（' + self.stepNo(r.evidence.fromStep) + '）だよ。ここには、ほかの根拠を入れよう。', label);
+            break;
+          case 'target-property':
+            fail(eqId, sig, QMSG.targetProperty, label);
+            break;
+          case 'irrelevant':
+            fail(eqId, sig, 'たしかに言える関係だけれど、今回の証明では使わない関係だよ。', label);
+            break;
+          default:
+            fail(eqId, sig, QMSG.wrongEquation, label);
+        }
+      });
+      const qc = this.evaluateQuadCondition();
+      if (qc.status === 'ok') slotStatus.pcond = 'ok';
+      else if (qc.status === 'alternative') note('pcond', QMSG.alternative, '成立条件');      // ミスに数えない
+      else fail('pcond', 'pcond:' + qc.card.id + ':' + qc.rows.map(function (r) { return r.eqCard.id; }).join(','),
+        qc.status === 'mixed-pair' ? QMSG.mixed : QMSG.cond, '成立条件');
     }
 
     this.misses += newMisses;
@@ -865,6 +1052,34 @@
 
   // ヒントの対象：まだ正しくそろっていない根拠（答え合わせで誤りがあった所・空欄を優先）、最後に合同条件
   Puzzle.prototype.hintTarget = function () {
+    if (this.quad) {
+      // Ver.0.9：三角形の合同の部分（あれば）→ 根拠を導くステップ → 平行四辺形の根拠 → 成立条件
+      if (this.tri) {
+        const t = this.lemmaHintTarget();
+        const cond = this.cardIn('cond');
+        const f = this.evaluateFinal();
+        const lemmaOk = this.evaluateRows().every(function (r) { return r.status === 'ok'; }) && cond && cond.cond === this.problem.congruence &&
+          f && f.reasonOk && f.status === 'goal' && f.orderOk && this.evaluateTriangles().ok;
+        if (!lemmaOk) return t;
+      } else {
+        const ng = this.evaluateSteps().find(function (r) { return !r.ok; });
+        if (ng) return { id: ng.step.id, ev: null, step: ng.step, slotId: ng.empty ? ng.slots.find(function (id) { return !this.placed[id]; }, this) : ng.ngSlot };
+      }
+      const rows = this.evaluateQuadRows();
+      const done = {};
+      rows.forEach(function (r) { if (r.status === 'ok') done[r.evidence.id] = true; });
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i].status === 'ok') continue;
+        const fixed = this.buildLike ? null : this.slot('qs' + i).fixed;
+        const ev = this.qrowEv.find(function (e) { return !done[e.id] && (!fixed || reasonAccepts(fixed, e)); });
+        if (ev) return { id: ev.id, ev: null, qev: ev, slotId: this.qEqSlotId(i) };
+      }
+      return { id: 'pcondition', ev: null, slotId: 'pcond' };
+    }
+    return this.lemmaHintTarget();
+  };
+
+  Puzzle.prototype.lemmaHintTarget = function () {
     const p = this.problem;
     // Ver.0.5：まず証明する三角形
     if (this.hasFinal && !this.evaluateTriangles().ok) {
@@ -913,7 +1128,7 @@
 
   Puzzle.prototype.hintList = function (target) {
     const p = this.problem;
-    if (target.id === 'triangleSelection' || target.id === 'finalStep' || target.step) {
+    if (target.id === 'triangleSelection' || target.id === 'finalStep' || target.step || target.qev || target.id === 'pcondition') {
       // 問題データのヒント（最終段階でも答えは自動で入れない）
       return (p.hints[target.id] || []).map(function (h) {
         return { text: h.text, focus: (h.focus || []).map(function (n) { return G().elementKey(p.figure, n); }) };
@@ -994,7 +1209,15 @@
         out['r' + row] = self.cards.reason.find(function (c) { return reasonAccepts(c, ev); }).id;
       }
     });
-    out.cond = this.cards.cond.find(function (c) { return c.cond === p.congruence; }).id;
+    if (this.tri) out.cond = this.cards.cond.find(function (c) { return c.cond === p.congruence; }).id;
+    if (this.quad) {
+      this.qrowEv.forEach(function (ev, i) {
+        out[self.qEqSlotId(i)] = self.type === 'challenge' ? ev.items.join(ev.rel === 'parallel' ? '∥' : '=')
+          : self.cards.qeq.find(function (c) { return c.key === PH.parallelogram.evidenceKey(p, ev); }).id;
+        if (self.buildLike) out['qr' + i] = self.cards.qreason.find(function (c) { return reasonAccepts(c, ev); }).id;
+      });
+      out.pcond = this.cards.pcond.find(function (c) { return c.cond === p.parallelogram.condition; }).id;
+    }
     if (this.hasFinal) {
       const t = p.triangles;
       // 1つ目をアルファベット順にしたときの、対応する2つ目の頂点の並び
@@ -1023,7 +1246,7 @@
   };
 
   PH.Puzzle = Puzzle;
-  PH.puzzleUtil = { reasonText: reasonText, reasonAccepts: reasonAccepts, splitEquation: splitEquation, inputCard: inputCard, inputTriangles: inputTriangles };
+  PH.puzzleUtil = { reasonText: reasonText, reasonAccepts: reasonAccepts, splitEquation: splitEquation, inputCard: inputCard, inputTriangles: inputTriangles, quadInputCard: quadInputCard };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = { Puzzle: Puzzle };
 })(typeof window !== 'undefined' ? window : globalThis);

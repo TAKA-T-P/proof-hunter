@@ -8,13 +8,15 @@
  *     opts.fixedLeft  左辺を固定して右辺だけ入力する（'AC' や '∠ABC'。段位認定の「AC＝＿＿」）。左辺は消せない
  *     .setKind('seg' | 'ang' | 'tri')  辺の等式（□□＝□□）／角の等式（∠□□□＝∠□□□）／三角形（△□□□と△□□□）。切りかえると入力はリセット
  *     .toggleKind()                 「辺⇔角」ボタン：辺の等式と角の等式を切りかえる（入力はリセット）
+ *                                   Ver.0.9：平行の関係（'par'：□□∥□□）も入力できる欄では「辺⇔角⇔∥」で順に切りかえる。
+ *                                   最初の種類は kinds[0]（空欄の種類が分かっているときは、呼び出し側が並びで自動設定する）
  *     .press('A')                   頂点記号を1文字（同じ辺・角・三角形の中で同じ文字は使えない）
  *                                   左辺（1つ目の三角形）を入力しおわると、そのまま右辺へ進む（＝・∠・△ は表示ずみなので押さなくてよい）
  *     .pressEq()                    ＝（キーボードの = 用。左辺が入力しおわっていれば右辺へ。押さなくても進む）
  *     .backspace() / .clear()       1文字削除（＝をまたいで左辺へ戻る）／すべて消す
  *     .complete()                   最後まで入力され、決定できるか（三角形は図の上の異なる2つの三角形であること）
  *     .problem()                    最後まで入力したが決定できない理由（表示用）。なければ null
- *     .value()                      'AB=CD' / '∠ABC=∠DEF' / '△ABC/△DEF'（判定に渡す正規化された文字列）
+ *     .value()                      'AB=CD' / '∠ABC=∠DEF' / '△ABC/△DEF' / 'AB∥CD'（判定に渡す正規化された文字列）
  *     .display()                    'AB＝C＿' や '△AB＿と△＿＿＿' のような表示用の文字列（入力位置が分かる）
  *   PH.mathKeypad.parse(text, letters) … キーボードや貼り付けの文字列を正規化して検証。不正なら null
  *     小文字→大文字、全角・半角の＝の同一視、空白の除去。数学的な同一性（AB＝BA など）は判定側（validation.js）で扱う。
@@ -25,9 +27,11 @@
   'use strict';
   const PH = root.PH = root.PH || {};
 
-  const SIZE = { seg: 2, ang: 3, tri: 3 };
-  const PRE = { seg: '', ang: '∠', tri: '△' };
-  const SEP = { seg: '＝', ang: '＝', tri: 'と' };
+  const SIZE = { seg: 2, ang: 3, tri: 3, par: 2 };
+  const PRE = { seg: '', ang: '∠', tri: '△', par: '' };
+  const SEP = { seg: '＝', ang: '＝', tri: 'と', par: '∥' };
+  const VSEP = { seg: '=', ang: '=', tri: '/', par: '∥' };       // value() の区切り
+  const KIND_NAME = { seg: '辺', ang: '角', par: '∥' };
 
   function Keypad(letters, opts) {
     const o = opts || {};
@@ -57,14 +61,26 @@
     return true;
   };
 
-  // 辺の等式と角の等式を切りかえる（両方を入力できる欄だけ）
+  // 種類を切りかえられる欄か（辺・角・平行のうち2つ以上を入力できる欄）
   Keypad.prototype.canToggle = function () {
-    return !this.locked && this.kinds.indexOf('seg') >= 0 && this.kinds.indexOf('ang') >= 0;
+    return !this.locked && this.kinds.filter(function (k) { return k !== 'tri'; }).length >= 2;
+  };
+
+  // 次の種類へ（辺⇔角。平行も入力できる欄は 辺 → 角 → ∥ → 辺 の順。並びは kinds の順）
+  Keypad.prototype.nextKind = function () {
+    const ks = this.kinds.filter(function (k) { return k !== 'tri'; });
+    return ks[(ks.indexOf(this.kind) + 1) % ks.length];
   };
 
   Keypad.prototype.toggleKind = function () {
     if (!this.canToggle()) return false;
-    return this.setKind(this.kind === 'ang' ? 'seg' : 'ang');
+    return this.setKind(this.nextKind());
+  };
+
+  // 「辺⇔角」ボタンの表示（平行も入力できる欄は「辺⇔角⇔∥」）
+  Keypad.prototype.toggleLabel = function () {
+    const order = ['seg', 'ang', 'par'].filter(function (k) { return this.kinds.indexOf(k) >= 0; }, this);
+    return order.map(function (k) { return KIND_NAME[k]; }).join('⇔');
   };
 
   Keypad.prototype.clear = function () {
@@ -138,7 +154,7 @@
   Keypad.prototype.value = function () {
     if (!this.complete()) return null;
     const pre = PRE[this.kind];
-    return pre + this.left.join('') + (this.kind === 'tri' ? '/' : '=') + pre + this.right.join('');
+    return pre + this.left.join('') + VSEP[this.kind] + pre + this.right.join('');
   };
 
   Keypad.prototype.display = function () {
@@ -168,7 +184,8 @@
       .toUpperCase()
       .replace(/\s+/g, '')
       .replace(/[＝]/g, '=')
-      .replace(/[<＜]/g, '∠');          // キーボードで ∠ の代わりに < を使ってもよい
+      .replace(/[<＜]/g, '∠')           // キーボードで ∠ の代わりに < を使ってもよい
+      .replace(/\/\/|[‖|｜]/g, '∥');      // 平行は ∥ のほか、// や | でもよい
   }
 
   /*
@@ -182,6 +199,10 @@
       const s = normalizeText(text);
       let m = s.match(/^([A-Z])([A-Z])=([A-Z])([A-Z])$/);
       let kind = 'seg';
+      if (!m) {
+        m = s.match(/^([A-Z])([A-Z])∥([A-Z])([A-Z])$/);
+        kind = 'par';
+      }
       if (!m) {
         m = s.match(/^∠([A-Z])([A-Z])([A-Z])=∠([A-Z])([A-Z])([A-Z])$/);
         kind = 'ang';
@@ -198,9 +219,10 @@
       const distinct = function (a) { return new Set(a).size === a.length; };
       if (!distinct(left) || !distinct(right)) return null;
       if (kind === 'tri' && left.slice().sort().join('') === right.slice().sort().join('')) return null;
+      if (kind === 'par' && left.slice().sort().join('') === right.slice().sort().join('')) return null;   // 同じ辺どうしの平行
       const pre = PRE[kind];
       return { kind: kind, left: left.join(''), right: right.join(''),
-        value: pre + left.join('') + (kind === 'tri' ? '/' : '=') + pre + right.join('') };
+        value: pre + left.join('') + VSEP[kind] + pre + right.join('') };
     } catch (e) {
       return null;
     }
@@ -233,7 +255,7 @@
     if (!kp.kind) return '';
     let html = '<div class="kp-row">' +
       '<div class="kp-display" aria-live="polite">' + esc(kp.display()) + '</div>' +
-      (kp.canToggle() ? '<button class="kp-toggle" data-kp="toggle" aria-label="' + (kp.kind === 'ang' ? '辺の等式に切りかえる' : '角の等式に切りかえる') + '">辺⇔角</button>' : '') +
+      (kp.canToggle() ? '<button class="kp-toggle" data-kp="toggle" aria-label="' + ({ seg: '辺の等式', ang: '角の等式', par: '平行の関係' })[kp.nextKind()] + 'に切りかえる">' + esc(kp.toggleLabel()) + '</button>' : '') +
       '</div>';
     const prob = kp.problem();
     if (prob) html += '<p class="kp-warn">' + esc(prob) + '</p>';

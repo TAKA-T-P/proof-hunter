@@ -4,6 +4,8 @@
  * checkEvidence    : 選んだ2要素＋理由が、この問題の有効な根拠かを判定
  * deriveCondition  : 根拠の組と三角形の対応から、成り立つ合同条件を導く
  * checkCongruence  : 選んだ合同条件が正しいかを判定
+ * Ver.0.9：結論が「四角形…は平行四辺形」の問題（PH.isQuadProblem）の平行四辺形の根拠・成立条件は js/parallelogram-rules.js。
+ *   三角形の合同を示す部分（triangles など）がない問題では、三角形の判定（対応する辺・角など）はしない。
  */
 (function (root) {
   'use strict';
@@ -39,8 +41,9 @@
     return c;
   }
 
-  // 2つの三角形（対応順）の、対応する辺・角の組
+  // 2つの三角形（対応順）の、対応する辺・角の組（三角形の合同を示す部分がない問題は空）
   function correspondingParts(problem) {
+    if (!Array.isArray(problem.triangles) || problem.triangles.length !== 2) return [];
     const fig = problem.figure;
     const t1 = problem.triangles[0];
     const t2 = problem.triangles[1];
@@ -112,7 +115,19 @@
     if (classifyPair(problem, keys)) return { status: 'from-conclusion', miss: true, kind: kind };
 
     if (keys[0] === keys[1]) return { status: 'not-common', miss: true, kind: kind };
+    if (outsideTriangles(problem, keys)) return { status: 'outside', miss: true, kind: kind };
     return { status: 'wrong-equation', miss: true, kind: kind };
+  }
+
+  /*
+   * 選んだ辺・角のどちらかが、合同を証明する2つの三角形の辺・角ではないか（Ver.0.8）。
+   * 例：p23 の ∠BCA＝∠DCE は正しい関係だが、△ACE・△BCD の角ではない →「合同を証明したい三角形の辺や角を選ぼう」
+   * 図の見た目（長さ・角度）では判断しない（三角形の辺・角かどうかだけで決める）
+   */
+  function outsideTriangles(problem, keys) {
+    const parts = {};
+    compiled(problem).parts.forEach(function (p) { p.keys.forEach(function (k) { parts[k] = true; }); });
+    return keys.some(function (k) { return !parts[k]; });
   }
 
   // 等式（キー2つ）がこの問題の根拠のどれにあたるか。左右・表記の違いは同一視。なければ null
@@ -122,13 +137,15 @@
     return hit ? hit.ev : null;
   }
 
-  // 根拠ではない等式の種類：'irrelevant'（正しいが今回は使わない）/ 'from-conclusion' / 'not-common' / 'wrong-equation'
+  // 根拠ではない等式の種類：'irrelevant'（正しいが今回は使わない）/ 'from-conclusion' / 'not-common'
+  //   / 'outside'（合同を証明する2つの三角形の辺・角ではない）/ 'wrong-equation'
   function equationStatus(problem, keys) {
     if (matchEvidence(problem, keys)) return 'evidence';
     const eq = equationKey(keys[0], keys[1]);
     if (compiled(problem).extras.some(function (e) { return e.eq === eq; })) return 'irrelevant';
     if (classifyPair(problem, keys)) return 'from-conclusion';
     if (keys[0] === keys[1]) return 'not-common';
+    if (outsideTriangles(problem, keys)) return 'outside';
     return 'wrong-equation';
   }
 
@@ -359,12 +376,19 @@
       if (!PH.getStage || !PH.getStage(problem.stage)) errors.push('stage が無効: ' + problem.stage);
       if (!(problem.difficulty >= 1 && problem.difficulty <= 3)) errors.push('difficulty が無効');
       if (!Array.isArray(problem.learningPoints) || !problem.learningPoints.length) errors.push('learningPoints がない');
-      if (!problem.proof || !problem.proof.intro) errors.push('proof.intro がない');
-      if (!PH.CONDITIONS[problem.congruence]) errors.push('congruence が無効');
-      if (!(problem.hints && problem.hints.congruence && problem.hints.congruence.length)) errors.push('合同条件のヒントがない');
+      // Ver.0.9：平行四辺形だけの問題（三角形の合同を示す部分がない）は、三角形・合同条件のデータを持たない
+      const tri = !PH.hasCongruence || PH.hasCongruence(problem);
+      if (tri) {
+        if (!problem.proof || !problem.proof.intro) errors.push('proof.intro がない');
+        if (!PH.CONDITIONS[problem.congruence]) errors.push('congruence が無効');
+        if (!(problem.hints && problem.hints.congruence && problem.hints.congruence.length)) errors.push('合同条件のヒントがない');
+      } else {
+        ['triangles', 'congruence', 'finalStep'].forEach(function (k) { if (problem[k]) errors.push('平行四辺形だけの問題に ' + k + ' がある'); });
+        if (!Array.isArray(problem.evidence) || problem.evidence.length) errors.push('平行四辺形だけの問題の evidence は空にする');
+      }
 
       // 三角形：点があり、3点が異なり、一直線上にない。結論の表記と対応順が一致
-      problem.triangles.forEach(function (t, i) {
+      (problem.triangles || []).forEach(function (t, i) {
         if (t.length !== 3 || new Set(t).size !== 3) errors.push('三角形' + (i + 1) + 'の頂点が不正');
         t.forEach(function (n) { if (!fig.points[n]) errors.push('三角形の頂点 ' + n + ' が図にない'); });
         if (t.every(function (n) { return fig.points[n]; })) {
@@ -378,8 +402,13 @@
         const expected = '△' + problem.triangles[0].join('') + '≡△' + problem.triangles[1].join('');
         if (problem.conclusion !== expected) errors.push('結論の表記と triangles の対応順が一致しない: ' + expected);
         if (problem.finalStep) errors.push('三角形の合同が結論の問題に finalStep がある');
-      } else {
+      } else if (tri) {
         verifyFinalStep(problem, errors);
+      }
+      // Ver.0.9：平行四辺形の根拠・成立条件・性質の使い方（js/parallelogram-rules.js）
+      if (ctype === 'parallelogram') {
+        if (!PH.parallelogram) errors.push('平行四辺形の判定（parallelogram-rules.js）がない');
+        else PH.parallelogram.verify(problem).forEach(function (e) { errors.push(e); });
       }
 
       // 一直線上の点（figure.lines）が本当に一直線上に、書いた順で並んでいるか
@@ -422,11 +451,13 @@
       });
 
       // 図の2つの三角形が実際に合同に描かれているか（対応する辺がすべて等しい）
-      const t1 = problem.triangles[0], t2 = problem.triangles[1];
-      [[0, 1], [1, 2], [0, 2]].forEach(function (ij) {
-        const a = t1[ij[0]] + t1[ij[1]], b = t2[ij[0]] + t2[ij[1]];
-        if (!nearlyEqual(measure(fig, a), measure(fig, b))) errors.push('図の三角形が合同でない: ' + a + '≠' + b);
-      });
+      if (tri) {
+        const t1 = problem.triangles[0], t2 = problem.triangles[1];
+        [[0, 1], [1, 2], [0, 2]].forEach(function (ij) {
+          const a = t1[ij[0]] + t1[ij[1]], b = t2[ij[0]] + t2[ij[1]];
+          if (!nearlyEqual(measure(fig, a), measure(fig, b))) errors.push('図の三角形が合同でない: ' + a + '≠' + b);
+        });
+      }
 
       // 平行の組（同じ組番号の線）が本当に平行で、矢印が同じ向きか
       const groups = {};
@@ -473,8 +504,10 @@
         if (!fig.points[r.from] || !fig.points[r.through]) errors.push('rays の点が図にない');
       });
 
-      const derived = deriveCondition(problem, problem.evidence);
-      if (derived !== problem.congruence) errors.push('合同条件が根拠と一致しない: ' + derived + ' / ' + problem.congruence);
+      if (tri) {
+        const derived = deriveCondition(problem, problem.evidence);
+        if (derived !== problem.congruence) errors.push('合同条件が根拠と一致しない: ' + derived + ' / ' + problem.congruence);
+      }
 
       // 証明パズルのデータ：形式と、ダミーカードが「正しい関係」になっていないか
       const pz = problem.puzzle;
@@ -486,7 +519,7 @@
         const keys = keysOf(fig, items);
         const st = equationStatus(problem, keys);
         if (st === 'evidence' || st === 'irrelevant') errors.push('ダミーが正しい関係になっている: ' + label);
-        if (st === 'wrong-equation' && nearlyEqual(measure(fig, items[0]), measure(fig, items[1]))) {
+        if ((st === 'wrong-equation' || st === 'outside') && nearlyEqual(measure(fig, items[0]), measure(fig, items[1]))) {
           errors.push('ダミーが図の上で等しく見える（まぎらわしい）: ' + label);
         }
       });
@@ -506,14 +539,24 @@
     const fs = problem.finalStep;
     if (!fs || !Array.isArray(fs.items) || fs.items.length !== 2) { errors.push('finalStep がない・不正'); return; }
     // 結論が「二等辺三角形である」（Ver.0.7）の問題は、合同から導いた等式（finalStep）をもとに、後半のステップで結論を導く
+    // 結論が「平行四辺形」（Ver.0.9）の問題は、合同から導いた等式（finalStep）を、平行四辺形の根拠（平行を導く角など）に使う
     const ctype = PH.conclusionType(problem);
     const viaPost = ctype === 'isoscelesTriangle';
+    const viaQuad = ctype === 'parallelogram';
     const kind = ctype === 'equalAngle' ? 'angle' : ctype === 'equalSide' ? 'side' : fs.relationType;
     if (fs.relationType !== kind) errors.push('finalStep.relationType が conclusionType と合わない');
     if (fs.items.some(function (n) { return geo().isAngleName(n) !== (kind === 'angle'); })) errors.push('finalStep.items の種類が合わない');
     if (fs.reason !== PH.finalReasonFor(problem)) errors.push('finalStep.reason が不正: ' + fs.reason);
     if (viaPost) {
       if (!PH.proofEngine || !PH.proofEngine.stepsOf(problem, 'post').length) errors.push('結論を導く後半のステップがない');
+    } else if (viaQuad) {
+      const fk = keysOf(fig, fs.items);
+      const used = ((problem.parallelogram && problem.parallelogram.evidence) || []).some(function (ev) {
+        if (!ev.via) return false;
+        const vk = keysOf(fig, ev.via);
+        return equationKey(vk[0], vk[1]) === equationKey(fk[0], fk[1]);
+      });
+      if (!used) errors.push('合同から導いた等式が、平行四辺形の根拠に使われていない');
     } else if (fs.label !== problem.conclusion) errors.push('finalStep.label と結論が一致しない');
     if (fs.label.replace(/＝/g, '=') !== fs.items.join('=')) errors.push('finalStep の label と items が一致しない');
     const els = geo().getElements(fig);
@@ -574,6 +617,7 @@
     correspondingParts: correspondingParts,
     classifyPair: classifyPair,
     checkEvidence: checkEvidence,
+    outsideTriangles: outsideTriangles,
     matchEvidence: matchEvidence,
     equationStatus: equationStatus,
     correspondenceOrder: correspondenceOrder,

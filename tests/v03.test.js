@@ -8,6 +8,8 @@ require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
 require('../js/right-triangle.js');
+require('../js/quadrilateral.js');
+require('../js/parallelogram-rules.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -17,6 +19,8 @@ require('../js/game.js');
 require('../js/puzzle.js');
 
 const PH = globalThis.PH;
+// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => p.stage <= 8);
 const val = PH.validation;
 const geo = PH.geometry;
 
@@ -45,9 +49,9 @@ test('全問題のデータ検証（パズルのダミーカードを含む）�
 
 // 多段階証明（STAGE 7。proofSteps あり）は根拠の行の数がちがうので、v07.test.js で同じ内容を確かめる
 // 直角三角形の問題（STAGE 8）は根拠の行の役割が決まっているので、v08.test.js で確かめる
-const SINGLE = PH.problems.filter((p) => !p.proofSteps && !PH.isRightProblem(p));
+const SINGLE = TRI.filter((p) => !p.proofSteps && !PH.isRightProblem(p));
 test('全問題でパズルを作れ、正解カード・合同条件カードがそろっている', () => {
-  assert.equal(PH.problems.length, 30);
+  assert.equal(PH.problems.length, 36);
   SINGLE.forEach((p) => {
     const z = new PH.Puzzle(p);
     assert.equal(z.type, p.puzzle.type);
@@ -74,12 +78,12 @@ test('ステージ1・2は穴埋め、ステージ4・5は組み立て、ステ�
 });
 
 test('ダミーの等式は、どの理由と組み合わせても正解にならない（正解を妨げない）', () => {
-  PH.problems.forEach((p) => {
+  TRI.forEach((p) => {
     const z = new PH.Puzzle(p, 'build');
     const evEq = p.evidence.map((ev) => val.equationKey(...ev.items.map((n) => geo.elementKey(p.figure, n))));
     z.cards.eq.filter((c) => !evEq.includes(c.eq)).forEach((dummy) => {
       assert.equal(val.matchEvidence(p, dummy.keys), null, p.id + ' ' + dummy.text);
-      assert.ok(['from-conclusion', 'wrong-equation', 'not-common'].includes(val.equationStatus(p, dummy.keys)), p.id + ' ' + dummy.text);
+      assert.ok(['from-conclusion', 'wrong-equation', 'not-common', 'outside'].includes(val.equationStatus(p, dummy.keys)), p.id + ' ' + dummy.text);
     });
   });
 });
@@ -365,7 +369,7 @@ test('一直線上に重なる辺：A〜D の間のタップは AB と AD の両
 });
 
 test('重ならない辺は候補が1つ（どの問題でも辺の中点は1つだけ。p14 の短い辺を除く）', () => {
-  PH.problems.forEach((p) => {
+  TRI.forEach((p) => {
     geo.getElements(p.figure).segments.forEach((s) => {
       const c = geo.segmentCandidates(p.figure, geo.vec.lerp(s.p1, s.p2, 0.5));
       // p14 の AD・AE は AB・AC に重なるので2つ、それ以外は1つ
@@ -396,7 +400,7 @@ test('ふくむ角とふくまれる角：∠ABD の中のタップは ∠ABC �
 
 test('角の内側をタップすると、その角が候補になり、ほかの候補は同じ頂点で重なる角だけ', () => {
   // STAGE 7 の図（p22 の ∠MBC と ∠DBC、p23 の ∠ACE と ∠ACD など）は、同じ頂点で角が重なる。そのときは「どちらを選びますか？」で選ぶ
-  PH.problems.forEach((p) => {
+  TRI.forEach((p) => {
     geo.getElements(p.figure).angles.forEach((a) => {
       const R = geo.angleHitRadius(p.figure, a, true);
       const q = geo.vec.add(a.vertex, geo.vec.mul(geo.bisector(a.vertex, a.from, a.to), R * 0.6));

@@ -101,7 +101,7 @@
       '<header class="play-header">' +
         '<button class="head-btn" data-act="list" aria-label="問題選択に戻る"><span class="ico">◀</span><span class="lbl">問題</span></button>' +
         '<div class="play-title"><span class="play-no">問題' + esc(p.number) + '</span><span class="play-name">' + esc(p.title) + '</span></div>' +
-        '<div class="counter" data-ref="counter" aria-live="polite"><span class="counter-label">根拠</span><b data-ref="count">0</b><span>/' + p.evidence.length + '</span></div>' +
+        '<div class="counter" data-ref="counter" aria-live="polite"><span class="counter-label">根拠</span><b data-ref="count">0</b><span data-ref="countTotal">/' + this.game.total() + '</span></div>' +
         '<button class="head-btn head-hint" data-act="hint" aria-label="ヒント"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
       '</header>' +
       // スマホ縦画面: .play-stage（図＋ボタン）を上に固定し、.play-scroll（問題文・解答欄）だけスクロール
@@ -204,6 +204,7 @@
       case 'confirm-step': return this.confirmStep();
       case 'explain': return this.explainEvidence();
       case 'explain-cancel': return this.cancelExplain();
+      case 'toggle-rel': return this.toggleRelation();
       case 'final-flash': return this.flashFinal();
     }
   };
@@ -275,6 +276,16 @@
     const g = this.game;
     const r = g.confirmFinal();
     if (r.status === 'incomplete') return;
+    if (r.status === 'correct' && r.quad) {
+      // Ver.0.9（p35）：合同から導いた角の等しさを使って、平行四辺形の根拠を集める
+      PH.sound.play('get');
+      this.popMessage('新しい根拠を発見！');
+      this.say(this.problem.finalStep.label + ' を導けた！ 次は、' + PH.quadrilateral.name(this.problem.targetQuadrilateral) +
+        'が平行四辺形になるための根拠を集めよう！', 'ok');
+      this.focusPanel = true;
+      this.render();
+      return;
+    }
     if (r.status === 'correct' && r.post) {
       // 最終結論から、さらに結論を導く（例：2つの角が等しいので二等辺三角形）
       PH.sound.play('get');
@@ -340,7 +351,9 @@
     const g = this.game;
     if (!g.pickPart(exprId, part)) return;
     PH.sound.play('tap');
-    if (g.commonFound()) {
+    if (g.commonFound() && g.cmpPrefilled()) {
+      this.say('2つの式の右辺が同じだね！ だから、選んだ ' + g.explainingEvidence().label + ' が言えるよ。「決定」を押そう！', 'ok');
+    } else if (g.commonFound()) {
       this.say('2つの式の右辺が同じだね！ 図で、等しくなる2つの角をタップしよう。', 'ok');
     } else if (g.cmpPickedBoth()) {
       this.say('その2つは同じ式かな？ 2つの式で、まったく同じになっている部分を探そう。', 'info');
@@ -368,8 +381,10 @@
       'not-explain': '等しい' + what + 'は見つけられたね！ それは、理由を1つ選ぶだけで言える関係だよ。下の「等しい理由」から選ぼう。',
       'wrong-role': r.evidence && wrongRoleText(p, r),
       irrelevant: 'たしかに等しいね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！',
-      'from-conclusion': 'それは' + PH.congruenceText(p) + 'が証明できたら言えることだよ！ まだ根拠には使えないよ。',
-    }[r.status] || 'この2つが等しいとは、まだ言えないよ！ 説明できる等式を選ぼう。';
+      'from-conclusion': PH.hasCongruence(p) ? 'それは' + PH.congruenceText(p) + 'が証明できたら言えることだよ！ まだ根拠には使えないよ。' : '',
+      outside: PH.hasCongruence(p) ? outsideText(g) : '',
+      'target-property': targetPropertyText(p),
+    }[r.status] || (r.rel === 'parallel' ? 'この2つが平行とは、まだ言えないよ！ 説明できる関係を選ぼう。' : 'この2つが等しいとは、まだ言えないよ！ 説明できる等式を選ぼう。');
     this.say(text, r.miss ? 'ng' : 'info');
     PH.sound.play(r.miss ? 'wrong' : 'soft');
     if (r.miss) this.shake = true;
@@ -400,7 +415,9 @@
         this.bumpCounter = true;
         this.popMessage('根拠発見！');
         this.flash(g.evidenceKeys(r.registered.id), 1200);
-        this.say(r.registered.label + ' を説明できた！ 根拠に登録したよ。' + (r.complete ? '3つの根拠がそろった！ 合同条件を見極めよう！' : 'ほかの根拠も見つけよう。'), 'ok');
+        this.say(r.registered.label + ' を説明できた！ 根拠に登録したよ。' + (r.complete
+          ? (g.phase === 'qcondition' ? '根拠がそろった！ どの成立条件で平行四辺形といえるかな？' : '3つの根拠がそろった！ 合同条件を見極めよう！')
+          : 'ほかの根拠も見つけよう。'), 'ok');
       } else if (r.stageDone === 'pre') {
         this.say(s.label + ' を導けた！', 'ok');
       } else {
@@ -478,6 +495,7 @@
     if (r.type === 'ignored') {
       if (r.message) this.say(r.message, 'info');
       else if (g.phase === 'congruence') this.say('3つの根拠はそろったよ。合同条件を選ぼう！', 'info');
+      else if (g.phase === 'qcondition') this.say('根拠はそろったよ。平行四辺形になるための条件を選ぼう！', 'info');
     } else {
       PH.sound.play('tap');
       this.say(null);
@@ -591,6 +609,13 @@
     const ev = this.game.evidenceById(id);
     if (!ev) return;
     let lines = [];
+    if (ev.via) {
+      // 平行を導く根拠：等しい錯角・同位角を光らせる
+      const p = this.problem;
+      PH.sound.play('tap');
+      this.flash(this.game.evidenceKeys(id).concat(ev.via.map(function (n) { return PH.geometry.elementKey(p.figure, n); })), 1600);
+      return;
+    }
     if (ev.reason === 'alternate' || ev.reason === 'corresponding') {
       const group = ev.parallelGroup || 1;
       lines = PH.geometry.parallelLines(this.problem.figure)
@@ -606,6 +631,11 @@
     return this.game.phase === 'triangle';
   };
 
+  // 平行四辺形の部分か（「三角形確認」ボタンが「四角形確認」になる）
+  PlayController.prototype.quadView = function () {
+    return this.game.quad && this.game.part === 'quad';
+  };
+
   // 「三角形を確認」：対象の2つの三角形を色分けし、頂点の対応を表示する
   //  （STEP 1 の前は「三角形を探すヒント」：答えは見せずに、結論の辺・角に注目させる）
   PlayController.prototype.setTriCheck = function (on) {
@@ -613,7 +643,8 @@
     const popup = doc.getElementById('tri-popup');
     if (this.triCheck) {
       PH.hints.hide(doc.getElementById('hint-popup'));
-      if (this.trianglesHidden()) {
+      if (this.quadView()) this.fillQuadPopup(popup);
+      else if (this.trianglesHidden()) {
         this.fillTriSearchPopup(popup);
         const p = this.problem;
         this.flash(p.finalStep.items.map(function (n) { return PH.geometry.elementKey(p.figure, n); }), 1800);
@@ -629,6 +660,25 @@
     const btn = this.ref('triBtn');
     if (btn) btn.setAttribute('aria-pressed', String(this.triCheck));
     this.renderFigures();
+  };
+
+  // 「四角形確認」：証明する四角形の対辺・対角（同じ色が向かい合う組）と対角線
+  PlayController.prototype.fillQuadPopup = function (popup) {
+    const p = this.problem;
+    const Q = PH.quadrilateral;
+    const quad = p.targetQuadrilateral;
+    const chip = function (text, i) { return '<span class="q-chip q-pair-' + i + '">' + esc(text) + '</span>'; };
+    const O = Q.diagonalPoint(p.figure, quad);
+    popup.querySelector('.hint-level').textContent = '□ 証明する四角形';
+    popup.querySelector('.tri-body').innerHTML =
+      '<p class="quad-name">' + esc(Q.name(quad)) + '</p>' +
+      '<dl class="quad-parts">' +
+        '<dt>対辺</dt><dd>' + Q.oppositeSides(quad).map(function (s, i) { return chip(s[0] + 'と' + s[1], i); }).join('') + '</dd>' +
+        '<dt>対角</dt><dd>' + Q.oppositeAngles(quad).map(function (a, i) { return chip(a[0] + 'と' + a[1], i); }).join('') + '</dd>' +
+        '<dt>対角線</dt><dd>' + Q.diagonals(quad).map(function (d) { return '<span class="q-chip q-diag">' + esc(d) + '</span>'; }).join('') +
+          (O ? '<span class="quad-o">交点 ' + esc(O) + '</span>' : '') + '</dd>' +
+      '</dl>' +
+      '<p class="tri-note">同じ色どうしが向かい合う組だよ。平行四辺形になるための条件は、対辺・対角・対角線のどれかについての関係だよ。</p>';
   };
 
   PlayController.prototype.fillTriSearchPopup = function (popup) {
@@ -685,6 +735,7 @@
   PlayController.prototype.confirm = function () {
     const g = this.game;
     const p = this.problem;
+    if (g.phase === 'qcollect') return this.confirmQuad();
     const r = g.confirmEvidence();
     const what = r.kind === 'ang' ? '角' : '辺';
     switch (r.status) {
@@ -743,7 +794,7 @@
         break;
       }
       default:
-        this.say('この2つが等しいとは、まだ言えないよ！', 'ng');
+        this.say(r.status === 'outside' ? outsideText(g) : 'この2つが等しいとは、まだ言えないよ！', 'ng');
     }
     if (r.miss) {
       PH.sound.play('wrong');
@@ -752,8 +803,91 @@
     this.render();
   };
 
+  // ---- 平行四辺形（Ver.0.9） ---------------------------------------------------------
+
+  // 「＝」と「∥」の切りかえ
+  PlayController.prototype.toggleRelation = function () {
+    if (this.game.toggleRelation()) {
+      PH.sound.play('tap');
+      this.say(null);
+      this.render();
+    }
+  };
+
+  // 平行四辺形の根拠を確定
+  PlayController.prototype.confirmQuad = function () {
+    const g = this.game;
+    const p = this.problem;
+    const r = g.confirmEvidence();
+    if (r.status === 'incomplete') return;
+    const par = r.rel === 'parallel';
+    const what = par ? '平行な辺' : r.kind === 'ang' ? '等しい角' : '等しい辺';
+    switch (r.status) {
+      case 'correct': {
+        const ev = r.evidence;
+        PH.sound.play('get');
+        this.newSlot = ev.id;
+        this.popMessage('根拠発見！');
+        this.flash(g.evidenceKeys(ev.id), 1100);
+        PH.hints.hide(doc.getElementById('hint-popup'));
+        this.bumpCounter = true;
+        if (r.complete) {
+          this.say('根拠がそろった！ どの成立条件で平行四辺形といえるかな？', 'ok');
+          this.focusPanel = true;
+        } else this.say('根拠発見！ ' + ev.label + '（' + PH.REASONS[ev.reason].short + '）', 'ok');
+        break;
+      }
+      case 'duplicate':
+        this.say('この根拠はもう見つけているよ！', 'info');
+        break;
+      case 'irrelevant':
+        PH.sound.play('soft');
+        this.say('たしかに言える関係だね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！', 'info');
+        break;
+      case 'property-unproved':
+        this.say(targetPropertyText(p), 'ng');
+        break;
+      case 'via-unproved':
+        this.say('錯角・同位角が等しいことを、先に証明する必要があるよ！', 'ng');
+        break;
+      case 'not-proved':
+        this.say(r.evidence.label + ' は、理由を1つ選ぶだけでは言えないよ。「📝 詳しい理由を説明する」で説明しよう！', 'ng');
+        break;
+      case 'wrong-reason':
+        this.say(what + 'は見つけられたね！ でも、理由をもう一度考えてみよう。', 'ng');
+        break;
+      default:
+        this.say(par ? 'この2つの辺が平行とは、まだ言えないよ！ 仮定や、証明できたことを確認しよう。'
+          : 'この2つが等しいとは、まだ言えないよ！ 仮定や、証明できたことを確認しよう。', 'ng');
+    }
+    if (r.miss) {
+      PH.sound.play('wrong');
+      this.shake = true;
+    }
+    this.render();
+  };
+
+  PlayController.prototype.confirmQuadCondition = function () {
+    const g = this.game;
+    const r = g.confirmCondition();
+    if (r.status === 'incomplete') return;
+    if (r.ok) return this.cleared();
+    if (r.status === 'alternative') {
+      PH.sound.play('soft');
+      this.say('その条件でも平行四辺形といえる場合があるよ。今回は集めた根拠を使って考えよう！', 'info');
+    } else {
+      PH.sound.play('wrong');
+      this.shake = true;
+      this.say(r.status === 'mixed-pair'
+        ? '平行な辺と長さが等しい辺は、同じ1組の対辺かな？ 集めた根拠をもう一度確認しよう！'
+        : '集めた根拠と成立条件の関係を確認しよう！ どの辺・角・対角線についての関係かな？', 'ng');
+    }
+    this.render();
+  };
+
   PlayController.prototype.confirmCondition = function () {
     const g = this.game;
+    if (g.phase === 'qcondition') return this.confirmQuadCondition();
     const r = g.confirmCondition();
     if (r.status === 'incomplete') return;
     if (r.status === 'classic-condition') {
@@ -838,7 +972,8 @@
     const clear = g.phase === 'clear';
     this.ref('body').hidden = clear;
     this.ref('result').hidden = !clear;
-    this.ref('count').textContent = String(g.found.length);
+    this.ref('count').textContent = String(g.partFound().length);
+    this.ref('countTotal').textContent = '/' + g.total();
     this.root.querySelectorAll('.head-hint').forEach(function (b) { b.disabled = clear; });
     if (clear) {
       if (!this.resultBuilt) this.buildResult();
@@ -879,7 +1014,10 @@
       const mini = this.ref('miniSvg');
       if (mini) {
         PH.renderer.render(mini, this.problem, {
-          flash: this.flashKeys, flashLines: this.flashLines, autoMarks: g.autoMarks(), triangles: true, interactive: false,
+          flash: this.flashKeys, flashLines: this.flashLines, autoMarks: g.autoMarks(), interactive: false,
+          // 平行四辺形の問題は、証明した四角形と平行の矢印を表示する（三角形の色分けはしない）
+          triangles: !g.quad, quad: g.quad ? { vertices: this.problem.targetQuadrilateral, check: false } : null,
+          parallelMarks: g.autoParallel(),
         });
       }
       return;
@@ -892,7 +1030,13 @@
     mb.hidden = !badge;
     // 「三角形確認」のボタン（図の右のボタン）：STEP 1 の前は「三角形を探すヒント」を表示する（正しい三角形は見せない）
     const tb = this.ref('triBtn');
-    if (tb) tb.setAttribute('title', this.trianglesHidden() ? '三角形を探すヒント' : '証明する三角形を確認');
+    if (tb) {
+      const qv = this.quadView();
+      tb.setAttribute('title', qv ? '証明する四角形を確認' : this.trianglesHidden() ? '三角形を探すヒント' : '証明する三角形を確認');
+      tb.setAttribute('aria-label', qv ? '四角形確認' : '三角形確認');
+      tb.querySelector('.lbl').textContent = qv ? '四角形確認' : '三角形確認';
+      tb.querySelector('.ico').textContent = qv ? '□' : '△';
+    }
     PH.renderer.render(this.ref('svg'), this.problem, {
       selection: g.selection,
       flash: this.flashKeys,
@@ -901,7 +1045,10 @@
       userMarks: g.userMarks,
       flashLines: this.flashLines,
       // 合同が成立したら（STEP 4）2つの三角形を色分けして表示する
-      triangles: this.triCheck && !this.trianglesHidden() ? 'check' : g.phase === 'final',
+      triangles: this.quadView() ? false : this.triCheck && !this.trianglesHidden() ? 'check' : g.phase === 'final',
+      // Ver.0.9：平行四辺形の部分では、証明する四角形を薄く表示（「四角形確認」で対辺・対角を色分け）
+      quad: this.quadView() ? { vertices: this.problem.targetQuadrilateral, check: this.triCheck } : null,
+      parallelMarks: g.autoParallel(),
       triSel: g.phase === 'triangle' ? g.triSel : null,
       interactive: true,
       // 辺選択では辺だけ、角選択では角だけ、印つけでは選んだ印の種類だけ、消すでは両方、三角形選択では三角形がタップに反応する
@@ -910,7 +1057,7 @@
         : g.mode === 'tri' ? { tri: true }
         : g.mode === 'step' ? {}
         : { seg: g.mode === 'side', ang: g.mode === 'angle' },
-      angleGuide: g.mode === 'angle' && (g.phase === 'collect' || g.phase === 'final' || g.phase === 'step'),
+      angleGuide: g.mode === 'angle' && (g.phase === 'collect' || g.phase === 'final' || g.phase === 'step' || g.phase === 'qcollect'),
     });
   };
 
@@ -919,7 +1066,7 @@
     this.root.querySelectorAll('.toolbar [data-mode]').forEach(function (b) {
       const m = b.getAttribute('data-mode');
       b.setAttribute('aria-pressed', String(g.mode === m));
-      b.disabled = m !== 'mark' && m !== 'erase' && g.phase !== 'collect' && g.phase !== 'final';
+      b.disabled = m !== 'mark' && m !== 'erase' && g.phase !== 'collect' && g.phase !== 'final' && g.phase !== 'qcollect';
     });
   };
 
@@ -929,6 +1076,7 @@
    */
   PlayController.prototype.stepBar = function () {
     const g = this.game;
+    if (g.quad) return this.quadStepBar();
     if (!g.hasFinal && !g.engine) return '';
     const ORDER = ['triangle', 'collect', 'congruence', 'final', 'clear'];
     const at = function (ph) { return ORDER.indexOf(ph === 'step' ? 'collect' : ph === 'post' ? 'final' : ph); };
@@ -956,6 +1104,32 @@
       const ci = items.findIndex(function (it) { return it.label === '根拠'; });
       items.splice.apply(items, [ci + 1, 0].concat(pre));
       PH.proofEngine.stepsOf(this.problem, 'post').forEach(function (s) { items.push({ label: s.short, state: stateOf([s.id]) }); });
+    }
+    let n = 0;
+    return '<ol class="step-bar" aria-label="証明の手順">' + items.map(function (it) {
+      return '<li class="' + it.state + (it.sub ? ' is-sub' : '') + '">' + (it.sub ? '<b>↳</b>' : '<b>' + (++n) + '</b>') + it.label + '</li>';
+    }).join('') + '</ol>';
+  };
+
+  // Ver.0.9：平行四辺形の問題の手順（（三角形 → 根拠 → 合同条件 → 結論 →）平行四辺形の根拠 → 成立条件）
+  PlayController.prototype.quadStepBar = function () {
+    const g = this.game;
+    const ORDER = ['triangle', 'collect', 'congruence', 'final', 'qcollect', 'qcondition', 'clear'];
+    const ph = g.phase === 'step' ? (g.explainPart === 'quad' ? 'qcollect' : 'collect') : g.phase;
+    const now = ORDER.indexOf(ph);
+    let steps = [['triangle', '三角形'], ['collect', '合同の根拠'], ['congruence', '合同条件'], ['final', '角の等しさ'], ['qcollect', '平行四辺形の根拠'], ['qcondition', '成立条件']];
+    if (!PH.hasLemma(this.problem)) steps = steps.slice(4);
+    const items = steps.map(function (st) {
+      const i = ORDER.indexOf(st[0]);
+      return { label: st[1], state: i < now ? 'is-done' : i === now ? 'is-now' : '' };
+    });
+    if (g.engine) {
+      const NAME = { theorem: '定理を使う', expression: '角の式', compare: '式を比べる' };
+      const pre = PH.proofEngine.stepsOf(this.problem, 'pre').map(function (s) {
+        return { label: s.short || NAME[s.type], state: g.engine.done[s.id] ? 'is-done' : g.stepId === s.id && g.phase === 'step' ? 'is-now' : '', sub: true };
+      });
+      const ci = items.findIndex(function (it) { return it.label === '平行四辺形の根拠'; });
+      items.splice.apply(items, [ci + 1, 0].concat(pre));
     }
     let n = 0;
     return '<ol class="step-bar" aria-label="証明の手順">' + items.map(function (it) {
@@ -994,7 +1168,8 @@
         }).join('') + '</div>';
       if (g.commonFound()) {
         const cand = g.candidate();
-        html += '<p class="panel-note">' + deps.map(function (d) { return no[d.id]; }).join('、') + 'より、等しくなる2つの角を図でタップしよう。</p>' +
+        html += '<p class="panel-note">' + deps.map(function (d) { return no[d.id]; }).join('、') +
+          (g.cmpPrefilled() ? 'より、選んだ2つの角が等しいと言えるね。「決定」を押そう！' : 'より、等しくなる2つの角を図でタップしよう。') + '</p>' +
           '<div class="equation' + (g.selection.length === 2 ? ' is-ready' : '') + '">' +
             '<span class="eq-part' + (cand[0] ? ' filled' : '') + '">' + esc(cand[0] || '？') + '</span><span class="eq-sign">＝</span>' +
             '<span class="eq-part' + (cand[1] ? ' filled' : '') + '">' + esc(cand[1] || '？') + '</span></div>';
@@ -1002,7 +1177,7 @@
     } else {
       const lead = s.type === 'expression'
         ? '<p class="step-premise">' + esc(s.note || s.premiseLabel + 'だから、正三角形の1つの角は60°') + '</p><p class="step-expr">' + esc(s.label) + '</p><p class="panel-note">この式は、何を使って導いたかな？</p>'
-        : '<p class="step-premise">' + esc(s.premiseLabel) + 'より、</p><p class="panel-note">理由を選ぼう</p>';
+        : '<p class="step-premise">' + esc(s.lead || s.premiseLabel + 'より、') + '</p><p class="panel-note">理由を選ぼう</p>';
       html += lead + '<div class="choices reasons step-opts" role="group" aria-label="理由">' + g.stepOptions(s).map(function (o) {
         return '<button class="choice" data-step-opt="' + o.id + '" aria-pressed="' + (g.stepChoice === o.id) + '">' + esc(o.text) + '</button>';
       }).join('') + '</div>' +
@@ -1096,6 +1271,22 @@
       return;
     }
 
+    if (g.phase === 'qcondition') {
+      const qname = PH.quadrilateral.name(this.problem.targetQuadrilateral);
+      html += '<div class="panel-head">▱ 成立条件を選ぼう！</div>' + this.stepBar() +
+        '<p class="panel-note">根拠がそろった！ どの条件で <b>' + esc(qname) + '</b> が平行四辺形といえるかな？</p>' +
+        '<div class="choices conds conds-5">' +
+          g.conditionOptions().map(function (id, i) {
+            return '<button class="choice" data-cond="' + id + '" aria-pressed="' + (g.pcondition === id) + '">' +
+              '<span class="choice-no">' + CIRCLED[i] + '</span>' + esc(PH.PARALLELOGRAM_CONDITIONS[id].label) + '</button>';
+          }).join('') +
+        '</div>' +
+        '<div class="panel-actions"><button class="btn btn-confirm btn-wide" data-act="confirm-cond"' + (g.pcondition ? '' : ' disabled') + '>証明を完成する</button></div>' +
+        this.feedbackHtml();
+      panel.innerHTML = html;
+      return;
+    }
+
     if (g.phase === 'congruence') {
       html += '<div class="panel-head">⚖️ 合同条件を見極めよう！</div>' + this.stepBar() +
         '<p class="panel-note">3つの根拠がそろった！ どの合同条件で <b>' + esc(PH.congruenceText(this.problem)) + '</b> といえるかな？</p>' +
@@ -1133,10 +1324,21 @@
       else note = '「証明を完成する」を押そう！';
     }
 
+    // Ver.0.9：平行四辺形の根拠（辺は「＝」と「∥」を切りかえる）
+    const qc = g.phase === 'qcollect';
+    const par = qc && g.relation === 'parallel';
+    if (qc) {
+      const qname = PH.quadrilateral.name(this.problem.targetQuadrilateral);
+      if (n === 0) note = qname + 'が平行四辺形になるための根拠を探そう！ ' + (g.mode === 'angle'
+        ? '等しい角を、角の内側をタップして選ぼう。'
+        : '2つの辺をタップしよう。平行を示すときは「＝⇔∥」で ∥ に切りかえよう。');
+      else if (n === 1) note = '2つ目の' + what + 'をタップしよう。';
+      else if (!g.reason) note = (par ? '平行と言える' : '等しいと言える') + '理由を選ぼう。';
+    }
     // Ver.0.8：直角三角形の問題は、今集めている欄（直角・斜辺・他の1辺・鋭角）を見出しに出す
     const RT = PH.rightTriangle;
     const roleNow = !final && g.isRight() ? g.role : null;
-    let head = final ? '⭐ 結論を導こう！' : g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
+    let head = final ? '⭐ 結論を導こう！' : qc ? '▱ 平行四辺形の根拠をさがそう' : g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
     if (roleNow) {
       head = roleNow === 'right' ? '📐 直角を確かめよう' : '📐 ' + RT.ROLE_LABEL[roleNow] + 'をさがそう';
       if (n === 0) note = {
@@ -1153,11 +1355,13 @@
       '<p class="panel-note">' + note + '</p>' +
       '<div class="equation' + (n === 2 ? ' is-ready' : '') + (same ? ' is-common' : '') + '" aria-label="等式の候補">' +
         '<span class="eq-part' + (cand[0] ? ' filled' : '') + '">' + esc(cand[0] || '？') + '</span>' +
-        '<span class="eq-sign">＝</span>' +
+        (qc && g.canToggleRelation()
+          ? '<button class="eq-sign eq-rel" data-act="toggle-rel" aria-label="＝と∥を切りかえる（いまは' + (par ? '平行' : '等しい') + '）">' + (par ? '∥' : '＝') + '<small>＝⇔∥</small></button>'
+          : '<span class="eq-sign">' + (par ? '∥' : '＝') + '</span>') +
         '<span class="eq-part' + (cand[1] ? ' filled' : '') + '">' + esc(cand[1] || '？') + '</span>' +
         (roleNow === 'right' ? '<span class="eq-sign">＝</span><span class="eq-part filled eq-90">90°</span>' : '') +
       '</div>' +
-      '<div class="reasons-label">' + (roleNow === 'right' ? '90°と言える理由' : '等しい理由') + '</div>' +
+      '<div class="reasons-label">' + (roleNow === 'right' ? '90°と言える理由' : par ? '平行と言える理由' : '等しい理由') + '</div>' +
       '<div class="choices reasons" role="group" aria-label="等しい理由">' +
         g.availableReasons().map(function (id) {
           return '<button class="choice" data-reason="' + id + '" aria-pressed="' + (g.reason === id) + '"' + (n === 2 ? '' : ' disabled') + '>' +
@@ -1209,8 +1413,9 @@
       this.newSlot = null;
       return;
     }
+    const foundList = g.partFound();
     for (let i = 0; i < total; i++) {
-      const id = g.found[i];
+      const id = foundList[i];
       if (id) {
         const ev = g.evidenceById(id);
         html += '<button class="slot filled' + (self.newSlot === id ? ' is-new' : '') + '" data-ev="' + id + '" aria-label="根拠' + CIRCLED[i] + ' ' + esc(PH.evidenceText(ev)) + ' ' + esc(PH.REASONS[ev.reason].label) + '">' +
@@ -1224,7 +1429,7 @@
     slots.innerHTML = html;
     const facts = this.ref('facts');
     if (facts) facts.innerHTML = this.factsHtml();
-    slots.classList.toggle('complete', g.found.length === total);
+    slots.classList.toggle('complete', foundList.length === total);
     this.newSlot = null;
   };
 
@@ -1278,12 +1483,13 @@
           '<div class="card proof-sheet">' +
             '<h2 class="proof-title">完成した証明</h2>' +
             '<p class="small-note">式や理由をタップすると、図の場所が光るよ</p>' +
-            '<p class="proof-intro">' + esc(proof.intro) + '</p>' +
-            '<ol class="proof-lines">' + lines + stepLinesHtml(proof) + '</ol>' +
-            '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
-            '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +
-            '<p class="proof-concl' + (proof.final ? ' is-mid' : '') + '">' + esc(proof.conclusion) + '</p>' +
-            finalProofHtml(proof) + postProofHtml(proof) +
+            (proof.intro ? '<p class="proof-intro">' + esc(proof.intro) + '</p>' +
+              '<ol class="proof-lines">' + lines + stepLinesHtml(proof) + '</ol>' +
+              '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
+              '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +
+              '<p class="proof-concl' + (proof.final ? ' is-mid' : '') + '">' + esc(proof.conclusion) + '</p>' +
+              finalProofHtml(proof) + postProofHtml(proof) : '') +
+            quadProofHtml(proof) +
           '</div>' +
           '<div class="card points explain">' +
             '<h3>💡 今回のポイント</h3>' +
@@ -1308,8 +1514,39 @@
       '<p class="proof-final-lead">' + esc(proof.final.lead) + '</p>' +
       '<p class="proof-final-reason"><button class="pl-reason" data-act="final-flash">' + esc(reasonText || proof.final.reason) + '、</button></p>' +
       // 後半のステップがあるとき（二等辺三角形である、など）は、ここは途中の結果
-      '<p class="proof-concl ' + (proof.post && proof.post.length ? 'is-mid' : 'proof-goal') + '"><button class="pl-eq" data-act="final-flash">' + esc(conclusionText || proof.final.conclusion) + '</button></p>' +
+      // 後半のステップ・平行四辺形の部分（Ver.0.9）が続くときは途中の結果（番号つき）
+      '<p class="proof-concl ' + ((proof.post && proof.post.length) || proof.quad ? 'is-mid' : 'proof-goal') + '"><button class="pl-eq" data-act="final-flash">' + esc(conclusionText || proof.final.conclusion) +
+        (proof.final.no ? '<span class="pl-no">……' + proof.final.no + '</span>' : '') + '</button></p>' +
       '</div>';
+  }
+
+  /*
+   * 平行四辺形の部分の証明文（Ver.0.9）
+   *   四角形ABCDにおいて / 仮定より AB＝DC ……① / … / ①、②より、/ 2組の対辺がそれぞれ等しいので、/ 四角形ABCDは平行四辺形である。
+   *   rowsHtml を渡すと、根拠の行をそれにする（パズルで生徒が組み立てた行）
+   */
+  function quadProofHtml(proof, rowsHtml) {
+    const q = proof.quad;
+    if (!q) return '';
+    const rows = rowsHtml != null ? rowsHtml : q.lines.map(function (l) {
+      return '<li class="proof-line">' +
+        '<button class="pl-reason" data-proof-reason="' + l.evidenceId + '">' + esc(l.reason) + '</button>' +
+        '<button class="pl-eq" data-ev="' + l.evidenceId + '">' + esc(l.equation) + '<span class="pl-no">……' + l.no + '</span></button>' +
+        '</li>';
+    }).join('');
+    return '<div class="proof-quad">' +
+      q.intro.map(function (t) { return '<p class="proof-intro">' + esc(t) + '</p>'; }).join('') +
+      '<ol class="proof-lines">' + rows + stepLinesHtml({ stepLines: q.stepLines }) + '</ol>' +
+      '<p class="proof-sum">' + esc(q.summary) + '</p>' +
+      '<p class="proof-cond"><strong>' + esc(q.condition) + '</strong>' + (/平行$/.test(q.condition) ? 'な' : '') + 'ので、</p>' +
+      '<p class="proof-concl proof-goal">' + esc(q.conclusion) + '</p>' +
+      '</div>';
+  }
+
+  // 証明する四角形の性質を、平行四辺形と分かる前に使ったときのメッセージ
+  function targetPropertyText(p) {
+    return 'それは、' + PH.quadrilateral.name(p.targetQuadrilateral) + 'が平行四辺形だと証明できてから使える性質だよ！ ' +
+      '「平行四辺形の性質」と「平行四辺形になるための条件」を区別しよう。';
   }
 
   // 多段階証明の前半のステップの行（「③、④より、∠ACE＝∠BCD ……⑤」など。タップすると図が光る）
@@ -1332,6 +1569,12 @@
     }).join('');
   }
 
+  // 合同を証明する三角形の辺・角ではないものを選んだとき（例：p23 の ∠BCA＝∠DCE。正しい関係でも根拠にならない）
+  function outsideText(g) {
+    const t = g.triangles || g.problem.triangles;
+    return '合同を証明したい' + triName(t[0]) + 'と' + triName(t[1]) + 'の辺や角を選ぼう。';
+  }
+
   // 欄に合わない根拠のメッセージ（Ver.0.8）：正しい根拠だが、今集めている欄（斜辺など）ではない
   function wrongRoleText(p, r) {
     const RT = PH.rightTriangle;
@@ -1351,6 +1594,8 @@
   PH.finalProofHtml = finalProofHtml;
   PH.stepLinesHtml = stepLinesHtml;
   PH.postProofHtml = postProofHtml;
+  PH.quadProofHtml = quadProofHtml;
+  PH.targetPropertyText = targetPropertyText;
 
   // 印のアイコン（証明パズルの「図に印をつける」でも使う）
   PH.markToolIcon = toolIcon;

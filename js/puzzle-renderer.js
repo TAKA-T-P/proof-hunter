@@ -18,9 +18,11 @@
     srule: '理由を選ぶ', cmc: '共通な部分を選ぶ', cmp: '比べる式を選ぶ', cmr: '導ける等式を選ぶ', cmrInput: '導ける等式を入力',
     // Ver.0.8：直角三角形の直角である理由
     rreason: '直角の理由を選ぶ',
+    // Ver.0.9：平行四辺形の根拠・成立条件
+    qeq: '等式・平行を選ぶ', qreason: '理由を選ぶ', pcond: '成立条件を選ぶ', qinput: '等式・平行を入力',
   };
   const KIND_NAME = { eq: '等式', reason: '理由', cond: '合同条件', tripair: '三角形の組', tri1: '三角形', tri2: '三角形', freason: '理由', final: '結論の等式',
-    srule: '理由', cmc: '共通な部分', cmp: '比べる2つの式', cmr: '導ける等式', rreason: '理由' };
+    srule: '理由', cmc: '共通な部分', cmp: '比べる2つの式', cmr: '導ける等式', rreason: '理由', qeq: '等式・平行の関係', qreason: '理由', pcond: '成立条件' };
   // 空欄の種類（ステップの空欄は 'srule:s1' のように問題のステップIDがつくので、前の部分だけ）
   function kindOf(s) { return String(s.kind).split(':')[0]; }
 
@@ -259,6 +261,8 @@
       kp.pressEq();
     } else if (key === '<' || key === '∠') {
       if (kp.kind !== 'ang') kp.setKind('ang');
+    } else if (key === '/' || key === '|' || key === '∥') {
+      if (kp.kind !== 'par') kp.setKind('par');           // 平行の関係（入力できる欄だけ）
     } else if (key === 'Backspace') {
       kp.backspace();
     } else if (key === 'Enter') {
@@ -515,9 +519,10 @@
   // 完成した証明の式・理由のタップ：辺・角を光らせ、平行線の理由なら平行線も光らせる
   PuzzleView.prototype.showEvidence = function (id, withReason) {
     const p = this.problem;
-    const ev = p.evidence.find(function (e) { return e.id === id; });
+    const ev = p.evidence.concat((p.parallelogram && p.parallelogram.evidence) || []).find(function (e) { return e.id === id; });
     if (!ev) return;
-    const keys = ev.items.map(function (n) { return PH.geometry.elementKey(p.figure, n); });
+    let keys = ev.items.map(function (n) { return PH.geometry.elementKey(p.figure, n); });
+    if (withReason && ev.via) keys = keys.concat(ev.via.map(function (n) { return PH.geometry.elementKey(p.figure, n); }));
     let lines = [];
     if (withReason && (ev.reason === 'alternate' || ev.reason === 'corresponding')) {
       const group = ev.parallelGroup || 1;
@@ -621,17 +626,22 @@
     if (!svg) return;
     const clear = this.puzzle.phase === 'clear';
     const marks = {};
+    const pmarks = [];
+    const p = this.problem;
     if (clear) {
-      // 完成したら、根拠の辺・角に等しいことを表す印をつける
-      const fig = this.problem.figure;
-      this.problem.evidence.forEach(function (ev) {
+      // 完成したら、根拠の辺・角に等しいことを表す印（平行の根拠は矢印）をつける
+      const fig = p.figure;
+      p.evidence.concat((p.parallelogram && p.parallelogram.evidence) || []).forEach(function (ev) {
+        if (ev.rel === 'parallel') { ev.items.forEach(function (s) { pmarks.push([s[0], s[1], ev.mark || 1]); }); return; }
         ev.items.forEach(function (n) { marks[PH.geometry.elementKey(fig, n)] = ev.mark; });
       });
     }
-    PH.renderer.render(svg, this.problem, {
-      flash: this.flashKeys, flashLines: this.flashLines, autoMarks: marks,
+    const quad = PH.isQuadProblem(p);
+    PH.renderer.render(svg, p, {
+      flash: this.flashKeys, flashLines: this.flashLines, autoMarks: marks, parallelMarks: pmarks,
       userMarks: clear ? {} : this.userMarks,
-      triangles: clear, interactive: false,
+      triangles: clear && !quad, interactive: false,
+      quad: quad ? { vertices: p.targetQuadrilateral, check: false } : null,
     });
   };
 
@@ -647,7 +657,7 @@
     if (status === 'ng') cls.push('is-ng');
     if (status === 'ok') cls.push('is-ok');
     const k = kindOf(s);
-    let text = card ? card.text : PLACEHOLDER[s.input ? (s.inputKind === 'tri' ? 'tri' : k === 'final' ? 'finalInput' : k === 'cmr' ? 'cmrInput' : 'input') : k];
+    let text = card ? card.text : PLACEHOLDER[s.input ? (s.inputKind === 'tri' ? 'tri' : k === 'final' ? 'finalInput' : k === 'cmr' ? 'cmrInput' : k === 'qeq' ? 'qinput' : 'input') : k];
     const draft = s.input && this.drafts[slotId];
     if (draft && draft.kind && !draft.isEmpty() && draft.value() !== z.inputs[slotId]) {
       cls.push('is-draft');
@@ -705,14 +715,44 @@
         '</div>';
     }
     // Ver.0.7：多段階証明のステップ（根拠の行の続き。後半のステップは最後）
-    const steps = proof.stepLines.map(function (l) { return self.stepRow(z.preSteps.find(function (x) { return x.id === l.stepId; }), l.no, proof); }).join('');
+    const steps = z.tri ? proof.stepLines.map(function (l) { return self.stepRow(z.preSteps.find(function (x) { return x.id === l.stepId; }), l.no, proof); }).join('') : '';
     const post = z.postSteps.map(function (st) { return self.stepRow(st, '', proof); }).join('');
     this.ref('proof').innerHTML =
-      intro +
+      (z.tri
+        ? intro +
+          '<ol class="pz-lines">' + rows + steps + '</ol>' +
+          '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
+          '<div class="pz-condline">' + this.blank('cond') + '<span>ので、</span></div>' +
+          concl + (post ? '<ol class="pz-lines pz-post">' + post + '</ol>' : '')
+        : '') +
+      (z.quad ? this.quadProofBody(proof) : '');
+  };
+
+  // Ver.0.9：平行四辺形の部分の証明文（根拠の行 → 根拠を導くステップ → 「①、②より、【成立条件】ので、四角形…は平行四辺形である。」）
+  PuzzleView.prototype.quadProofBody = function (proof) {
+    const z = this.puzzle;
+    const q = proof.quad;
+    const self = this;
+    // p35：合同から導いた結論の番号（答えの等式は見せず、番号だけ示す）
+    const finalNo = proof.final && proof.final.no ? '<p class="pz-final-no">（上の結論の等式を ' + proof.final.no + ' とする）</p>' : '';
+    const rows = z.qrowEv.map(function (ev, i) {
+      const no = q.lines[i].no;
+      if (z.buildLike) {
+        return '<li class="pz-row"><span class="pz-row-no">根拠' + no + '</span>' +
+          '<div class="pz-row-body">' + self.blank('qr' + i) +
+          '<div class="pz-eqline">' + self.blank('qe' + i) + '<span class="pl-no">……' + no + '</span></div></div></li>';
+      }
+      return '<li class="pz-row"><span class="pz-fixed-reason">' + esc(q.lines[i].reason) + '</span>' +
+        '<div class="pz-eqline">' + self.blank('qs' + i) + '<span class="pl-no">……' + no + '</span></div></li>';
+    }).join('');
+    const steps = q.stepLines.map(function (l) { return self.stepRow(z.preSteps.find(function (x) { return x.id === l.stepId; }), l.no, { stepLines: q.stepLines }); }).join('');
+    return '<div class="pz-quad">' + finalNo +
+      q.intro.map(function (t) { return '<p class="proof-intro">' + esc(t) + '</p>'; }).join('') +
       '<ol class="pz-lines">' + rows + steps + '</ol>' +
-      '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
-      '<div class="pz-condline">' + this.blank('cond') + '<span>ので、</span></div>' +
-      concl + (post ? '<ol class="pz-lines pz-post">' + post + '</ol>' : '');
+      '<p class="proof-sum">' + esc(q.summary) + '</p>' +
+      '<div class="pz-condline">' + this.blank('pcond') + '<span>ので、</span></div>' +
+      '<p class="proof-concl proof-goal">' + esc(q.conclusion) + '</p>' +
+      '</div>';
   };
 
   // ステップの行：定理（「AB＝ACより、【理由】 ∠ABC＝∠ACB」）・角の式（「【理由】（△DCEは正三角形）、∠ACE＝…」）・式の比較
@@ -723,7 +763,7 @@
     const tail = no ? '<span class="pl-no">……' + no + '</span>' : '';
     let body;
     if (st.type === 'theorem') {
-      body = '<p class="pz-step-lead">' + esc(st.premiseLabel) + 'より、</p>' + this.blank('st:' + st.id) +
+      body = '<p class="pz-step-lead">' + esc(st.lead || st.premiseLabel + 'より、') + '</p>' + this.blank('st:' + st.id) +
         '<div class="pz-eqline"><span class="pz-step-eq">' + esc(st.label) + '</span>' + tail + '</div>';
     } else if (st.type === 'expression') {
       body = '<div class="pz-finalline">' + this.blank('st:' + st.id) + '<span>（' + esc(st.premiseLabel) + '）、</span></div>' +
@@ -750,7 +790,9 @@
     if (s.input) {
       // チャレンジ：等式カードは出さず、数学キーパッドで入力する（三角形の欄は三角形を入力）
       const guide = s.inputKind === 'tri' ? '証明する2つの三角形を、対応する頂点の順に入力しよう！'
-        : s.kind === 'final' ? '合同から導く結論の等式を入力しよう！' : '等しい辺（角）を入力しよう！';
+        : s.kind === 'final' ? '合同から導く結論の等式を入力しよう！'
+        : s.kind === 'qeq' ? '等しい辺・角、または平行な辺（AB∥DC）を入力しよう！ 種類は「辺⇔角⇔∥」で切りかえられるよ。'
+        : '等しい辺（角）を入力しよう！';
       this.ref('trayHead').innerHTML = '<span class="pz-tray-target">' + esc(s.label) + '</span>' +
         '<span class="pz-tray-note">' + guide + '</span>';
       box.className = 'pz-cards kind-input';
@@ -826,6 +868,15 @@
         '<button class="pl-eq" data-ev="' + r.evidence.id + '">' + esc(r.eqCard.text) + '<span class="pl-no">……' + proof.lines[i].no + '</span></button>' +
         '</li>';
     }).join('');
+    // Ver.0.9：平行四辺形の部分（生徒が組み立てた行。平行を導く根拠は「④より、」をつける）
+    const qlines = z.quad ? z.evaluateQuadRows().map(function (r, i) {
+      const line = proof.quad.lines.find(function (l) { return l.evidenceId === r.evidence.id; });
+      const pre = r.evidence.via && proof.final && proof.final.no ? proof.final.no + 'より、' : '';
+      return '<li class="proof-line">' +
+        '<button class="pl-reason" data-proof-reason="' + r.evidence.id + '">' + esc(pre + r.reason.text) + '</button>' +
+        '<button class="pl-eq" data-ev="' + r.evidence.id + '">' + esc(r.eqCard.text) + '<span class="pl-no">……' + (line ? proof.quad.lines[i].no : '') + '</span></button>' +
+        '</li>';
+    }).join('') : '';
     let guide = '';
     if (!hasNext) {
       guide = nextStage
@@ -863,12 +914,15 @@
           '<div class="card proof-sheet">' +
             '<h2 class="proof-title">完成した証明</h2>' +
             '<p class="small-note">式や理由をタップすると、図の場所が光るよ</p>' +
-            '<p class="proof-intro">' + esc(intro) + '</p>' +
-            '<ol class="proof-lines">' + lines + PH.stepLinesHtml(proof) + '</ol>' +
-            '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
-            '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +
-            '<p class="proof-concl' + (f ? ' is-mid' : '') + '">' + esc(congruence) + '</p>' +
-            finalHtml + PH.postProofHtml(proof) +
+            (z.tri
+              ? '<p class="proof-intro">' + esc(intro) + '</p>' +
+                '<ol class="proof-lines">' + lines + PH.stepLinesHtml(proof) + '</ol>' +
+                '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
+                '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +
+                '<p class="proof-concl' + (f ? ' is-mid' : '') + '">' + esc(congruence) + '</p>' +
+                finalHtml + PH.postProofHtml(proof)
+              : '') +
+            (z.quad ? PH.quadProofHtml(proof, qlines) : '') +
           '</div>' +
           '<div class="card points explain">' +
             '<h3>💡 今回のポイント</h3>' +

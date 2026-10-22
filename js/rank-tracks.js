@@ -8,7 +8,7 @@
  *   元の問題の topics … 使う合同条件・根拠の理由・推論ルール・図形の性質（正三角形・正方形）から自動で求める
  *   ミニ問題の requiredTopics … 元の問題の topics（定理の確認問題のテンプレートは、テンプレートに書いた topics）
  *   コースの allowedTopics にすべてふくまれるミニ問題だけを出題する
- * あとで単元（平行四辺形など）を追加したら、その topics を総合証明の allowedTopics に加える。
+ * あとで単元を追加したら、その topics を総合証明の allowedTopics に加える（Ver.0.9：平行四辺形の4つの topics を加えた）。
  * まだ実装していない単元の topics は、どのコースにも入れない（出題されない）。
  */
 (function (root) {
@@ -32,6 +32,11 @@
     rightTriangle: '直角三角形',
     rightTriangleRHA: '斜辺と1つの鋭角',
     rightTriangleRHS: '斜辺と他の1辺',
+    // Ver.0.9：平行四辺形
+    parallelogramProperties: '平行四辺形の性質',
+    parallelogramConditions: '平行四辺形になるための条件',
+    diagonalBisector: '対角線がそれぞれの中点で交わる',
+    parallelConverse: '錯角・同位角が等しいならば平行',
   };
 
   const BASIC_TOPICS = ['basicCongruence', 'given', 'common', 'vertical', 'alternate', 'corresponding', 'triangleCorrespondence', 'congruenceConsequence'];
@@ -52,9 +57,11 @@
       label: '総合証明',
       short: '総合',
       lead: 'いろいろな証明に挑戦！',
-      desc: '二等辺三角形・直角三角形など、いろいろな証明に挑戦！',
-      allowedTopics: BASIC_TOPICS.concat(['isosceles', 'equilateral', 'angleExpressions', 'square', 'rightTriangle', 'rightTriangleRHA', 'rightTriangleRHS']),
-      categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 0.6, right: 0.6 },
+      desc: '二等辺三角形・直角三角形・平行四辺形など、いろいろな証明に挑戦！',
+      allowedTopics: BASIC_TOPICS.concat(['isosceles', 'equilateral', 'angleExpressions', 'square', 'rightTriangle', 'rightTriangleRHA', 'rightTriangleRHS',
+        'parallelogramProperties', 'parallelogramConditions', 'diagonalBisector', 'parallelConverse']),
+      // Ver.0.9：平行四辺形（para）も 0.6。二等辺三角形・直角三角形などの割合が極端に減らないようにする
+      categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 0.6, right: 0.6, para: 0.6 },
     },
   };
   const ORDER = ['basic', 'comprehensive'];
@@ -66,12 +73,18 @@
     correspondingSides: 'congruenceConsequence', correspondingAngles: 'congruenceConsequence',
     isoscelesBaseAngles: 'isosceles', equilateralSides: 'equilateral',
     squareSides: 'square', squareAngle: 'square', perpendicular: 'rightTriangle',
+    parallelogramSides: 'parallelogramProperties', parallelogramParallel: 'parallelogramProperties',
+    parallelogramAngles: 'parallelogramProperties', parallelogramDiagonals: 'diagonalBisector',
+    alternateConverse: 'parallelConverse', correspondingConverse: 'parallelConverse',
   };
   // 推論ルール → 学習テーマ
   const RULE_TOPIC = {
     isoscelesBaseAngles: ['isosceles'], isoscelesConverse: ['isosceles'],
     angleAddition: ['angleExpressions'], angleSubtraction: ['angleExpressions'], triangleAngleSum: ['angleExpressions'],
     equalExpressions: ['angleExpressions'],
+    parallelogramOppositeSidesParallel: ['parallelogramProperties'], parallelogramOppositeSidesEqual: ['parallelogramProperties'],
+    parallelogramOppositeAnglesEqual: ['parallelogramProperties'], parallelogramDiagonalsBisect: ['parallelogramProperties', 'diagonalBisector'],
+    halfSegments: ['parallelogramProperties'],
   };
   // 合同条件 → 学習テーマ
   const CONDITION_TOPIC = {
@@ -88,8 +101,20 @@
   const topicCache = new WeakMap();
   function problemTopics(p) {
     if (topicCache.has(p)) return topicCache.get(p);
-    const out = ['triangleCorrespondence'];
-    addAll(out, CONDITION_TOPIC[p.congruence] || ['unknown:' + p.congruence]);
+    const out = [];
+    // 三角形の合同の部分（平行四辺形だけの問題にはない）
+    if (!PH.hasCongruence || PH.hasCongruence(p)) {
+      addAll(out, ['triangleCorrespondence']);
+      addAll(out, CONDITION_TOPIC[p.congruence] || ['unknown:' + p.congruence]);
+    }
+    // Ver.0.9：平行四辺形の成立条件・根拠の理由（性質・平行の推論）
+    if (PH.isQuadProblem && PH.isQuadProblem(p)) {
+      addAll(out, ['parallelogramConditions']);
+      if (p.parallelogram.condition === 'PP_BISECT_DIAGONALS') addAll(out, ['diagonalBisector']);
+      p.parallelogram.evidence.forEach(function (ev) {
+        if (ev.reason !== 'proved') addAll(out, [REASON_TOPIC[ev.reason] || 'unknown:' + ev.reason]);
+      });
+    }
     p.evidence.forEach(function (ev) {
       if (ev.reason === 'proved') return;                 // 導いた事実は、そのステップのルールで数える
       addAll(out, [REASON_TOPIC[ev.reason] || 'unknown:' + ev.reason]);

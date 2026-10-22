@@ -216,7 +216,7 @@
     list.forEach(function (w, i) {
       const q = PH.rankQuestions.byId(w.qid);
       const svg = el.querySelector('[data-rr-fig="' + i + '"]');
-      if (svg && q && q.figure) PH.renderer.render(svg, PH.getProblem(q.figure), { interactive: false, selection: q.highlight });
+      if (svg && q && q.figure) PH.renderer.render(svg, PH.getProblem(q.figure), { interactive: false, selection: q.highlight, autoMarks: q.marks || {}, parallelMarks: q.parallelMarks || [] });
     });
   }
 
@@ -405,7 +405,7 @@
         '</div>' +
         '<div class="rq-mark" data-ref="mark" aria-hidden="true"></div>' +
       '</div>';
-    if (p) PH.renderer.render(this.ref('fig'), p, { interactive: false, selection: q.highlight });
+    if (p) PH.renderer.render(this.ref('fig'), p, { interactive: false, selection: q.highlight, autoMarks: q.marks || {}, parallelMarks: q.parallelMarks || [] });   // 合同条件の問題は仮定の印（平行四辺形は根拠の印と矢印）
     this.renderKeypad();
   };
 

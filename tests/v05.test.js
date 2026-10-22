@@ -8,6 +8,8 @@ require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
 require('../js/right-triangle.js');
+require('../js/quadrilateral.js');
+require('../js/parallelogram-rules.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -18,13 +20,15 @@ require('../js/math-keypad.js');
 require('../js/puzzle.js');
 
 const PH = globalThis.PH;
+// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => p.stage <= 8);
 const val = PH.validation;
 const geo = PH.geometry;
 const KP = PH.mathKeypad;
 const k = (p, n) => geo.elementKey(p.figure, n);
 // STAGE 6（Ver.0.5）の5問。STAGE 7（多段階証明）は v07.test.js で確かめる
-const NEW = PH.problems.filter((p) => PH.hasFinalStep(p) && p.stage === 6);
-const LEGACY = PH.problems.filter((p) => !PH.hasFinalStep(p) && p.stage <= 7);
+const NEW = TRI.filter((p) => PH.hasFinalStep(p) && p.stage === 6);
+const LEGACY = TRI.filter((p) => !PH.hasFinalStep(p) && p.stage <= 7);
 const TYPES = ['fill', 'build', 'challenge'];
 
 // 対応を保ったまま頂点を同時に並べ替えた表記（6通り）と、左右を交換した表記（さらに6通り）
@@ -102,7 +106,7 @@ function withFakeStorage(initial, fn) {
 // ---- 問題データ ---------------------------------------------------------------
 
 test('STAGE 6 は p16〜p20 で、結論が辺・角の等しさ', () => {
-  assert.equal(PH.problems.length, 30);
+  assert.equal(PH.problems.length, 36);
   const st6 = PH.getStage(6);
   assert.equal(st6.title, '合同から結論を導け！');
   assert.deepEqual(PH.stageProblems(6).map((p) => p.id), ['p16', 'p17', 'p18', 'p19', 'p20']);

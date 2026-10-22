@@ -3,7 +3,7 @@
  *
  * 対象の選び方：
  *   根拠収集中   … 問題データの順で「まだ見つけていない根拠」の最初のもの（直角三角形の問題は、今集めている欄の根拠）
- *   合同条件選択 … hints.congruence
+ *   合同条件選択 … hints.congruence（Ver.0.9：平行四辺形の根拠 … hints.q1 など、成立条件 … hints.pcondition）
  *   三角形の選択 … hints.triangleSelection、最終結論 … hints.finalStep（Ver.0.5。最終段階でも自動では答えを入れない）
  * 同じ対象には 1→2→3 段階の順に表示。最終段階は繰り返し表示できる（回数は増えない）。
  */
@@ -16,6 +16,12 @@
     if ((game.phase === 'step' || game.phase === 'post') && game.stepId) return game.stepId;   // Ver.0.7：多段階証明のステップ
     if (game.phase === 'final') return 'finalStep';              // Ver.0.5：合同から結論を導く
     if (game.phase === 'congruence') return 'congruence';
+    // Ver.0.9：平行四辺形の根拠（まだ見つけていない最初のもの）と成立条件
+    if (game.phase === 'qcondition') return 'pcondition';
+    if (game.phase === 'qcollect') {
+      const q = game.quadEvidence().find(function (e) { return game.qfound.indexOf(e.id) < 0; });
+      return q ? q.id : null;
+    }
     if (game.phase !== 'collect') return null;
     // Ver.0.8：直角三角形の問題は、今集めている欄（直角・斜辺・他の1辺・鋭角）の根拠
     if (game.isRight && game.isRight() && game.role) {

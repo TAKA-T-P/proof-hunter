@@ -9,6 +9,9 @@
  *   ]
  *   evidence の fromStep … そのステップで導いた事実を、合同の根拠に使う（reason: 'proved'）
  *   dependsOn の 'final' … 合同から結論を導いたあとに解けるステップ（例：2つの角が等しいので二等辺三角形）
+ *   Ver.0.9：平行四辺形の問題では、parallelogram.evidence（平行四辺形の根拠）の fromStep も、そのステップで導いた事実を使う。
+ *     定理のステップに平行四辺形の性質（quad：仮定の平行四辺形）・等しい線分の半分（halfSegments）が加わる。
+ *     lead … パネル・パズルでの書き出し（なければ「premiseLabelより、」）、proofText … 証明文での理由の書き方（{s1} はそのステップの番号）
  *
  * 進む順番（ハンター）：三角形の選択（あれば）→ 3つの根拠（前半のステップ（stage 'pre'）は、導く根拠を「詳しい理由を説明する」で解く）
  *   → 合同条件 → 最終結論 → 後半のステップ（'post'）。証明パズル・証明文は、前半のステップの行 → 根拠の行の順
@@ -23,6 +26,10 @@
 
   const STAGES = ['final', 'congruence'];   // ステップ以外に依存先として書ける段階
   const EXPRESSION_RULES = ['angleAddition', 'angleSubtraction', 'triangleAngleSum'];   // 角の式のステップのルール
+  // Ver.0.9：平行四辺形の性質を使う定理のステップのルール
+  const PARALLELOGRAM_RULES = ['parallelogramOppositeSidesParallel', 'parallelogramOppositeSidesEqual', 'parallelogramOppositeAnglesEqual', 'parallelogramDiagonalsBisect'];
+
+  function quadEvidence(problem) { return (problem.parallelogram && problem.parallelogram.evidence) || []; }
 
   function hasSteps(problem) { return Array.isArray(problem.proofSteps) && problem.proofSteps.length > 0; }
 
@@ -147,6 +154,14 @@
           let err = null;
           if (s.rule === 'isoscelesBaseAngles') err = R.checkIsoscelesBaseAngles(problem, s.premise, s.items);
           else if (s.rule === 'isoscelesConverse') err = R.checkIsoscelesConverse(problem, s.premise, s.triangle);
+          else if (PARALLELOGRAM_RULES.indexOf(s.rule) >= 0) err = R.checkParallelogramProperty(problem, s);
+          else if (s.rule === 'halfSegments') {
+            err = R.checkHalfSegments(problem, s);
+            // 前提（等しい2つの線分）は、依存するステップの結論であること
+            const pk = s.premise.map(function (n) { return G().elementKey(problem.figure, n); });
+            const dep = (s.dependsOn || []).map(function (d) { return ids[d]; }).filter(Boolean);
+            if (!dep.some(function (d) { return factKey(problem, d) === V().equationKey(pk[0], pk[1]); })) errors.push(s.id + ': 前提の等式を導くステップに依存していない');
+          }
           else err = '定理のステップで使えないルール: ' + s.rule;
           if (err) errors.push(s.id + ': ' + err);
           if (s.rule === 'isoscelesConverse' && (s.stage || 'pre') === 'post') {
@@ -185,7 +200,7 @@
         errors.push(s.id + ': ' + (e && e.message || e));
       }
     });
-    // 導いた事実を使う根拠：そのステップの結論と同じ等式であること
+    // 導いた事実を使う根拠：そのステップの結論と同じ等式であること（平行四辺形の根拠は js/parallelogram-rules.js で確かめる）
     problem.evidence.forEach(function (ev) {
       if (!ev.fromStep) return;
       const s = ids[ev.fromStep];
@@ -202,6 +217,7 @@
     while (eng.available('pre').length && guard++ < 100) eng.complete(eng.available('pre')[0].id);
     if (!eng.stageDone('pre')) errors.push('前半のステップをすべて証明できない');
     if (!problem.evidence.every(function (ev) { return eng.canUse(ev); })) errors.push('合同の根拠に、証明できない事実を使っている');
+    if (!quadEvidence(problem).every(function (ev) { return eng.canUse(ev); })) errors.push('平行四辺形の根拠に、証明できない事実を使っている');
     eng.reach('congruence'); eng.reach('final');
     guard = 0;
     while (eng.available('post').length && guard++ < 100) eng.complete(eng.available('post')[0].id);
@@ -212,7 +228,7 @@
   }
 
   PH.ProofEngine = ProofEngine;
-  PH.proofEngine = { hasSteps: hasSteps, stepsOf: stepsOf, factKey: factKey, verify: verify, STAGES: STAGES };
+  PH.proofEngine = { hasSteps: hasSteps, stepsOf: stepsOf, factKey: factKey, verify: verify, STAGES: STAGES, PARALLELOGRAM_RULES: PARALLELOGRAM_RULES };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = PH.proofEngine;
 })(typeof window !== 'undefined' ? window : globalThis);

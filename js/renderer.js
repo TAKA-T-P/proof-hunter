@@ -17,6 +17,10 @@
  * Ver.0.8：autoMarks の 'right' は直角の印（小さな四角）。figure.rightMarks（図にかかれている直角）は常に表示する。
  *         どちらも生徒の印（userMarks）とは別に管理するので、「消す」では消えない。
  *         figure.rays は直線をのばした飾りの線と名前（例：直線ℓ）。タップには反応しない。
+ * Ver.0.9：
+ *   view.quad          : { vertices, check } 証明する四角形を薄く塗る。check なら対辺・対角を組ごとに同じ色で強調し、
+ *                        対角線（点線）とその交点を表示する（「四角形確認」）
+ *   view.parallelMarks : [[始点, 終点, 矢印の数], ...] 見つけた平行の根拠の矢印（自動表示。図の平行の印とは別）
  */
 (function (root) {
   'use strict';
@@ -106,6 +110,19 @@
     }
   }
 
+  /*
+   * 辺として登録していないが、一直線上の辺のつながりでかかれている線分（例 p27 の AB ＝ AE＋EB）の印を描くための要素。
+   * 途中に点があるので、印は寸法線の上にかく（段位認定の合同条件の問題で、仮定 AB＝AC に印をつけるときなど）
+   */
+  function lineItem(fig, k) {
+    const m = /^seg:([A-Z])([A-Z])$/.exec(k);
+    if (!m || !fig.points[m[1]] || !fig.points[m[2]]) return null;
+    const L = (fig.lines || []).find(function (l) { return l.indexOf(m[1]) >= 0 && l.indexOf(m[2]) >= 0; });
+    if (!L) return null;
+    const p1 = fig.points[m[1]], p2 = fig.points[m[2]];
+    return { kind: 'seg', p1: p1, p2: p2, h1: p1, h2: p2, composite: Math.abs(L.indexOf(m[1]) - L.indexOf(m[2])) > 1 };
+  }
+
   function render(svg, problem, view) {
     const g = G();
     const fig = problem.figure;
@@ -121,12 +138,34 @@
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
     // 1. 三角形（証明成功時・三角形を確認）
-    if (v.triangles) {
+    if (v.triangles && Array.isArray(problem.triangles)) {
       const gt = el('g', { class: 'layer-tri' + (v.triangles === 'check' ? ' tri-check' : '') }, svg);
       problem.triangles.forEach(function (tri, i) {
         const pts = tri.map(function (n) { return g.fmt(fig.points[n]).replace(' ', ','); }).join(' ');
         el('polygon', { points: pts, class: 'tri tri-' + i }, gt);
       });
+    }
+
+    // 1a. 証明する四角形（Ver.0.9）
+    if (v.quad && v.quad.vertices) {
+      const Q = PH.quadrilateral;
+      const gq = el('g', { class: 'layer-quad' + (v.quad.check ? ' quad-check' : '') }, svg);
+      const qv = v.quad.vertices;
+      el('polygon', { points: qv.map(function (n) { return g.fmt(fig.points[n]).replace(' ', ','); }).join(' '), class: 'quad-area' }, gq);
+      if (v.quad.check && Q) {
+        Q.oppositeSides(qv).forEach(function (pair, i) {
+          pair.forEach(function (s) { line(fig.points[s[0]], fig.points[s[1]], { class: 'quad-side q-pair-' + i }, gq); });
+        });
+        Q.oppositeAngles(qv).forEach(function (pair, i) {
+          pair.forEach(function (a) {
+            const n = a.replace('∠', '');
+            el('path', { d: g.sectorPath(fig.points[n[1]], fig.points[n[0]], fig.points[n[2]], 26), class: 'quad-ang q-pair-' + i }, gq);
+          });
+        });
+        Q.diagonals(qv).forEach(function (d) { line(fig.points[d[0]], fig.points[d[1]], { class: 'quad-diag' }, gq); });
+        const O = Q.diagonalPoint(fig, qv);
+        if (O) el('circle', { cx: fig.points[O].x, cy: fig.points[O].y, r: 9, class: 'quad-o' }, gq);
+      }
     }
 
     // 1b. 選んだ三角形（三角形を選ぶ段階）
@@ -203,7 +242,8 @@
       if (autoMarks[k] == null && els.byKey[k]) drawMark(gm, els.byKey[k], userMarks[k], 'mark-user', fig);
     });
     Object.keys(autoMarks).forEach(function (k) {
-      if (els.byKey[k]) drawMark(gm, els.byKey[k], autoMarks[k], 'mark-auto', fig);
+      const item = els.byKey[k] || lineItem(fig, k);
+      if (item) drawMark(gm, item, autoMarks[k], 'mark-auto', fig);
     });
 
     // 6. 平行の矢印（等しい辺の印とは別の表示）
@@ -215,6 +255,22 @@
         el('polyline', { points: p.map(function (q) { return q.x + ',' + q.y; }).join(' '), class: 'parallel' }, gm);
       }
     });
+
+    // 6b. 見つけた平行の根拠の矢印（自動表示。2本の向きをそろえる）
+    const pms = v.parallelMarks || [];
+    for (let i = 0; i + 1 < pms.length; i += 2) {
+      const a = pms[i], b = pms[i + 1];
+      const P1 = fig.points[a[0]], Q1 = fig.points[a[1]];
+      let P2 = fig.points[b[0]], Q2 = fig.points[b[1]];
+      if ((Q1.x - P1.x) * (Q2.x - P2.x) + (Q1.y - P1.y) * (Q2.y - P2.y) < 0) { const t = P2; P2 = Q2; Q2 = t; }
+      [[P1, Q1], [P2, Q2]].forEach(function (pq) {
+        const step = 9 / g.vec.dist(pq[0], pq[1]);
+        for (let k = 0; k < (a[2] || 1); k++) {
+          const c = g.chevron(pq[0], pq[1], 0.62 + k * step, 14);
+          el('polyline', { points: c.map(function (q) { return q.x + ',' + q.y; }).join(' '), class: 'parallel mark-auto' }, gm);
+        }
+      });
+    }
 
     // 7. 頂点と名前
     const gp = el('g', { class: 'layer-pt' }, svg);

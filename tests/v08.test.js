@@ -8,6 +8,8 @@ require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
 require('../js/right-triangle.js');
+require('../js/quadrilateral.js');
+require('../js/parallelogram-rules.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -22,6 +24,8 @@ require('../js/rank-questions.js');
 require('../js/rank-game.js');
 
 const PH = globalThis.PH;
+// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => p.stage <= 8);
 const val = PH.validation;
 const geo = PH.geometry;
 const RT = PH.rightTriangle;
@@ -140,14 +144,14 @@ function result(over) {
 // =====================================================================================
 
 test('30問・8ステージ。STAGE 8「直角三角形を攻略せよ！」は p25〜p30', () => {
-  assert.equal(PH.problems.length, 30);
-  assert.equal(PH.STAGES.length, 8);
+  assert.equal(PH.problems.length, 36);
+  assert.equal(PH.STAGES.length, 9);
   assert.equal(PH.getStage(8).title, '直角三角形を攻略せよ！');
   assert.deepEqual(PH.stageProblems(8).map((p) => p.id), ['p25', 'p26', 'p27', 'p28', 'p29', 'p30']);
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
   assert.deepEqual(NEW.map((p) => p.congruence), ['RHS', 'RHA', 'RHA', 'RHS', 'RHA', 'RHA']);
   // 既存の24問は変わらない（直角三角形の合同条件を使わない・データの形もそのまま）
-  PH.problems.filter((p) => p.stage <= 7).forEach((p) => {
+  TRI.filter((p) => p.stage <= 7).forEach((p) => {
     assert.ok(['SSS', 'SAS', 'ASA'].includes(p.congruence), p.id);
     assert.ok(!p.evidence.some((ev) => ev.role), p.id);
   });
@@ -158,7 +162,7 @@ test('合同条件は5つ。RHA・RHS は直角三角形の合同条件で、中
   assert.equal(PH.CONDITIONS.RHS.label, '直角三角形の斜辺と他の1辺がそれぞれ等しい');
   assert.deepEqual(PH.CONDITION_ORDER, ['SSS', 'SAS', 'ASA']);
   assert.deepEqual(PH.RIGHT_CONDITION_ORDER, ['SSS', 'SAS', 'ASA', 'RHA', 'RHS']);
-  PH.problems.forEach((p) => assert.equal(PH.conditionOrder(p).length, p.stage === 8 ? 5 : 3, p.id));
+  TRI.forEach((p) => assert.equal(PH.conditionOrder(p).length, p.stage === 8 ? 5 : 3, p.id));
 });
 
 // =====================================================================================
@@ -261,7 +265,7 @@ test('直角三角形でない（直角の根拠がない）場合は RHS・RHA 
     assert.ok(!['RHS', 'RHA'].includes(val.deriveCondition(p, noRight)), p.id);
   });
   // 通常の問題の根拠からは RHS・RHA にならない
-  PH.problems.filter((p) => p.stage <= 7).forEach((p) => assert.ok(!PH.CONDITIONS[val.deriveCondition(p, p.evidence)].right, p.id));
+  TRI.filter((p) => p.stage <= 7).forEach((p) => assert.ok(!PH.CONDITIONS[val.deriveCondition(p, p.evidence)].right, p.id));
   // 直角の根拠が2つ（直角が2組）も不成立
   const p26 = P('p26');
   assert.equal(RT.derive(p26, [evOf(p26, 'right'), evOf(p26, 'right'), evOf(p26, 'hypotenuse')]), null);
@@ -311,7 +315,7 @@ test('未証明の直角や辺・角の等しさは利用できない', () => {
 // =====================================================================================
 
 test('SSS・SAS・ASA は従来どおり判定され、通常の問題の合同条件の選択肢は3つのまま', () => {
-  PH.problems.filter((p) => p.stage <= 7).forEach((p) => {
+  TRI.filter((p) => p.stage <= 7).forEach((p) => {
     assert.equal(val.deriveCondition(p, p.evidence), p.congruence, p.id);
     const g = new PH.Game(p);
     assert.deepEqual(g.conditionOptions(), ['SSS', 'SAS', 'ASA']);
@@ -638,11 +642,12 @@ test('2つのコースの定義（表示名・説明・出題範囲）', () => {
   assert.equal(TR.get('basic').label, '基本の合同証明');
   assert.equal(TR.get('basic').desc, '3つの合同条件と基本的な辺・角の性質に挑戦！');
   assert.equal(TR.get('comprehensive').label, '総合証明');
-  assert.equal(TR.get('comprehensive').desc, '二等辺三角形・直角三角形など、いろいろな証明に挑戦！');
+  // Ver.0.9 で平行四辺形を加えた（説明文も更新）
+  assert.equal(TR.get('comprehensive').desc, '二等辺三角形・直角三角形・平行四辺形など、いろいろな証明に挑戦！');
   // 総合証明は基本の範囲をすべてふくむ
   TR.get('basic').allowedTopics.forEach((t) => assert.ok(TR.get('comprehensive').allowedTopics.includes(t), t));
-  // まだ実装していない単元（平行四辺形など）はどちらのコースにもない
-  ['basic', 'comprehensive'].forEach((id) => assert.ok(!TR.get(id).allowedTopics.some((t) => /parallelogram/.test(t))));
+  // 平行四辺形（Ver.0.9）は総合証明だけ。基本の合同証明には入らない
+  assert.ok(!TR.get('basic').allowedTopics.some((t) => /parallelogram/.test(t)));
 });
 
 test('出題範囲はステージ番号ではなく、必要な知識（topics）で決まる', () => {
@@ -658,8 +663,8 @@ test('出題範囲はステージ番号ではなく、必要な知識（topics�
   const fake = variant(P('p01'), { evidence: P('p01').evidence.map((ev, i) => (i === 0 ? Object.assign({}, ev, { reason: 'isoscelesBaseAngles' }) : ev)) });
   assert.ok(!TR.problemTopics(fake).every((t) => TR.get('basic').allowedTopics.includes(t)));
   // 知らない理由・ルールは unknown として、どのコースにも入らない
-  const unknown = variant(P('p01'), { evidence: P('p01').evidence.map((ev, i) => (i === 0 ? Object.assign({}, ev, { reason: 'parallelogramSides' }) : ev)) });
-  assert.ok(TR.problemTopics(unknown).includes('unknown:parallelogramSides'));
+  const unknown = variant(P('p01'), { evidence: P('p01').evidence.map((ev, i) => (i === 0 ? Object.assign({}, ev, { reason: 'rhombusSides' }) : ev)) });   // まだ実装していない単元（ひし形）の理由
+  assert.ok(TR.problemTopics(unknown).includes('unknown:rhombusSides'));
   assert.equal(TR.allows('comprehensive', { requiredTopics: TR.problemTopics(unknown) }), false);
   // requiredTopics のない問題は出題しない
   assert.equal(TR.allows('basic', { requiredTopics: [] }), false);
@@ -953,9 +958,9 @@ test('ハンター：「詳しい理由を説明する」の判定（説明す�
   let r = g.explain();
   assert.equal(r.status, 'not-explain');
   assert.equal(g.misses, 1);
-  // 等しくない組 → ミス
+  // 合同を証明する三角形の角ではない組（∠DAC は △ABD・△ACE の角ではない）→ ミス
   pick('∠BAD', '∠DAC');
-  assert.equal(g.explain().status, 'wrong-equation');
+  assert.equal(g.explain().status, 'outside');
   assert.equal(g.misses, 2);
   // 説明する根拠に理由を選んで確定 → ミス（理由1つでは言えない）
   pick('∠BAD', '∠CAE');
@@ -1013,4 +1018,54 @@ test('証明パズルは従来どおり（ステップの行と根拠の行）',
   assert.ok(z.slots.some((s) => s.id === 'st:s1'));
   fill(z, z.solution());
   assert.equal(z.check().status, 'clear');
+});
+
+test('段位認定の合同条件の問題：図には仮定の等しい辺・角だけ印をつける（共通な辺・対頂角・錯角などには印をつけない）', () => {
+  const q = (id) => PH.rankQuestions.all().find((x) => x.id === id + '-cond');
+  const marked = (id) => Object.keys(q(id).marks).sort();
+  // p01：仮定 AB＝CB、AD＝CD。共通な辺 BD には印をつけない
+  assert.deepEqual(q('p01').marks, { [k(P('p01'), 'AB')]: 1, [k(P('p01'), 'CB')]: 1, [k(P('p01'), 'AD')]: 2, [k(P('p01'), 'CD')]: 2 });
+  // p02：対頂角 ∠AOC＝∠BOD には印をつけない
+  assert.ok(!marked('p02').includes(k(P('p02'), '∠AOC')));
+  // p03：仮定は AB∥CD・AB＝CD。錯角には印をつけない
+  assert.deepEqual(marked('p03'), [k(P('p03'), 'AB'), k(P('p03'), 'CD')].sort());
+  // p13：仮定が平行だけなら印はない
+  assert.deepEqual(q('p13').marks, {});
+  // p12：「Mは辺BCの中点」（仮定より BM＝CM）
+  assert.equal(q('p12').marks[k(P('p12'), 'BM')], 2);
+  // p27：仮定 AB＝AC（二等辺三角形）。根拠の BC＝CB（共通）・底角には印をつけない
+  assert.deepEqual(marked('p27'), [k(P('p27'), 'AB'), k(P('p27'), 'AC')].sort());
+  // p25：仮定の直角は直角の印
+  assert.equal(q('p25').marks[k(P('p25'), '∠BAD')], 'right');
+  assert.ok(!marked('p25').includes(k(P('p25'), 'BD')));
+  // p29：仮定の角の二等分線 ∠POQ＝∠POR
+  assert.equal(q('p29').marks[k(P('p29'), '∠POQ')], 1);
+});
+
+test('合同を証明する三角形の辺・角ではないものを選んだとき（p23 の ∠BCA＝∠DCE など）は「outside」', () => {
+  const p = P('p23');                                    // △ACE≡△BCD
+  const keys = (a, b) => [k(p, a), k(p, b)];
+  // ∠BCA＝∠DCE は正しい関係（正三角形の角）だが、△ACE・△BCD の角ではない
+  assert.equal(val.checkEvidence(p, keys('∠BCA', '∠DCE'), 'given', []).status, 'outside');
+  assert.equal(val.equationStatus(p, keys('∠BCA', '∠DCE')), 'outside');
+  assert.equal(val.equationStatus(p, keys('AB', 'DE')), 'outside');
+  // 三角形の辺・角どうしで等しくないものは、従来どおり wrong-equation
+  assert.equal(val.equationStatus(p, keys('AC', 'CE')), 'wrong-equation');
+  // ハンター：理由を選んで確定しても、「詳しい理由を説明する」でも outside（ミス1回）
+  const g = new PH.Game(p);
+  chooseTriangles(g);
+  g.setMode('angle');
+  g.tap(k(p, '∠BCA')); g.tap(k(p, '∠DCE'));
+  g.selectReason('given');
+  assert.equal(g.confirmEvidence().status, 'outside');
+  assert.equal(g.misses, 1);
+  g.tap(k(p, '∠BCA')); g.tap(k(p, '∠DCE'));
+  assert.equal(g.explain().status, 'outside');
+  assert.equal(g.misses, 2);
+  // パズル（チャレンジ）：入力した等式が三角形の外
+  const z = new PH.Puzzle(p, 'challenge');
+  fill(z, Object.assign({}, z.solution(), { e0: '∠BCA=∠DCE' }));
+  const r = z.check();
+  assert.equal(r.status, 'wrong');
+  assert.ok(r.result.messages.some((m) => /合同を証明したい2つの三角形の辺や角/.test(m.text)));
 });

@@ -14,6 +14,12 @@
  *   perpendicularRightAngle  垂直な2直線がつくる角は90°（根拠の理由 perpendicular）
  *   squareRightAngle     正方形の角は90°（根拠の理由 squareAngle）
  *   rightTriangleHypotenuseAcute / rightTriangleHypotenuseLeg  直角三角形の合同条件（RHA / RHS。js/right-triangle.js で判定）
+ *   Ver.0.9（平行四辺形。判定は js/parallelogram-rules.js）：
+ *   parallelogramOppositeSidesParallel / parallelogramOppositeSidesEqual / parallelogramOppositeAnglesEqual / parallelogramDiagonalsBisect
+ *                        平行四辺形の性質（平行四辺形だと分かっている四角形にだけ使う）
+ *   alternateAnglesParallel / correspondingAnglesParallel  錯角・同位角が等しいならば2直線は平行
+ *   halfSegments         等しい線分の半分（中点までの長さ）は等しい（OB＝OD、E・F が中点 → OE＝OF）
+ *   PP_PARALLEL_PAIRS ほか5つ … 平行四辺形になるための条件（PH.PARALLELOGRAM_CONDITIONS）
  * 合同（三角形の合同・対応する辺・角）は既存の validation.js のしくみを使う（名前が重ならないよう、ここでは
  * 'triangleCongruence' は合同条件の判定、'correspondingSides'・'correspondingAngles' は PH.REASONS の既存の理由を指す）。
  *
@@ -43,6 +49,20 @@
     rightTriangleHypotenuseAcute: { label: '直角三角形の斜辺と1つの鋭角がそれぞれ等しい', short: '斜辺と1つの鋭角', condition: 'RHA' },
     rightTriangleHypotenuseLeg: { label: '直角三角形の斜辺と他の1辺がそれぞれ等しい', short: '斜辺と他の1辺', condition: 'RHS' },
     triangleCongruence: { label: '三角形の合同条件', short: '合同' },
+    // Ver.0.9：平行四辺形の性質（「平行四辺形である → …」）と平行の推論
+    parallelogramOppositeSidesParallel: { label: '平行四辺形の対辺は平行だから', short: '平行四辺形の対辺（平行）', reason: 'parallelogramParallel' },
+    parallelogramOppositeSidesEqual: { label: '平行四辺形の対辺は等しいから', short: '平行四辺形の対辺', reason: 'parallelogramSides' },
+    parallelogramOppositeAnglesEqual: { label: '平行四辺形の対角は等しいから', short: '平行四辺形の対角', reason: 'parallelogramAngles' },
+    parallelogramDiagonalsBisect: { label: '平行四辺形の対角線はそれぞれの中点で交わるから', short: '平行四辺形の対角線', reason: 'parallelogramDiagonals' },
+    alternateAnglesParallel: { label: '錯角が等しいから', short: '錯角が等しい → 平行', reason: 'alternateConverse' },
+    correspondingAnglesParallel: { label: '同位角が等しいから', short: '同位角が等しい → 平行', reason: 'correspondingConverse' },
+    halfSegments: { label: '等しい線分の半分の長さは等しいから', short: '線分の半分' },
+    // 平行四辺形になるための条件（「… → 平行四辺形である」。性質とは逆向きの推論）
+    PP_PARALLEL_PAIRS: { label: '2組の対辺がそれぞれ平行', short: '成立条件①', condition: 'PP_PARALLEL_PAIRS' },
+    PP_EQUAL_SIDES: { label: '2組の対辺がそれぞれ等しい', short: '成立条件②', condition: 'PP_EQUAL_SIDES' },
+    PP_EQUAL_ANGLES: { label: '2組の対角がそれぞれ等しい', short: '成立条件③', condition: 'PP_EQUAL_ANGLES' },
+    PP_BISECT_DIAGONALS: { label: '対角線がそれぞれの中点で交わる', short: '成立条件④', condition: 'PP_BISECT_DIAGONALS' },
+    PP_PARALLEL_EQUAL_PAIR: { label: '1組の対辺が平行で、その長さが等しい', short: '成立条件⑤', condition: 'PP_PARALLEL_EQUAL_PAIR' },
   };
 
   // 理由を選ぶステップの誤答（その定理では言えない理由）。もっともらしい順
@@ -52,6 +72,11 @@
     angleAddition: ['角の差より', '対頂角は等しいから'],
     angleSubtraction: ['角の和より', '対頂角は等しいから'],
     triangleAngleSum: ['角の差より', '対頂角は等しいから'],
+    parallelogramDiagonalsBisect: ['平行四辺形の対辺は等しいから', '対頂角は等しいから'],
+    parallelogramOppositeSidesEqual: ['平行四辺形の対角は等しいから', '共通な辺だから'],
+    parallelogramOppositeAnglesEqual: ['平行四辺形の対辺は等しいから', '対頂角は等しいから'],
+    parallelogramOppositeSidesParallel: ['平行四辺形の対辺は等しいから', '錯角が等しいから'],
+    halfSegments: ['平行四辺形の対角線はそれぞれの中点で交わるから', '平行四辺形の対辺は等しいから'],
   };
 
   // ---- データの確認（図と仮定から、そのルールで本当に言えるか） ---------------------------
@@ -157,6 +182,51 @@
     return [k1, k2];
   }
 
+  /*
+   * Ver.0.9：平行四辺形の性質のステップ（仮定の平行四辺形 step.quad の性質で、items が言えるか）
+   *   例 p36 s1：四角形ABCDは平行四辺形 → OB＝OD（parallelogramDiagonalsBisect）
+   */
+  function checkParallelogramProperty(problem, step) {
+    const PG = PH.parallelogram;
+    if (!PG) return '平行四辺形の判定がない';
+    const quad = String(step.quad || '').split('');
+    if (!(problem.knownParallelograms || []).some(function (q) { return q.join('') === quad.join(''); })) return '仮定の平行四辺形ではない四角形の性質を使っている';
+    const key = PG.factKey(problem.figure, step.items, step.rel);
+    const ok = PG.propertyFacts(problem.figure, quad).some(function (f) { return f.key === key && f.rule === step.rule; });
+    return ok ? null : '結論が、その平行四辺形の性質になっていない';
+  }
+
+  /*
+   * Ver.0.9：等しい線分の半分（halfSegments）。premise の2つの線分が等しく、items の線分がそれぞれの「端点と中点」を結ぶ
+   *   例 p36 s2：OB＝OD、E は OB の中点・F は OD の中点 → OE＝OF。中点は problem.midpoints（仮定）
+   */
+  function checkHalfSegments(problem, step) {
+    const mids = problem.midpoints || [];
+    const prem = (step.premise || []).map(clean);
+    if (prem.length !== 2) return '前提の2つの線分がない';
+    const items = step.items.map(clean);
+    const used = [];
+    const ok = items.every(function (s) {
+      return prem.some(function (P, i) {
+        if (used.indexOf(i) >= 0) return false;
+        const m = mids.find(function (x) { return clean(x.of).split('').sort().join('') === P.split('').sort().join(''); });
+        if (!m) return false;
+        const end = P.split('').filter(function (c) { return s.indexOf(c) >= 0; });
+        const hit = s.indexOf(m.point) >= 0 && end.length === 1;
+        if (hit) used.push(i);
+        return hit;
+      });
+    });
+    if (!ok) return '結論が、等しい線分の端点と中点を結ぶ線分になっていない';
+    // 図の上でも中点になっているか（データの確認）
+    const v = G().vec;
+    const bad = mids.some(function (m) {
+      const s = clean(m.of), P = problem.figure.points[s[0]], Qp = problem.figure.points[s[1]], M = problem.figure.points[m.point];
+      return !P || !Qp || !M || v.dist(M, v.lerp(P, Qp, 0.5)) > 0.5;
+    });
+    return bad ? '仮定の中点が図の上で中点になっていない' : null;
+  }
+
   // 正三角形の2辺（equilateralSides の根拠）か
   function checkEquilateralSides(problem, items) {
     const sides = items.map(clean);
@@ -175,6 +245,8 @@
     checkExpression: checkExpression,
     compareExpressions: compareExpressions,
     checkEquilateralSides: checkEquilateralSides,
+    checkParallelogramProperty: checkParallelogramProperty,
+    checkHalfSegments: checkHalfSegments,
     knownAngles: knownAngles,
   };
 

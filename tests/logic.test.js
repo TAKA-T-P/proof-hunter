@@ -8,6 +8,8 @@ require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
 require('../js/right-triangle.js');
+require('../js/quadrilateral.js');
+require('../js/parallelogram-rules.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -16,6 +18,8 @@ require('../js/storage.js');
 require('../js/game.js');
 
 const PH = globalThis.PH;
+// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => p.stage <= 8);
 const geo = PH.geometry;
 const val = PH.validation;
 const p01 = PH.getProblem('p01');
@@ -55,7 +59,7 @@ test('一直線上の点で名前が違っても同じ角（∠BAO＝∠BAC）�
 });
 
 test('すべての問題データが整合している（要素・理由・ヒント・合同条件）', () => {
-  for (const p of PH.problems) {
+  for (const p of TRI) {
     assert.deepEqual(val.verifyProblem(p), [], p.id);
   }
 });

@@ -182,7 +182,6 @@
           '<span class="sc-body">' +
             '<span class="sc-title">' + esc(st.title) + '</span>' +
             '<span class="sc-theme">' + esc(st.theme) + '</span>' +
-            '<span class="sc-stars">' + stat.records.map(function (r) { return '<span class="sc-star">' + starsHtml(r) + '</span>'; }).join('') + '</span>' +
           '</span>' +
           '<span class="sc-status">' +
             (stat.complete ? '<span class="sc-badge">STAGE CLEAR</span>' : '') +
@@ -254,6 +253,11 @@
         art: '<svg viewBox="0 0 200 120"><polygon points="20,100 20,30 90,100" class="h-tri1"/><polyline points="20,88 32,88 32,100" class="h-rule"/><line x1="20" y1="30" x2="90" y2="100" class="h-sel"/><text x="70" y="58" class="h-txt">斜辺</text><rect x="110" y="16" width="80" height="24" rx="8" class="h-btn h-on"/><text x="150" y="33" class="h-btxt">直角</text><rect x="110" y="48" width="80" height="24" rx="8" class="h-btn"/><text x="150" y="65" class="h-btxt">斜辺</text><rect x="110" y="80" width="80" height="24" rx="8" class="h-btn"/><text x="150" y="97" class="h-btxt">他の1辺</text></svg>',
       },
       {
+        title: '平行四辺形の証明（STAGE 9）',
+        text: '結論が「四角形ABCDは平行四辺形」の問題では、平行四辺形になるための根拠（2つ）を集めて、5つの成立条件から選ぶよ。平行を示すときは、2つの辺を選んでから「＝⇔∥」で ∥ に切りかえよう。「平行四辺形の対辺は等しい」などの性質は、平行四辺形だと分かっている四角形にしか使えないよ。図の右の「四角形確認」で、対辺・対角・対角線を確認できるよ。',
+        art: '<svg viewBox="0 0 200 120"><polygon points="50,20 20,100 150,100 180,20" class="h-tri1"/><line x1="50" y1="20" x2="180" y2="20" class="h-sel"/><line x1="20" y1="100" x2="150" y2="100" class="h-sel"/><text x="115" y="14" class="h-btxt">∥</text><text x="85" y="115" class="h-btxt">∥</text><rect x="62" y="44" width="76" height="26" rx="8" class="h-btn h-on"/><text x="100" y="62" class="h-btxt">＝⇔∥</text></svg>',
+      },
+      {
         title: '証明成功！',
         text: '完成した証明文を確認しよう！ ミスやヒントが少ないほど、★が増えるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="104" rx="8" class="h-paper"/><line x1="45" y1="30" x2="150" y2="30" class="h-rule"/><line x1="45" y1="48" x2="135" y2="48" class="h-rule"/><line x1="45" y1="66" x2="145" y2="66" class="h-rule"/><text x="100" y="98" class="h-star">★★★</text></svg>',
@@ -301,6 +305,11 @@
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="40" height="24" rx="6" class="h-btn h-on"/><text x="30" y="27" class="h-btxt">直角</text><text x="120" y="27" class="h-btxt">∠ABC＝∠DEF＝90°</text><rect x="10" y="46" width="40" height="24" rx="6" class="h-btn"/><text x="30" y="63" class="h-btxt">斜辺</text><rect x="70" y="46" width="110" height="24" rx="8" class="h-btn h-on"/><text x="125" y="63" class="h-btxt">AC＝DF</text><rect x="10" y="82" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="99" class="h-btxt">斜辺と他の1辺がそれぞれ等しい</text></svg>',
       },
       {
+        title: '平行四辺形の証明（STAGE 9）',
+        text: '平行四辺形の根拠の行には、等しい辺・角や平行な辺（AD∥BC）を入れ、最後に「平行四辺形になるための条件」のカードを選ぼう。チャレンジでは、キーパッドの「辺⇔角⇔∥」で平行も入力できるよ（入力の種類は、その行に合わせて最初から設定されているよ）。',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="80" height="24" rx="8" class="h-btn"/><text x="50" y="27" class="h-btxt">仮定より</text><rect x="100" y="10" width="90" height="24" rx="8" class="h-btn h-on"/><text x="145" y="27" class="h-btxt">AD∥BC</text><rect x="100" y="44" width="90" height="24" rx="8" class="h-btn h-on"/><text x="145" y="61" class="h-btxt">AD＝BC</text><rect x="10" y="82" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="99" class="h-btxt">1組の対辺が平行で、その長さが等しい</text></svg>',
+      },
+      {
         title: '証明を完成させよう！',
         text: 'すべて埋めたら「答え合わせ」！ まちがえた所は赤くなるので、そこだけ直してもう一度。★はレベルごとに記録されるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="104" rx="8" class="h-paper"/><line x1="45" y1="30" x2="150" y2="30" class="h-rule"/><line x1="45" y1="48" x2="135" y2="48" class="h-rule"/><line x1="45" y1="66" x2="145" y2="66" class="h-rule"/><text x="100" y="98" class="h-star">★★★</text></svg>',
@@ -314,7 +323,7 @@
       },
       {
         title: '2つのコースから選ぼう',
-        text: '「基本の合同証明」は、3つの合同条件と、仮定・共通な辺や角・対頂角・平行線の角・合同な図形の性質の問題。「総合証明」は、二等辺三角形・正三角形・三段論法・直角三角形など、いろいろな証明の問題も出るよ。段位はコースごとに別々に認定されるよ。',
+        text: '「基本の合同証明」は、3つの合同条件と、仮定・共通な辺や角・対頂角・平行線の角・合同な図形の性質の問題。「総合証明」は、二等辺三角形・正三角形・三段論法・直角三角形・平行四辺形など、いろいろな証明の問題も出るよ。段位はコースごとに別々に認定されるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="20" width="85" height="80" rx="10" class="h-btn h-on"/><text x="52" y="55" class="h-btxt">基本の</text><text x="52" y="75" class="h-btxt">合同証明</text><rect x="105" y="20" width="85" height="80" rx="10" class="h-btn"/><text x="147" y="55" class="h-btxt">総合</text><text x="147" y="75" class="h-btxt">証明</text></svg>',
       },
       {

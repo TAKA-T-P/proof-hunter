@@ -8,6 +8,8 @@ require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
 require('../js/right-triangle.js');
+require('../js/quadrilateral.js');
+require('../js/parallelogram-rules.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -16,6 +18,8 @@ require('../js/storage.js');
 require('../js/game.js');
 
 const PH = globalThis.PH;
+// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => p.stage <= 8);
 const geo = PH.geometry;
 const val = PH.validation;
 const k = (p, name) => geo.elementKey(p.figure, name);
@@ -37,23 +41,23 @@ test('全問題のデータ検証（図の数値チェック・ID重複・ステ
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
 });
 
-test('30問・8ステージ（STAGE 1〜5は各3問、STAGE 6 は5問、STAGE 7 は4問、Ver.0.8 の STAGE 8 は6問）', () => {
-  assert.equal(PH.problems.length, 30);
-  assert.equal(PH.STAGES.length, 8);
-  const size = { 6: 5, 7: 4, 8: 6 };
+test('36問・9ステージ（STAGE 1〜5は各3問、STAGE 6 は5問、STAGE 7 は4問、STAGE 8・Ver.0.9 の STAGE 9 は6問）', () => {
+  assert.equal(PH.problems.length, 36);
+  assert.equal(PH.STAGES.length, 9);
+  const size = { 6: 5, 7: 4, 8: 6, 9: 6 };
   PH.STAGES.forEach((st) => assert.equal(PH.stageProblems(st.id).length, size[st.id] || 3, 'STAGE ' + st.id));
   ['p01', 'p02', 'p03'].forEach((id) => assert.ok(PH.getProblem(id), id + ' が残っている'));
 });
 
 test('3つの合同条件がバランスよく出題される（Ver.0.8 の直角三角形の合同条件も2問以上ずつ）', () => {
   const count = { SSS: 0, SAS: 0, ASA: 0, RHA: 0, RHS: 0 };
-  PH.problems.forEach((p) => count[p.congruence]++);
+  TRI.forEach((p) => count[p.congruence]++);
   ['SSS', 'SAS', 'ASA'].forEach((c) => assert.ok(count[c] >= 3, c + ': ' + count[c]));
   ['RHA', 'RHS'].forEach((c) => assert.ok(count[c] >= 2, c + ': ' + count[c]));
 });
 
 test('問題はステージ順に並び、ステージ内の次の問題をたどれる', () => {
-  const stages = PH.problems.map((p) => p.stage);
+  const stages = TRI.map((p) => p.stage);
   assert.deepEqual(stages, stages.slice().sort((a, b) => a - b));
   const s1 = PH.stageProblems(1).map((p) => p.id);
   assert.deepEqual(s1, ['p01', 'p04', 'p06']);
@@ -63,7 +67,7 @@ test('問題はステージ順に並び、ステージ内の次の問題をた�
 // 三角形の合同が結論の問題（p01〜p15）。結論が辺・角の等しさの問題（STAGE 6）は v05.test.js で同じ内容を確かめる
 
 // 直角三角形の問題（STAGE 8）は根拠の欄（直角・斜辺・他の1辺）があるので、v08.test.js で同じ内容を確かめる
-PH.problems.filter((p) => !PH.hasFinalStep(p) && !PH.isRightProblem(p)).forEach((p) => {
+TRI.filter((p) => !PH.hasFinalStep(p) && !PH.isRightProblem(p)).forEach((p) => {
   test(p.id + ': 根拠を逆の順番で登録しても証明が完成し、合同条件を誤るとクリアにならない', () => {
     const g = new PH.Game(p);
     p.evidence.slice().reverse().forEach((ev) => {
@@ -120,7 +124,7 @@ PH.problems.filter((p) => !PH.hasFinalStep(p) && !PH.isRightProblem(p)).forEach(
 });
 
 test('結論から導かれる関係はどの問題でも根拠にできない', () => {
-  PH.problems.forEach((p) => {
+  TRI.forEach((p) => {
     const evEq = p.evidence.map((e) => val.equationKey(k(p, e.items[0]), k(p, e.items[1])));
     const exEq = (p.extraTruths || []).map((x) => val.equationKey(k(p, x.items[0]), k(p, x.items[1])));
     val.correspondingParts(p).forEach((part) => {
@@ -163,7 +167,7 @@ function inSector(V, P1, P2, R, Q) {
 }
 
 test('どの問題でも、角の操作領域どうしが重ならない（角選択・印つけの両方）', () => {
-  PH.problems.forEach((p) => {
+  TRI.forEach((p) => {
     const els = geo.getElements(p.figure);
     [true, false].forEach((angleOnly) => {
       const sectors = els.angles.map((a) => ({ a, R: geo.angleHitRadius(p.figure, a, angleOnly) }));

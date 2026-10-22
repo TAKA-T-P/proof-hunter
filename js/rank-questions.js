@@ -12,7 +12,7 @@
  *     input:  { keypad: { kinds, fixedLeft?, triangle? }, check(value), answerText } | null,  … 記号入力（数学キーパッド）
  *     answerText, explain }
  *   category（出題のバランス用）：eq 等しい辺・角 / reason 理由 / cond 合同条件 / corr 三角形の対応 / final 合同からの結論
- *     / theorem 定理・三段論法（Ver.0.7）/ right 直角三角形（Ver.0.8）
+ *     / theorem 定理・三段論法（Ver.0.7）/ right 直角三角形（Ver.0.8）/ para 平行四辺形（Ver.0.9。総合証明だけ）
  *   requiredTopics（Ver.0.8）：解くのに必要な学習テーマ。元の問題から作るミニ問題は元の問題の topics（js/rank-tracks.js）、
  *     定理の確認問題のテンプレートはテンプレートに書いた topics。段位認定のコース（基本・総合）は、これで出題範囲を決める。
  */
@@ -22,8 +22,8 @@
   function V() { return PH.validation; }
   function G() { return PH.geometry; }
 
-  const CATEGORIES = ['eq', 'reason', 'cond', 'corr', 'final', 'theorem', 'right'];
-  const CATEGORY_LABEL = { eq: '等しい辺・角', reason: '等しい理由', cond: '合同条件', corr: '三角形の対応', final: '合同からの結論', theorem: '定理・三段論法', right: '直角三角形' };
+  const CATEGORIES = ['eq', 'reason', 'cond', 'corr', 'final', 'theorem', 'right', 'para'];
+  const CATEGORY_LABEL = { eq: '等しい辺・角', reason: '等しい理由', cond: '合同条件', corr: '三角形の対応', final: '合同からの結論', theorem: '定理・三段論法', right: '直角三角形', para: '平行四辺形' };
 
   // 理由ごとの解説（振り返り用）
   const REASON_EXPLAIN = {
@@ -40,6 +40,12 @@
     squareSides: '正方形の4辺はすべて等しくなります。',
     perpendicular: '垂直な2直線がつくる角は90°です。',
     squareAngle: '正方形の4つの角はすべて90°です。',
+    parallelogramSides: '平行四辺形の対辺は等しくなります（平行四辺形だと分かっているときだけ使えます）。',
+    parallelogramParallel: '平行四辺形の対辺は平行です（定義）。',
+    parallelogramAngles: '平行四辺形の対角は等しくなります。',
+    parallelogramDiagonals: '平行四辺形の対角線は、それぞれの中点で交わります。',
+    alternateConverse: '錯角が等しいならば、2直線は平行です。',
+    correspondingConverse: '同位角が等しいならば、2直線は平行です。',
   };
   // 理由の誤答の候補（もっともらしい順）
   const REASON_POOL = ['given', 'common', 'vertical', 'alternate', 'corresponding', 'commonAngle'];
@@ -200,6 +206,8 @@
     return {
       id: p.id + '-cond', sourceId: p.id, category: 'cond', type: 'condition', typeLabel: '合同条件',
       difficulty: 2, blanks: 1, figure: p.id, highlight: [],
+      // 図には、仮定で与えられた等しい辺・角だけ印をつける（共通な辺・対頂角など、仮定以外の根拠には印をつけない）
+      marks: givenMarks(p),
       lines: ['仮定：' + p.given.join('、'), '結論：' + cong],
       ask: cong + ' を証明するとき、使える合同条件は？',
       choice: { blanks: [choiceBlank('合同条件', PH.CONDITIONS[cond].label, wrong)] }, input: null,
@@ -207,6 +215,37 @@
       explain: p.evidence.map(function (ev) { return PH.evidenceText(ev); }).join('、') + ' から。' + lastHint(p, 'congruence'),
       signature: cong + '|cond|' + p.given.join(','),
     };
+  }
+
+  /*
+   * 仮定で与えられた等しい辺・角の印（要素キー → 印）。
+   *   仮定の文（「AB＝AC」「∠POQ＝∠POR」「∠ABC＝∠DEF＝90°」）と、理由が「仮定より」の根拠（「Mは辺BCの中点」→ BM＝CM など）。
+   *   共通な辺・対頂角・錯角など、仮定以外から言える関係には印をつけない。印の本数は等式ごとに 1、2、3…（辺と角で別々）
+   */
+  function givenMarks(p) {
+    const out = {};
+    const used = {};
+    const count = { seg: 0, ang: 0 };
+    function add(items, right) {
+      let keys;
+      try { keys = items.map(function (n) { return key(p, n); }); } catch (e) { return; }
+      const eq = keys.slice().sort().join('=');
+      if (used[eq] || keys.some(function (k) { return out[k] != null; })) return;
+      used[eq] = true;
+      const kind = keys[0].slice(0, 3);
+      const mark = right ? 'right' : ++count[kind];
+      keys.forEach(function (k) { out[k] = mark; });
+    }
+    (p.given || []).forEach(function (g) {
+      const text = String(g);
+      const right = /＝90°$/.test(text);
+      const items = text.replace(/＝90°$/, '').split('＝');
+      if (items.length < 2) return;
+      const ok = items.every(function (n) { return /^∠[A-Z]{3}$/.test(n); }) || items.every(function (n) { return /^[A-Z]{2}$/.test(n); });
+      if (ok && (right || items.length === 2)) add(items, right);
+    });
+    p.evidence.forEach(function (ev) { if (ev.reason === 'given') add(ev.items, ev.role === 'right'); });
+    return out;
   }
 
   // 合同の式ごとの問題（同じ合同は1回だけ作る）
@@ -269,7 +308,7 @@
       id: p.id + '-tri', sourceId: p.id, category: 'corr', type: 'triangle', typeLabel: '証明する三角形',
       difficulty: 3, blanks: 1, figure: p.id, highlight: [],
       lines: ['仮定：' + p.given.join('、')],
-      ask: p.conclusion + ' を証明するために合同を示す2つの三角形を、頂点の対応順に答えよう。',
+      ask: (PH.isQuadProblem(p) ? p.finalStep.label : p.conclusion) + ' を証明するために合同を示す2つの三角形を、頂点の対応順に答えよう。',
       choice: wrong.length === 2 ? { blanks: [choiceBlank('三角形', correct, wrong)] } : null,
       input: {
         keypad: { triangle: true },
@@ -513,6 +552,226 @@
     ];
   }
 
+  // ---- Ver.0.9：平行四辺形（総合証明だけ。カテゴリ「平行四辺形」） ------------------------------------
+
+  const PPC = function () { return PH.PARALLELOGRAM_CONDITIONS; };
+  // 成立条件の誤答の候補（取りちがえやすい順）
+  const PP_CONFUSE = {
+    PP_PARALLEL_PAIRS: ['PP_PARALLEL_EQUAL_PAIR', 'PP_EQUAL_SIDES'],
+    PP_EQUAL_SIDES: ['PP_PARALLEL_EQUAL_PAIR', 'PP_EQUAL_ANGLES'],
+    PP_EQUAL_ANGLES: ['PP_EQUAL_SIDES', 'PP_BISECT_DIAGONALS'],
+    PP_BISECT_DIAGONALS: ['PP_EQUAL_SIDES', 'PP_PARALLEL_PAIRS'],
+    PP_PARALLEL_EQUAL_PAIR: ['PP_PARALLEL_PAIRS', 'PP_EQUAL_SIDES'],
+  };
+
+  // 平行四辺形の根拠の印（等しい辺・角の印と、平行の矢印）
+  function quadMarks(p, evs) {
+    const marks = {};
+    const par = [];
+    evs.forEach(function (ev) {
+      if (ev.rel === 'parallel') ev.items.forEach(function (s) { par.push([s[0], s[1], ev.mark || 1]); });
+      else ev.items.forEach(function (n) { marks[key(p, n)] = ev.mark; });
+    });
+    return { marks: marks, parallelMarks: par };
+  }
+
+  /*
+   * 平行四辺形の問題から作るミニ問題
+   *   タイプA：根拠（2つの関係）から、使える成立条件を答える（図に根拠の印）
+   *   タイプB：対角線の条件（成立条件が④の問題）「…のとき、どんな四角形？」
+   *   等しい（平行な）理由：平行を導く理由（錯角が等しいから）・仮定の平行四辺形の性質
+   *   平行の推論：合同から導いた錯角の等しさから、平行な2辺を答える（記号入力 AD∥BC）
+   */
+  function parallelogramQuestions(p) {
+    const out = [];
+    const PG = PH.parallelogram;
+    if (!PG || !PH.isQuadProblem(p)) return out;
+    const pz = p.parallelogram;
+    const qname = PH.quadrilateral.name(p.targetQuadrilateral);
+    const evs = pz.evidence;
+    const labels = evs.map(function (ev) { return ev.label; }).join('、');
+    const m = quadMarks(p, evs);
+    const cond = pz.condition;
+    const wrong = PP_CONFUSE[cond].filter(function (c) { return (pz.alternatives || []).indexOf(c) < 0; });
+    if (wrong.length < 2) wrong.push(Object.keys(PPC()).find(function (c) { return c !== cond && wrong.indexOf(c) < 0 && (pz.alternatives || []).indexOf(c) < 0; }));
+    out.push({
+      id: p.id + '-ppc', sourceId: p.id, category: 'para', type: 'ppCondition', typeLabel: '平行四辺形になるための条件',
+      difficulty: 2, blanks: 1, figure: p.id, highlight: [], marks: m.marks, parallelMarks: m.parallelMarks,
+      lines: [qname + 'で、' + labels + 'が分かった。'], ask: qname + 'が平行四辺形であることを示すのに使える条件は？',
+      choice: { blanks: [choiceBlank('成立条件', PPC()[cond].label, wrong.slice(0, 2).map(function (c) { return PPC()[c].label; }))] }, input: null,
+      answerText: PPC()[cond].label,
+      explain: labels + ' は、' + PPC()[cond].label + 'ことを表しています。',
+      signature: 'ppc|' + p.id,
+    });
+    if (cond === 'PP_BISECT_DIAGONALS') {
+      const O = PH.quadrilateral.diagonalPoint(p.figure, p.targetQuadrilateral);
+      const d = PH.quadrilateral.diagonals(p.targetQuadrilateral);
+      out.push({
+        id: p.id + '-ppd', sourceId: p.id, category: 'para', type: 'ppDiagonal', typeLabel: '対角線の条件',
+        difficulty: 1, blanks: 1, figure: p.id, highlight: [], marks: m.marks, parallelMarks: m.parallelMarks,
+        lines: [qname + 'の対角線' + d[0] + 'と' + d[1] + 'が' + O + 'で交わる。' + labels + 'のとき'], ask: qname + 'は必ずどんな四角形といえる？',
+        choice: { blanks: [choiceBlank('四角形', '平行四辺形', ['ひし形', '長方形'])] }, input: null,
+        answerText: '平行四辺形', explain: '対角線がそれぞれの中点で交わる四角形は平行四辺形です（ひし形・長方形になるとは限りません）。',
+        signature: 'ppd|' + p.id,
+      });
+    }
+    evs.forEach(function (ev) {
+      if (ev.reason === 'given' || ev.fromStep) return;
+      const rr = PH.REASONS[ev.reason];
+      const wrongs = PG.CONVERSE_REASONS[ev.reason]
+        ? ['平行線の錯角は等しいから', '平行四辺形の対辺は平行だから']
+        : ['平行四辺形の対辺は等しいから', '仮定より'];
+      out.push({
+        id: p.id + '-ppr-' + ev.id, sourceId: p.id, category: 'para', type: 'ppReason', typeLabel: ev.rel === 'parallel' ? '平行といえる理由' : '等しい理由',
+        difficulty: 2, blanks: 1, figure: p.id, highlight: ev.items.map(function (n) { return key(p, n); }),
+        lines: ['仮定：' + p.given.join('、')].concat(ev.via && p.finalStep ? [p.finalStep.label + ' が証明できた。'] : []),
+        ask: ev.label + ' と言える理由は？',
+        choice: { blanks: [choiceBlank('理由', rr.proof, wrongs)] }, input: null,
+        answerText: rr.proof,
+        explain: PG.CONVERSE_REASONS[ev.reason]
+          ? ev.via.join('と') + ' は、直線' + ev.items.join('と直線') + 'がつくる' + (ev.reason === 'alternateConverse' ? '錯角' : '同位角') + 'です。それが等しいので、2直線は平行です（平行線の性質の逆）。'
+          : '仮定で平行四辺形と分かっている四角形の性質です。',
+        signature: 'ppr|' + p.id + '|' + ev.id,
+      });
+      if (ev.via) {
+        // 平行の推論：等しい錯角から、平行な2辺を答える（記号入力は AD∥BC）
+        const want = PG.factKey(p.figure, ev.items, 'parallel');
+        out.push({
+          id: p.id + '-ppv-' + ev.id, sourceId: p.id, category: 'para', type: 'ppConverse', typeLabel: '平行を導く',
+          difficulty: 2, blanks: 1, figure: p.id, highlight: ev.via.map(function (n) { return key(p, n); }),
+          lines: [ev.via.join('＝') + '（' + (ev.reason === 'alternateConverse' ? '錯角' : '同位角') + '）が証明できた。'], ask: 'このことから言える、平行な2つの辺は？',
+          choice: { blanks: [choiceBlank('平行な辺', ev.label, [ev.items[0] + '∥' + otherSide(p, ev.items), ev.items[0] + '＝' + ev.items[1]])] },
+          input: {
+            keypad: { kinds: ['par'] },
+            check: function (value) {
+              const v = PH.mathKeypad.parse(value);
+              return !!v && v.kind === 'par' && PG.factKey(p.figure, [v.left, v.right], 'parallel') === want;
+            },
+            answerText: ev.label,
+          },
+          answerText: ev.label, explain: '錯角（同位角）が等しいならば、2直線は平行です。' + ev.via.join('と') + ' は直線' + ev.items.join('と直線') + 'がつくる角です。',
+          signature: 'ppv|' + p.id + '|' + ev.id,
+          requiredTopics: ['parallelConverse', 'parallelogramConditions'],
+        });
+      }
+    });
+    return out;
+  }
+
+  // 平行の誤答：同じ四角形の、もう1組の対辺のうち items[1] でない方（AD∥BC → AD∥AB のような隣の辺）
+  function otherSide(p, items) {
+    const sides = PH.quadrilateral.sides(p.targetQuadrilateral);
+    const norm = function (s) { return s.split('').sort().join(''); };
+    return sides.find(function (s) { return norm(s) !== norm(items[0]) && norm(s) !== norm(items[1]) && s.indexOf(items[0][0]) >= 0; }) || sides[0];
+  }
+
+  /*
+   * 平行四辺形のルールのミニ問題（図を使うものは p31・p33 の四角形ABCDの図）
+   *   タイプA：成立条件から、どんな四角形か（5つ）
+   *   タイプC：1組の対辺 「AB∥DC に加えて、どの条件があれば平行四辺形？」（記号入力 AB＝DC）／「AB＝DC に加えて？」（AB∥DC）
+   *   タイプD：平行四辺形の性質 「ABと長さが等しい辺は？」「∠DABと等しい角は？」「AOと等しいのは？」「ADと平行な辺は？」
+   *   タイプE：成立条件の正誤（教材の練習プリントの5つ。成り立つかは deriveParallelogramCondition で判定）
+   *   性質と条件の区別
+   */
+  function parallelogramTemplates() {
+    const out = [];
+    const PG = PH.parallelogram;
+    const p31 = PH.getProblem('p31'), p33 = PH.getProblem('p33');
+    if (!PG || !p31 || !p33) return out;
+    const C = PPC();
+    const t = function (o) {
+      return Object.assign({ category: 'para', difficulty: 1, blanks: 1, figure: null, highlight: [], lines: [], input: null }, o);
+    };
+    const shapes = ['平行四辺形', 'ひし形', '長方形'];
+    PH.PARALLELOGRAM_CONDITION_ORDER.forEach(function (c) {
+      out.push(t({
+        id: 'rule-pp-' + c, sourceId: null, type: 'ppKind', typeLabel: '平行四辺形になるための条件',
+        lines: [C[c].label + (c === 'PP_PARALLEL_PAIRS' ? 'な' : '') + '四角形'], ask: 'この四角形は、必ず何といえる？',
+        choice: { blanks: [choiceBlank('四角形', shapes[0], shapes.slice(1))] },
+        answerText: '平行四辺形', explain: '「' + C[c].label + '」は、平行四辺形になるための条件の1つです（ひし形・長方形になるとは限りません）。',
+        signature: 'rule|pp|' + c, requiredTopics: c === 'PP_BISECT_DIAGONALS' ? ['parallelogramConditions', 'diagonalBisector'] : ['parallelogramConditions'],
+      }));
+    });
+    // タイプC：1組の対辺（平行のあとに等しさ／等しさのあとに平行）
+    const eqCheck = function (p, items, rel) {
+      const want = PG.factKey(p.figure, items, rel);
+      return function (value) {
+        const v = PH.mathKeypad.parse(value);
+        if (!v || v.kind === 'tri') return false;
+        const r = v.kind === 'par' ? 'parallel' : 'eq';
+        const pre = v.kind === 'ang' ? '∠' : '';
+        return PG.factKey(p.figure, [pre + v.left, pre + v.right], r) === want;
+      };
+    };
+    [['AB', 'DC', 'AD', 'BC'], ['AD', 'BC', 'AB', 'DC']].forEach(function (s) {
+      out.push(t({
+        id: 'rule-pp-need-eq-' + s[0], sourceId: 'p31', type: 'ppNeed', typeLabel: '1組の対辺', difficulty: 2, figure: 'p31',
+        lines: ['四角形ABCDで、' + s[0] + '∥' + s[1] + '。'], ask: 'これに加えて、どの条件があれば平行四辺形といえる？',
+        choice: { blanks: [choiceBlank('条件', s[0] + '＝' + s[1], [s[2] + '＝' + s[3], 'AC＝BD'])] },
+        input: { keypad: { kinds: ['seg', 'par'] }, check: eqCheck(p31, [s[0], s[1]], 'eq'), answerText: s[0] + '＝' + s[1] },
+        answerText: s[0] + '＝' + s[1], explain: '平行な1組の対辺 ' + s[0] + '、' + s[1] + ' の長さが等しければ、「' + C.PP_PARALLEL_EQUAL_PAIR.label + '」が使えます。' + s[2] + '＝' + s[3] + ' では、平行な辺と等しい辺が別の組になるので、平行四辺形とはいえません（等脚台形の場合があります）。',
+        signature: 'rule|pp-need-eq|' + s[0], requiredTopics: ['parallelogramConditions'],
+      }));
+    });
+    out.push(t({
+      id: 'rule-pp-need-par', sourceId: 'p31', type: 'ppNeed', typeLabel: '1組の対辺', difficulty: 2, figure: 'p31',
+      lines: ['四角形ABCDで、AB＝DC。'], ask: '「1組の対辺が平行で、その長さが等しい」を使うには、あと何が必要？',
+      choice: { blanks: [choiceBlank('必要なこと', 'AB∥DC', ['AD∥BC', 'AD＝BC'])] },
+      input: { keypad: { kinds: ['par', 'seg'] }, check: eqCheck(p31, ['AB', 'DC'], 'parallel'), answerText: 'AB∥DC' },
+      answerText: 'AB∥DC', explain: '長さの等しい対辺 AB、DC が平行であることが必要です（同じ1組の対辺）。',
+      signature: 'rule|pp-need-par', requiredTopics: ['parallelogramConditions'],
+    }));
+    // タイプD：平行四辺形の性質
+    [
+      { id: 'side', ask: 'ABと長さが等しい辺は？', left: 'AB', ans: 'CD', wrong: ['BC', 'AD'], rel: 'eq', p: p31, fig: 'p31' },
+      { id: 'angle', ask: '∠DABと大きさが等しい角は？', left: '∠DAB', ans: '∠BCD', wrong: ['∠ABC', '∠CDA'], rel: 'eq', p: p31, fig: 'p31' },
+      { id: 'diag', ask: '対角線の交点をOとするとき、AOと長さが等しいのは？', left: 'AO', ans: 'CO', wrong: ['BO', 'DO'], rel: 'eq', p: p33, fig: 'p33', topics: ['parallelogramProperties', 'diagonalBisector'] },
+      { id: 'par', ask: 'ADと平行な辺は？', left: 'AD', ans: 'BC', wrong: ['AB', 'CD'], rel: 'parallel', p: p31, fig: 'p31' },
+    ].forEach(function (d) {
+      const sep = d.rel === 'parallel' ? '∥' : '＝';
+      out.push(t({
+        id: 'rule-ppp-' + d.id, sourceId: d.fig, type: 'ppProperty', typeLabel: '平行四辺形の性質', figure: d.fig,
+        lines: ['四角形ABCDは平行四辺形。'], ask: d.ask,
+        choice: { blanks: [choiceBlank(d.left + sep, d.ans, d.wrong)] },
+        input: d.rel === 'eq' ? { keypad: { fixedLeft: d.left }, check: eqCheck(d.p, [d.left, d.ans], 'eq'), answerText: d.left + '＝' + d.ans } : null,
+        answerText: d.left + sep + d.ans,
+        explain: { side: '平行四辺形の対辺は等しい（AB＝CD、AD＝BC）。', angle: '平行四辺形の対角は等しい（∠A＝∠C、∠B＝∠D）。',
+          diag: '平行四辺形の対角線はそれぞれの中点で交わる（AO＝CO、BO＝DO）。', par: '平行四辺形の対辺は平行（AB∥DC、AD∥BC）。' }[d.id],
+        signature: 'rule|ppp|' + d.id, requiredTopics: d.topics || ['parallelogramProperties'],
+      }));
+    });
+    // タイプE：成立条件の正誤（教材「証明練習プリント」平行四辺形④）
+    const fig = p31.figure;
+    [
+      ['AD＝BC', 'AB∥DC'], ['AD＝BC', 'AD∥BC'], ['∠DAB＝∠BCD', '∠ABC＝∠CDA'], ['AB＝AD', 'CB＝CD'], ['AB＝DC', 'AD＝BC'],
+    ].forEach(function (pair, i) {
+      const facts = pair.map(function (s) { return PG.parseFact(s); });
+      const r = PG.deriveParallelogramCondition({ figure: fig, vertices: ['A', 'B', 'C', 'D'] }, facts);
+      const no = 'いえない';
+      const yes = function (c) { return 'いえる（' + C[c].label + '）'; };
+      const answer = r ? yes(r.condition) : no;
+      const wrong = r ? [no, yes(PP_CONFUSE[r.condition][0])] : [yes('PP_PARALLEL_EQUAL_PAIR'), yes('PP_EQUAL_SIDES')];
+      out.push(t({
+        id: 'rule-pp-tf' + (i + 1), sourceId: null, type: 'ppTruth', typeLabel: '成立条件の正誤', difficulty: 2,
+        lines: ['四角形ABCDで、' + pair.join('、') + '。'], ask: '必ず平行四辺形といえる？',
+        choice: { blanks: [choiceBlank('答え', answer, wrong)] },
+        answerText: answer,
+        explain: r ? '「' + C[r.condition].label + '」から平行四辺形といえます。'
+          : '成立条件にあてはまらないので、必ず平行四辺形とはいえません。' + (i === 0 ? '平行な辺（AB、DC）と等しい辺（AD、BC）が別の組の対辺です（等脚台形の場合がある）。' : '隣り合う辺が等しいだけです（たこ形の場合がある）。'),
+        signature: 'rule|pp-tf|' + i, requiredTopics: ['parallelogramConditions'],
+      }));
+    });
+    out.push(t({
+      id: 'rule-pp-prop-cond', sourceId: null, type: 'ppDistinguish', typeLabel: '性質と条件', difficulty: 2,
+      lines: ['「平行四辺形ならば、2組の対辺はそれぞれ等しい」'], ask: 'これは、どちらを表している？',
+      choice: { blanks: [choiceBlank('答え', '平行四辺形の性質', ['平行四辺形になるための条件', '平行四辺形の定義'])] },
+      answerText: '平行四辺形の性質',
+      explain: '「平行四辺形ならば〜」は性質（平行四辺形だと分かってから使える）。「2組の対辺がそれぞれ等しい四角形は平行四辺形」は、平行四辺形になるための条件です。',
+      signature: 'rule|pp-prop-cond', requiredTopics: ['parallelogramProperties', 'parallelogramConditions'],
+    }));
+    return out;
+  }
+
   // ---- 生成 ------------------------------------------------------------------
 
   /*
@@ -533,21 +792,26 @@
     }
     (problems || PH.problems).forEach(function (p) {
       src = p;
-      p.evidence.forEach(function (ev) {
-        add(equationQuestion(p, ev));
-        add(reasonQuestion(p, ev));
-      });
-      add(conditionQuestion(p));
-      congruenceQuestions(p).forEach(add);
-      if (PH.hasFinalStep(p)) {
-        add(triangleQuestion(p));
-        add(finalReasonQuestion(p));
+      // 三角形の合同の部分（平行四辺形だけの問題にはない）
+      if (PH.hasCongruence(p)) {
+        p.evidence.forEach(function (ev) {
+          add(equationQuestion(p, ev));
+          add(reasonQuestion(p, ev));
+        });
+        add(conditionQuestion(p));
+        congruenceQuestions(p).forEach(add);
+        if (PH.hasFinalStep(p)) {
+          add(triangleQuestion(p));
+          add(finalReasonQuestion(p));
+        }
       }
       theoremQuestions(p).forEach(add);
       rightQuestions(p).forEach(add);
+      parallelogramQuestions(p).forEach(add);
     });
     src = null;
     if ((problems || PH.problems).some(function (p) { return PH.isRightProblem(p); })) rightTemplates().forEach(add);
+    if ((problems || PH.problems).some(function (p) { return PH.isQuadProblem(p); })) parallelogramTemplates().forEach(add);
     return list;
   }
 

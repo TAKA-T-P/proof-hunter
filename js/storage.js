@@ -24,6 +24,7 @@
  *     }
  *     <コースの記録> = {
  *       criteriaVersion,                       // いまの最高記録の認定基準のバージョン
+ *       questionPoolVersion,                   // Ver.0.9：最後に挑戦したときの出題範囲のバージョン（基準は変わらないので記録は引き継ぐ）
  *       best: { rank, rankName, effectiveScore, correct, maxCombo, at } | null,   // 同じ基準での最高記録（null は未認定）
  *       bestCorrect, bestEffectiveScore, bestCombo,
  *       playCount,                             // 挑戦回数（最後まで終えた回数）
@@ -97,7 +98,7 @@
 
   function blankRank() {
     return {
-      criteriaVersion: null, best: null, bestCorrect: 0, bestEffectiveScore: 0, bestCombo: 0,
+      criteriaVersion: null, questionPoolVersion: null, best: null, bestCorrect: 0, bestEffectiveScore: 0, bestCombo: 0,
       playCount: 0, lastResult: null, lastReview: [], previous: [],
     };
   }
@@ -109,6 +110,7 @@
     const out = blankRank();
     if (!isObj(r)) return out;
     out.criteriaVersion = typeof r.criteriaVersion === 'number' ? r.criteriaVersion : null;
+    out.questionPoolVersion = typeof r.questionPoolVersion === 'number' ? r.questionPoolVersion : null;
     if (isObj(r.best) && typeof r.best.rank === 'number') {
       out.best = {
         rank: r.best.rank, rankName: String(r.best.rankName || ''), effectiveScore: num(r.best.effectiveScore, 0),
@@ -336,6 +338,7 @@
       r.best = null; r.bestCorrect = 0; r.bestEffectiveScore = 0; r.bestCombo = 0;
     }
     r.criteriaVersion = ver;
+    if (typeof result.questionPoolVersion === 'number') r.questionPoolVersion = result.questionPoolVersion;
     const at = new Date().toISOString();
     const prevBest = r.best;
     const newRecord = !prevBest || result.rank > prevBest.rank ||
@@ -357,7 +360,8 @@
     r.lastResult = {
       correct: result.correct, misses: result.misses, passes: result.passes, answered: result.answered,
       effectiveScore: result.effectiveScore, rank: result.rank, rankName: result.rankName, maxCombo: result.maxCombo,
-      criteriaVersion: ver, completedAt: at, newRecord: out.newRecord,
+      criteriaVersion: ver, questionPoolVersion: typeof result.questionPoolVersion === 'number' ? result.questionPoolVersion : null,
+      completedAt: at, newRecord: out.newRecord,
     };
     r.lastReview = (result.wrongs || []).slice(0, 40);
     save();

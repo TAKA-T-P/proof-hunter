@@ -8,6 +8,8 @@ require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
 require('../js/right-triangle.js');
+require('../js/quadrilateral.js');
+require('../js/parallelogram-rules.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -18,6 +20,8 @@ require('../js/math-keypad.js');
 require('../js/puzzle.js');
 
 const PH = globalThis.PH;
+// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => p.stage <= 8);
 const val = PH.validation;
 const geo = PH.geometry;
 const KP = PH.mathKeypad;
@@ -50,7 +54,7 @@ test('3つの解答レベルが定義され、表示名・説明・形式が正�
 
 // 多段階証明（STAGE 7。proofSteps あり）は根拠の行の数がちがうので、v07.test.js で同じ内容を確かめる
 // 直角三角形の問題（STAGE 8）は根拠の行の役割（直角・斜辺・他の1辺）が決まっているので、v08.test.js で確かめる
-const SINGLE = PH.problems.filter((p) => !p.proofSteps && !PH.isRightProblem(p));
+const SINGLE = TRI.filter((p) => !p.proofSteps && !PH.isRightProblem(p));
 // 全問題（多段階証明をのぞく）× 3レベル：正しい証明でクリア・根拠の順番の入れかえ・合同条件の誤り
 SINGLE.forEach((p) => {
   Object.keys(TYPES).forEach((level) => {
@@ -77,7 +81,7 @@ SINGLE.forEach((p) => {
 });
 
 test('どのレベルでも、根拠にならない等式ではクリアできない', () => {
-  PH.problems.filter((p) => !PH.isRightProblem(p)).forEach((p) => {
+  TRI.filter((p) => !PH.isRightProblem(p)).forEach((p) => {
     // 図の上の辺の組から、根拠でない（まちがいの）等式を1つ探す
     const segs = geo.getElements(p.figure).segments;
     let wrong = null;
@@ -106,7 +110,7 @@ test('どのレベルでも、根拠にならない等式ではクリアでき�
 });
 
 test('チャレンジでは等式カードを表示しない（理由・合同条件はカード）', () => {
-  PH.problems.filter((p) => !PH.isRightProblem(p)).forEach((p) => {
+  TRI.filter((p) => !PH.isRightProblem(p)).forEach((p) => {
     const z = new PH.Puzzle(p, 'challenge');
     assert.equal(z.cards.eq.length, 0);
     assert.ok(z.cards.reason.length >= 3);
@@ -504,7 +508,7 @@ test('LocalStorage が使えない環境でも解答レベル・記録が動く'
 });
 
 test('全問題の根拠（evidence の書き方）は、どれも頂点の対応順が合っている', () => {
-  PH.problems.forEach((p) => {
+  TRI.forEach((p) => {
     p.evidence.forEach((ev) => {
       assert.equal(val.correspondenceOrder(p, ev.items), 'ok', p.id + ' ' + ev.label);
     });
