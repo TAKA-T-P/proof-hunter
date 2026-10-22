@@ -12,6 +12,9 @@
  *     input:  { keypad: { kinds, fixedLeft?, triangle? }, check(value), answerText } | null,  … 記号入力（数学キーパッド）
  *     answerText, explain }
  *   category（出題のバランス用）：eq 等しい辺・角 / reason 理由 / cond 合同条件 / corr 三角形の対応 / final 合同からの結論
+ *     / theorem 定理・三段論法（Ver.0.7）/ right 直角三角形（Ver.0.8）
+ *   requiredTopics（Ver.0.8）：解くのに必要な学習テーマ。元の問題から作るミニ問題は元の問題の topics（js/rank-tracks.js）、
+ *     定理の確認問題のテンプレートはテンプレートに書いた topics。段位認定のコース（基本・総合）は、これで出題範囲を決める。
  */
 (function (root) {
   'use strict';
@@ -19,8 +22,8 @@
   function V() { return PH.validation; }
   function G() { return PH.geometry; }
 
-  const CATEGORIES = ['eq', 'reason', 'cond', 'corr', 'final', 'theorem'];
-  const CATEGORY_LABEL = { eq: '等しい辺・角', reason: '等しい理由', cond: '合同条件', corr: '三角形の対応', final: '合同からの結論', theorem: '定理・三段論法' };
+  const CATEGORIES = ['eq', 'reason', 'cond', 'corr', 'final', 'theorem', 'right'];
+  const CATEGORY_LABEL = { eq: '等しい辺・角', reason: '等しい理由', cond: '合同条件', corr: '三角形の対応', final: '合同からの結論', theorem: '定理・三段論法', right: '直角三角形' };
 
   // 理由ごとの解説（振り返り用）
   const REASON_EXPLAIN = {
@@ -32,6 +35,11 @@
     corresponding: '平行線の同位角は等しくなります。',
     correspondingSides: '合同な図形では、対応する辺の長さは等しくなります。',
     correspondingAngles: '合同な図形では、対応する角の大きさは等しくなります。',
+    isoscelesBaseAngles: '二等辺三角形の底角は等しくなります。',
+    equilateralSides: '正三角形の3辺はすべて等しくなります。',
+    squareSides: '正方形の4辺はすべて等しくなります。',
+    perpendicular: '垂直な2直線がつくる角は90°です。',
+    squareAngle: '正方形の4つの角はすべて90°です。',
   };
   // 理由の誤答の候補（もっともらしい順）
   const REASON_POOL = ['given', 'common', 'vertical', 'alternate', 'corresponding', 'commonAngle'];
@@ -105,6 +113,7 @@
    */
   function equationQuestion(p, ev) {
     if (ev.fromStep) return null;          // 前のステップで導いた等式（理由は「③、④より」など）は、ここでは問わない
+    if (ev.role === 'right') return null;  // 直角の確認は、直角三角形の問題（rightQuestions）で問う
     const shown = { reason: ev.reason, text: reasonText(ev), specific: !!ev.proofReason };
     const accepted = p.evidence.filter(function (e) { return PH.puzzleUtil.reasonAccepts(shown, e); });
     const parts = triangleParts(p);
@@ -148,8 +157,11 @@
     const keys = ev.items.map(function (n) { return key(p, n); });
     const pref = p.reasons.concat(((p.puzzle && p.puzzle.distractors) || {}).reasons || [], REASON_POOL);
     const out = [];
+    // 仮定に書かれた性質（垂直・正方形）から言える等式では、「仮定より」も正しいと受け取れるので誤答にしない
+    const givenToo = ['perpendicular', 'squareAngle', 'squareSides'].indexOf(ev.reason) >= 0;
     pref.forEach(function (r) {
       if (out.indexOf(r) >= 0 || r === ev.reason || !PH.REASONS[r] || PH.REASONS[r].finalOnly || PH.REASONS[r].meta) return;
+      if (givenToo && r === 'given') return;
       const st = V().checkEvidence(p, keys, r, []).status;
       if (st === 'correct' || st === 'irrelevant') return;
       out.push(r);
@@ -166,7 +178,7 @@
       difficulty: ev.reason === 'given' || ev.reason === 'common' ? 1 : 2, blanks: 1, figure: p.id,
       highlight: ev.items.map(function (n) { return key(p, n); }),
       lines: givenLines(p),
-      ask: ev.label + ' が等しい理由は？',
+      ask: ev.role === 'right' ? PH.evidenceText(ev) + ' と言える理由は？' : ev.label + ' が等しい理由は？',
       choice: wrong.length === 2 ? { blanks: [choiceBlank('理由', reasonText(ev), wrong)] } : null,
       input: null,
       answerText: reasonText(ev),
@@ -179,7 +191,11 @@
   function conditionQuestion(p) {
     const cond = V().deriveCondition(p, p.evidence);
     const order = PH.CONDITION_ORDER.slice();
-    const wrong = order.filter(function (c) { return c !== cond; }).map(function (c) { return PH.CONDITIONS[c].label; });
+    let wrong = order.filter(function (c) { return c !== cond; }).map(function (c) { return PH.CONDITIONS[c].label; });
+    // 直角三角形の問題：3つの合同条件は、別の道すじで示せる場合もあるので誤答にしない（もう一方の直角三角形の条件と、合同条件ではない文）
+    if (PH.CONDITIONS[cond].right) {
+      wrong = [PH.CONDITIONS[cond === 'RHA' ? 'RHS' : 'RHA'].label, NOT_CONDITION];
+    }
     const cong = PH.congruenceText(p);
     return {
       id: p.id + '-cond', sourceId: p.id, category: 'cond', type: 'condition', typeLabel: '合同条件',
@@ -188,7 +204,7 @@
       ask: cong + ' を証明するとき、使える合同条件は？',
       choice: { blanks: [choiceBlank('合同条件', PH.CONDITIONS[cond].label, wrong)] }, input: null,
       answerText: PH.CONDITIONS[cond].label,
-      explain: p.evidence.map(function (ev) { return ev.label; }).join('、') + ' から。' + lastHint(p, 'congruence'),
+      explain: p.evidence.map(function (ev) { return PH.evidenceText(ev); }).join('、') + ' から。' + lastHint(p, 'congruence'),
       signature: cong + '|cond|' + p.given.join(','),
     };
   }
@@ -342,15 +358,19 @@
           });
         }
       } else if (st.type === 'expression') {
-        // 「△DCEは正三角形。∠ACE＝∠ACD＋∠DCE を、正三角形の角を使って表すと？」
+        // 「△DCEは正三角形。∠ACE＝∠ACD＋∠DCE を、角の大きさを使って表すと？」
+        //  誤答：定数角を取りちがえた式（60°⇔90°）と、符号を取りちがえた式
         const value = st.value;
-        const wrong = [value.replace('60°', '90°'), /＋/.test(value) ? value.replace('＋', '－') : value.replace('－', '＋')];
+        const swapped = /60°/.test(value) ? value.replace('60°', '90°') : value.replace('90°', '60°');
+        const flipped = /＋/.test(value) ? value.replace('＋', '－') : value.replace('－', '＋');
+        const known = st.note || (st.premiseLabel + 'だから、正三角形の1つの角は60°');
         out.push({
-          id: p.id + '-ex-' + st.id, sourceId: p.id, category: 'theorem', type: 'expression', typeLabel: '角の和・差',
+          id: p.id + '-ex-' + st.id, sourceId: p.id, category: 'theorem', type: 'expression',
+          typeLabel: st.rule === 'triangleAngleSum' ? '三角形の内角の和' : '角の和・差',
           difficulty: 2, blanks: 1, figure: p.id, highlight: [],
-          lines: [st.premiseLabel], ask: st.target + '＝' + st.parts + ' を、正三角形の角の大きさを使って表すと？',
-          choice: { blanks: [choiceBlank(st.target + '＝', value, wrong)] }, input: null,
-          answerText: st.target + '＝' + value, explain: '正三角形の1つの角は60°なので、' + st.target + '＝' + st.parts + '＝' + value + ' です。',
+          lines: [known], ask: st.target + '＝' + PH.angleExpr.format(st.parts) + ' を、角の大きさを使って表すと？',
+          choice: { blanks: [choiceBlank(st.target + '＝', value, [swapped, flipped])] }, input: null,
+          answerText: st.target + '＝' + value, explain: known + 'なので、' + st.label + ' です。',
           signature: 'ex|' + p.id + '|' + st.id,
         });
       } else if (st.type === 'compare') {
@@ -367,21 +387,130 @@
         });
       }
     });
-    if (out.some(function (q) { return q.type === 'expression'; })) {
+    if ((p.equilateral || []).length && out.some(function (q) { return q.type === 'expression'; })) {
       out.push({
         id: 'rule-eq60', sourceId: p.id, category: 'theorem', type: 'equilateral60', typeLabel: '正三角形の角',
         difficulty: 1, blanks: 1, figure: null, highlight: [], lines: [], ask: '正三角形の1つの角は何度？',
         choice: { blanks: [choiceBlank('角度', '60°', ['90°', '45°'])] }, input: null,
         answerText: '60°', explain: '正三角形の3つの角はすべて等しく、180°÷3＝60°です。', signature: 'rule|eq60',
+        requiredTopics: ['equilateral'],
       });
+    }
+    if (out.some(function (q) { return q.type === 'compare'; })) {
       out.push({
         id: 'rule-syllogism', sourceId: p.id, category: 'theorem', type: 'syllogism', typeLabel: '三段論法',
         difficulty: 1, blanks: 1, figure: null, highlight: [], lines: ['∠A＝∠C＋60°', '∠B＝∠C＋60°'], ask: '2つの式の右辺が同じとき、何が言える？',
         choice: { blanks: [choiceBlank('言えること', '∠A＝∠B', ['∠A＝∠C', '∠B＝60°'])] }, input: null,
         answerText: '∠A＝∠B', explain: '同じ式に等しい2つの角は等しくなります（三段論法）。', signature: 'rule|syllogism',
+        requiredTopics: ['angleExpressions'],
       });
     }
     return out;
+  }
+
+  // ---- Ver.0.8：直角三角形 --------------------------------------------------------------
+
+  // 合同条件ではない文（直角三角形の合同条件を問う問題の誤答）
+  const NOT_CONDITION = '3組の角がそれぞれ等しい';
+
+  /*
+   * 直角三角形の問題から作るミニ問題
+   *   タイプB：斜辺はどれ？（「△ABDで∠BAD＝90°のとき、斜辺は？」）
+   *   タイプC：直角の理由（「BD⊥ACのとき、∠BEC＝∠CDB＝90°と言える理由は？」）
+   */
+  function rightQuestions(p) {
+    const out = [];
+    const RT = PH.rightTriangle;
+    if (!RT || !PH.isRightProblem(p)) return out;
+    const r = RT.rightIndex(p);
+    p.triangles.forEach(function (t, i) {
+      const tri = '△' + t.join('');
+      const V = t[r];
+      const others = t.filter(function (_, k) { return k !== r; });
+      const angle = '∠' + others[0] + V + others[1];
+      const hyp = RT.hypotenuse(p, i);
+      const legs = others.map(function (o) { return [V, o].sort().join(''); });
+      out.push({
+        id: p.id + '-hyp' + i, sourceId: p.id, category: 'right', type: 'hypotenuse', typeLabel: '斜辺はどれ？',
+        difficulty: 1, blanks: 1, figure: p.id, highlight: [key(p, angle)], hypIndex: i,
+        lines: [tri + 'で、' + angle + '＝90°'], ask: tri + ' の斜辺はどれ？',
+        choice: { blanks: [choiceBlank('斜辺', hyp, legs)] }, input: null,
+        answerText: hyp, explain: '斜辺は、直角に向かい合う辺です。' + tri + 'で直角は' + angle + 'なので、斜辺は' + hyp + 'です。',
+        signature: 'hyp|' + p.id + '|' + t.slice().sort().join(''),
+      });
+    });
+    const ev = RT.rightEvidence(p);
+    if (ev && (ev.reason === 'perpendicular' || ev.reason === 'squareAngle')) {
+      const premise = ev.reason === 'perpendicular'
+        ? ev.items.map(function (n) { return RT.perpendicularFor(p, n).label; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join('、')
+        : '四角形' + RT.squareFor(p, ev.items[0]) + 'は正方形';
+      const wrong = ev.reason === 'perpendicular' ? ['正方形の角だから', '対頂角は等しいから'] : ['二等辺三角形の底角は等しいから', '対頂角は等しいから'];
+      out.push({
+        id: p.id + '-rr', sourceId: p.id, category: 'right', type: 'rightReason', typeLabel: '直角である理由',
+        difficulty: 1, blanks: 1, figure: p.id, highlight: ev.items.map(function (n) { return key(p, n); }),
+        lines: [premise], ask: PH.evidenceText(ev) + ' と言える理由は？',
+        choice: { blanks: [choiceBlank('理由', PH.REASONS[ev.reason].proof, wrong)] }, input: null,
+        answerText: PH.REASONS[ev.reason].proof, explain: REASON_EXPLAIN[ev.reason],
+        signature: 'rr|' + p.id,
+      });
+    }
+    return out;
+  }
+
+  /*
+   * 直角三角形の合同条件を確かめるミニ問題（ルールのテンプレート。図を使わない）
+   *   タイプA：斜辺と他の1辺 → 使える合同条件は？　タイプD：斜辺と1つの鋭角 → 使える合同条件は？
+   *   タイプE：RHS（RHA）で示すには、あと何が必要？　最初に確かめること：2つの三角形が直角三角形であること
+   */
+  function rightTemplates() {
+    const C = PH.CONDITIONS;
+    const t = function (o) {
+      return Object.assign({ sourceId: null, category: 'right', difficulty: 1, blanks: 1, figure: null, highlight: [], lines: [], input: null }, o);
+    };
+    return [
+      t({
+        id: 'rule-rhs', type: 'rightCondition', typeLabel: '直角三角形の合同条件', cond: 'RHS',
+        lines: ['2つの直角三角形で、斜辺と他の1辺がそれぞれ等しい。'], ask: '使える合同条件は？',
+        choice: { blanks: [choiceBlank('合同条件', C.RHS.label, [C.RHA.label, C.SAS.label])] },
+        answerText: C.RHS.label, explain: '斜辺と、斜辺ではないもう1組の辺（他の1辺）が等しいので、「' + C.RHS.label + '」です。',
+        signature: 'rule|rhs', requiredTopics: ['rightTriangle', 'rightTriangleRHS'],
+      }),
+      t({
+        id: 'rule-rha', type: 'rightCondition', typeLabel: '直角三角形の合同条件', cond: 'RHA',
+        lines: ['2つの直角三角形で、斜辺と1つの鋭角がそれぞれ等しい。'], ask: '使える合同条件は？',
+        choice: { blanks: [choiceBlank('合同条件', C.RHA.label, [C.RHS.label, C.ASA.label])] },
+        answerText: C.RHA.label, explain: '斜辺と、直角ではない角（鋭角）が1つ等しいので、「' + C.RHA.label + '」です。',
+        signature: 'rule|rha', requiredTopics: ['rightTriangle', 'rightTriangleRHA'],
+      }),
+      t({
+        id: 'rule-need-rhs', type: 'rightNeed', typeLabel: 'あと何が必要？', difficulty: 2,
+        lines: ['2つの直角三角形で、斜辺が等しい。'], ask: '「斜辺と他の1辺」の合同条件で示すには、あと何が等しければよい？',
+        choice: { blanks: [choiceBlank('必要なこと', '対応する他の1辺', ['対応する1つの鋭角', '直角'])] },
+        answerText: '対応する他の1辺', explain: '「' + C.RHS.label + '」なので、斜辺のほかに、対応する他の1辺が等しければよいです。',
+        signature: 'rule|need-rhs', requiredTopics: ['rightTriangle', 'rightTriangleRHS'],
+      }),
+      t({
+        id: 'rule-need-rha', type: 'rightNeed', typeLabel: 'あと何が必要？', difficulty: 2,
+        lines: ['2つの直角三角形で、斜辺が等しい。'], ask: '「斜辺と1つの鋭角」の合同条件で示すには、あと何が等しければよい？',
+        choice: { blanks: [choiceBlank('必要なこと', '対応する1つの鋭角', ['対応する他の1辺', '直角'])] },
+        answerText: '対応する1つの鋭角', explain: '「' + C.RHA.label + '」なので、斜辺のほかに、対応する1つの鋭角が等しければよいです。',
+        signature: 'rule|need-rha', requiredTopics: ['rightTriangle', 'rightTriangleRHA'],
+      }),
+      t({
+        id: 'rule-right-first', type: 'rightFirst', typeLabel: '直角三角形の合同', difficulty: 1,
+        lines: [], ask: '直角三角形の合同条件を使う前に、まず何を確かめる？',
+        choice: { blanks: [choiceBlank('確かめること', '2つの三角形が直角三角形であること', ['2つの三角形の面積が等しいこと', '3組の角がそれぞれ等しいこと'])] },
+        answerText: '2つの三角形が直角三角形であること', explain: '直角三角形の合同条件は、2つの三角形がどちらも直角三角形のときだけ使えます。図で直角に見えるだけでなく、仮定や垂直・正方形の角などから90°を確かめます。',
+        signature: 'rule|right-first', requiredTopics: ['rightTriangle'],
+      }),
+      t({
+        id: 'rule-hyp-def', type: 'rightHypDef', typeLabel: '斜辺とは？',
+        lines: [], ask: '直角三角形の斜辺は、どの辺？',
+        choice: { blanks: [choiceBlank('斜辺', '直角に向かい合う辺', ['直角をはさむ辺', 'いちばん短い辺'])] },
+        answerText: '直角に向かい合う辺', explain: '直角三角形で、直角に向かい合う辺を斜辺といいます（3つの辺の中でいちばん長い辺）。',
+        signature: 'rule|hyp-def', requiredTopics: ['rightTriangle'],
+      }),
+    ];
   }
 
   // ---- 生成 ------------------------------------------------------------------
@@ -393,13 +522,17 @@
   function generate(problems) {
     const list = [];
     const seen = {};
+    let src = null;
+    // 解くのに必要な学習テーマ：テンプレートに書いたもの、なければ元の問題の topics（Ver.0.8）
     function add(q) {
       if (!q || seen[q.signature]) return;
       if (!q.choice && !q.input) return;
+      if (!q.requiredTopics) q.requiredTopics = src && PH.rankTracks ? PH.rankTracks.problemTopics(src).slice() : [];
       seen[q.signature] = true;
       list.push(q);
     }
     (problems || PH.problems).forEach(function (p) {
+      src = p;
       p.evidence.forEach(function (ev) {
         add(equationQuestion(p, ev));
         add(reasonQuestion(p, ev));
@@ -411,7 +544,10 @@
         add(finalReasonQuestion(p));
       }
       theoremQuestions(p).forEach(add);
+      rightQuestions(p).forEach(add);
     });
+    src = null;
+    if ((problems || PH.problems).some(function (p) { return PH.isRightProblem(p); })) rightTemplates().forEach(add);
     return list;
   }
 

@@ -16,9 +16,11 @@
     freason: '理由を選ぶ', final: '結論を選ぶ', finalInput: '結論の等式を入力',
     // Ver.0.7：多段階証明のステップ
     srule: '理由を選ぶ', cmc: '共通な部分を選ぶ', cmp: '比べる式を選ぶ', cmr: '導ける等式を選ぶ', cmrInput: '導ける等式を入力',
+    // Ver.0.8：直角三角形の直角である理由
+    rreason: '直角の理由を選ぶ',
   };
   const KIND_NAME = { eq: '等式', reason: '理由', cond: '合同条件', tripair: '三角形の組', tri1: '三角形', tri2: '三角形', freason: '理由', final: '結論の等式',
-    srule: '理由', cmc: '共通な部分', cmp: '比べる2つの式', cmr: '導ける等式' };
+    srule: '理由', cmc: '共通な部分', cmp: '比べる2つの式', cmr: '導ける等式', rreason: '理由' };
   // 空欄の種類（ステップの空欄は 'srule:s1' のように問題のステップIDがつくので、前の部分だけ）
   function kindOf(s) { return String(s.kind).split(':')[0]; }
 
@@ -662,7 +664,18 @@
     const proof = PH.buildProof(p);
     const self = this;
     let rows;
-    if (z.buildLike) {
+    if (z.right) {
+      // Ver.0.8：直角三角形の問題は、行ごとに役割（直角・斜辺・他の1辺／鋭角）を表示する。直角の行の等式は表示済み
+      const RT = PH.rightTriangle;
+      rows = z.rowEv.map(function (ev, i) {
+        const role = z.rowRoles[i];
+        const reason = z.buildLike ? self.blank('r' + i) : '<span class="pz-fixed-reason">' + esc(z.rowReason(i).text) + '</span>';
+        const eq = role === 'right' ? '<span class="pz-step-eq pz-right-eq">' + esc(PH.evidenceText(ev)) + '</span>' : self.blank(z.eqSlotId(i));
+        return '<li class="pz-row pz-rolerow"><span class="pz-row-no pz-role role-' + role + '">' + RT.ROLE_LABEL[role] + '</span>' +
+          '<div class="pz-row-body">' + reason +
+          '<div class="pz-eqline">' + eq + '<span class="pl-no">……' + proof.lines[i].no + '</span></div></div></li>';
+      }).join('');
+    } else if (z.buildLike) {
       rows = z.rowEv.map(function (_, i) {
         return '<li class="pz-row"><span class="pz-row-no">根拠' + proof.lines[i].no + '</span>' +
           '<div class="pz-row-body">' + self.blank('r' + i) +

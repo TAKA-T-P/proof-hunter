@@ -1197,3 +1197,51 @@ body[data-screen="rank"], body[data-screen="rank-play"] { background: linear-gra
   .rank-count.show, .rq-mark.show, .rank-cert.is-fresh .rank-cert-ico, .rank-cert.is-fresh .rank-cert-name { animation: none; }
   .rank-timer { transition: none; }
 }
+
+/* =====================================================================
+   Ver.0.8：直角三角形の合同・段位認定の2コース
+   ===================================================================== */
+/* 図：直角の印（図の印は黒、根拠として確かめた直角は緑）・斜辺の強調・直線ℓ */
+.mark-right { fill: none; stroke-width: 2.2; stroke-linejoin: miter; }
+.mark-right.mark-fig { stroke: var(--ink); }
+.mark-right.mark-auto { stroke: var(--green); stroke-width: 2.8; }
+.under-seg.is-hyp { stroke: #fdba74; stroke-width: 12; opacity: .8; }
+.ray-label { font-size: 20px; font-style: italic; font-weight: 700; fill: var(--ink); text-anchor: middle; dominant-baseline: middle; font-family: "Times New Roman", serif; }
+
+/* 根拠の役割の色（直角・斜辺・他の1辺・鋭角） */
+.role-right { --role: #0f766e; }
+.role-hypotenuse { --role: #c2410c; }
+.role-leg { --role: #1d4ed8; }
+.role-acute { --role: #7c3aed; }
+
+/* ハンター：直角三角形の根拠の欄（空いている欄はタップで選べる） */
+.slot-role-tag { font-size: .7rem; font-weight: 900; line-height: 1.5; color: #fff; border-radius: 99px; padding: 0 8px; background: var(--role, var(--muted)); }
+.slot.empty.slot-role { color: #94a3b8; }
+.slot.empty.slot-role.is-active { border-style: solid; border-color: var(--role); background: #fff; box-shadow: 0 0 0 3px rgba(250, 204, 21, .5); }
+.slot.empty.slot-role.is-active .slot-q { color: var(--role); }
+.slot.slot-role.role-right .slot-eq { white-space: normal; overflow-wrap: anywhere; font-size: clamp(.74rem, 3.2vw, .95rem); line-height: 1.25; }
+.role-now { margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: .85rem; font-weight: 700; }
+.role-now span { color: var(--muted); font-size: .8rem; }
+.role-tag { display: inline-block; padding: 0 10px; border-radius: 99px; background: var(--role); color: #fff; font-weight: 900; }
+.eq-part.eq-90 { min-width: 0; padding: 0 6px; }
+.conds-5 .choice { font-size: .92rem; padding-top: 6px; padding-bottom: 6px; }
+
+/* 証明パズル：直角三角形の行（役割のラベル。直角の行の等式は表示済み） */
+.pz-row-no.pz-role { display: inline-block; align-self: flex-start; padding: 0 8px; border-radius: 99px; background: var(--role); color: #fff; }
+.pz-right-eq { color: #0f766e; }
+
+/* 段位認定：2つのコースのカード */
+.course-basic { --course: var(--blue); }
+.course-comprehensive { --course: #c2410c; }
+.rank-courses { display: grid; gap: 12px; }
+.rank-course { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; text-align: center; border-top: 6px solid var(--course); }
+.rank-course-name { margin: 0; font-size: 1.25rem; color: var(--course); }
+.rank-course-lead { margin: 0; font-weight: 900; }
+.rank-course-desc { margin: 0; font-size: .85rem; color: var(--muted); }
+.rank-course-tag { display: table; margin: 0 auto 6px; padding: 0 12px; border-radius: 99px; background: var(--course); color: #fff; font-weight: 900; font-size: .85rem; }
+.rs-course { align-self: center; padding: 1px 8px; border-radius: 99px; background: var(--course); color: #fff; font-weight: 900; line-height: 1.5; white-space: nowrap; }
+.rank-legacy p { margin: 0 0 8px; font-size: .9rem; }
+@media (min-width: 900px) {
+  .rank-top { max-width: 920px; }
+  .rank-courses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

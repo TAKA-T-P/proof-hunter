@@ -261,9 +261,14 @@
   /*
    * 根拠の組から合同条件を導く。
    *   'SSS' 3組の辺 / 'SAS' 2組の辺とその間の角 / 'ASA' 1組の辺とその両端の角 / null 不成立
+   *   Ver.0.8：直角の根拠（role: 'right'）をふくむ組は js/right-triangle.js で判定（'RHS' / 'RHA' など）。
+   *   直角の根拠がない組では RHS・RHA にならない（直角三角形であることが前提）。
    */
   function deriveCondition(problem, evidenceList) {
     if (!evidenceList || evidenceList.length !== 3) return null;
+    if (evidenceList.some(function (ev) { return ev && ev.role === 'right'; })) {
+      return PH.rightTriangle ? PH.rightTriangle.derive(problem, evidenceList) : null;
+    }
     const fig = problem.figure;
     const sides = [];
     const angles = [];
@@ -298,7 +303,12 @@
     }).filter(Boolean);
   }
 
-  // 合同条件の判定
+  /*
+   * 合同条件の判定
+   *   status: correct / wrong-condition / invalid-set / incomplete
+   *   / classic-condition（Ver.0.8：直角三角形の問題で3つの合同条件を選んだ。数学的には別の道すじで示せる場合も
+   *     あるので、単純な誤りとは扱わない。今回の根拠に合う直角三角形の合同条件を選び直してもらう）
+   */
   function checkCongruence(problem, foundIds, conditionId) {
     if (!conditionId) return { ok: false, status: 'incomplete' };
     const ids = foundIds || [];
@@ -306,7 +316,10 @@
     if (!allFound) return { ok: false, status: 'incomplete' };
     const derived = deriveCondition(problem, evidenceByIds(problem, ids));
     if (!derived) return { ok: false, status: 'invalid-set' };
-    if (derived !== conditionId) return { ok: false, status: 'wrong-condition' };
+    if (derived !== conditionId) {
+      const classic = PH.isRightProblem && PH.isRightProblem(problem) && PH.CONDITIONS[conditionId] && !PH.CONDITIONS[conditionId].right;
+      return { ok: false, status: classic ? 'classic-condition' : 'wrong-condition' };
+    }
     return { ok: true, status: 'correct', condition: derived };
   }
 
@@ -454,6 +467,11 @@
       if (PH.proofEngine && PH.proofEngine.hasSteps(problem)) {
         PH.proofEngine.verify(problem).forEach(function (e) { errors.push(e); });
       }
+      // Ver.0.8：直角三角形（直角の根拠・斜辺・正方形・垂直・図の直角の印）
+      if (PH.rightTriangle) PH.rightTriangle.verify(problem).forEach(function (e) { errors.push(e); });
+      (fig.rays || []).forEach(function (r) {
+        if (!fig.points[r.from] || !fig.points[r.through]) errors.push('rays の点が図にない');
+      });
 
       const derived = deriveCondition(problem, problem.evidence);
       if (derived !== problem.congruence) errors.push('合同条件が根拠と一致しない: ' + derived + ' / ' + problem.congruence);

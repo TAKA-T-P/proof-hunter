@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/right-triangle.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -36,18 +37,19 @@ test('全問題のデータ検証（図の数値チェック・ID重複・ステ
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
 });
 
-test('24問・7ステージ（STAGE 1〜5は各3問、STAGE 6 は5問、Ver.0.7 の STAGE 7 は4問）', () => {
-  assert.equal(PH.problems.length, 24);
-  assert.equal(PH.STAGES.length, 7);
-  const size = { 6: 5, 7: 4 };
+test('30問・8ステージ（STAGE 1〜5は各3問、STAGE 6 は5問、STAGE 7 は4問、Ver.0.8 の STAGE 8 は6問）', () => {
+  assert.equal(PH.problems.length, 30);
+  assert.equal(PH.STAGES.length, 8);
+  const size = { 6: 5, 7: 4, 8: 6 };
   PH.STAGES.forEach((st) => assert.equal(PH.stageProblems(st.id).length, size[st.id] || 3, 'STAGE ' + st.id));
   ['p01', 'p02', 'p03'].forEach((id) => assert.ok(PH.getProblem(id), id + ' が残っている'));
 });
 
-test('3つの合同条件がバランスよく出題される', () => {
-  const count = { SSS: 0, SAS: 0, ASA: 0 };
+test('3つの合同条件がバランスよく出題される（Ver.0.8 の直角三角形の合同条件も2問以上ずつ）', () => {
+  const count = { SSS: 0, SAS: 0, ASA: 0, RHA: 0, RHS: 0 };
   PH.problems.forEach((p) => count[p.congruence]++);
-  Object.keys(count).forEach((c) => assert.ok(count[c] >= 3, c + ': ' + count[c]));
+  ['SSS', 'SAS', 'ASA'].forEach((c) => assert.ok(count[c] >= 3, c + ': ' + count[c]));
+  ['RHA', 'RHS'].forEach((c) => assert.ok(count[c] >= 2, c + ': ' + count[c]));
 });
 
 test('問題はステージ順に並び、ステージ内の次の問題をたどれる', () => {
@@ -60,7 +62,8 @@ test('問題はステージ順に並び、ステージ内の次の問題をた�
 // ---- 全問題の正誤判定 ----------------------------------------------------------
 // 三角形の合同が結論の問題（p01〜p15）。結論が辺・角の等しさの問題（STAGE 6）は v05.test.js で同じ内容を確かめる
 
-PH.problems.filter((p) => !PH.hasFinalStep(p)).forEach((p) => {
+// 直角三角形の問題（STAGE 8）は根拠の欄（直角・斜辺・他の1辺）があるので、v08.test.js で同じ内容を確かめる
+PH.problems.filter((p) => !PH.hasFinalStep(p) && !PH.isRightProblem(p)).forEach((p) => {
   test(p.id + ': 根拠を逆の順番で登録しても証明が完成し、合同条件を誤るとクリアにならない', () => {
     const g = new PH.Game(p);
     p.evidence.slice().reverse().forEach((ev) => {

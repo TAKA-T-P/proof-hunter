@@ -13,6 +13,10 @@
  *   view.angleGuide  : true なら選択できる角に薄い円弧を表示（角選択モード）
  *   view.triSel      : 選んだ三角形（頂点の配列のリスト。1つ目は青、2つ目は黄）（Ver.0.5：三角形を選ぶ）
  *   view.hit.tri     : true なら図の三角形の内側をタップできる（data-tri="ABD"）
+ *   view.hypotenuse  : 斜辺として強調する辺のキー（Ver.0.8：直角三角形の斜辺を見つけたとき）
+ * Ver.0.8：autoMarks の 'right' は直角の印（小さな四角）。figure.rightMarks（図にかかれている直角）は常に表示する。
+ *         どちらも生徒の印（userMarks）とは別に管理するので、「消す」では消えない。
+ *         figure.rays は直線をのばした飾りの線と名前（例：直線ℓ）。タップには反応しない。
  */
 (function (root) {
   'use strict';
@@ -49,8 +53,21 @@
     return nm.x * toC.x + nm.y * toC.y > 0 ? g.vec.mul(nm, -1) : nm;
   }
 
+  // 直角の印（頂点 V から2本の半直線にそって size の小さな四角）
+  function rightMark(group, V, P1, P2, cls) {
+    const g = G();
+    const size = 13;
+    const u1 = g.vec.mul(g.vec.unit(g.vec.sub(P1, V)), size), u2 = g.vec.mul(g.vec.unit(g.vec.sub(P2, V)), size);
+    const a = g.vec.add(V, u1), b = g.vec.add(g.vec.add(V, u1), u2), c = g.vec.add(V, u2);
+    el('polyline', { points: [a, b, c].map(function (q) { return g.fmt(q).replace(' ', ','); }).join(' '), class: 'mark-right ' + cls }, group);
+  }
+
   function drawMark(group, item, mark, cls, fig) {
     const g = G();
+    if (item.kind === 'ang' && mark === 'right') {
+      rightMark(group, item.vertex, item.from, item.to, cls);
+      return;
+    }
     if (item.kind === 'seg' && item.composite && mark !== 'common') {
       // 途中に点がある長い辺は、辺に沿わせた補助線（寸法線）の上に印をつける
       const o = g.vec.mul(outward(fig, item.p1, item.p2), 16);
@@ -135,6 +152,11 @@
     (v.flashLines || []).forEach(function (pq) {
       line(fig.points[pq[0]], fig.points[pq[1]], { class: 'under-seg is-flash is-parallel' }, gu);
     });
+    // 斜辺の強調（Ver.0.8）
+    (v.hypotenuse || []).forEach(function (k) {
+      const s = els.byKey[k];
+      if (s && s.kind === 'seg') line(s.p1, s.p2, { class: 'under-seg is-hyp' }, gu);
+    });
     flash.forEach(function (k) { if (els.byKey[k]) underlay(els.byKey[k], 'is-flash'); });
     // 同じ要素を2回選んだ（共通な辺・角）ときは赤で表示
     const sameTwice = selection.length === 2 && selection[0] === selection[1];
@@ -145,6 +167,17 @@
     // 3. 図形の線
     const gs = el('g', { class: 'layer-seg' }, svg);
     els.segments.forEach(function (s) { line(s.p1, s.p2, { class: 'seg' }, gs); });
+    // 直線をのばした飾りの線と名前（例：直線ℓ）
+    (fig.rays || []).forEach(function (r) {
+      const P = fig.points[r.from], Q = fig.points[r.through];
+      const end = g.vec.add(Q, g.vec.mul(g.vec.unit(g.vec.sub(Q, P)), r.extend || 30));
+      line(Q, end, { class: 'seg seg-ray' }, gs);
+      if (r.label) {
+        const at = g.vec.add(end, g.vec.mul(g.vec.unit(g.vec.sub(Q, P)), 13));      // 線の先に名前
+        const t = el('text', { x: at.x.toFixed(1), y: at.y.toFixed(1), class: 'ray-label' }, gs);
+        t.textContent = r.label;
+      }
+    });
 
     // 4. 選択できる角の目印（角選択モード）と、選択中の角の円弧
     const ga = el('g', { class: 'layer-arc' }, svg);
@@ -160,6 +193,12 @@
 
     // 5. 印（自動表示を優先、生徒の印は内部的に別管理）
     const gm = el('g', { class: 'layer-mark' }, svg);
+    // 図にかかれている直角の印（仮定・垂線の直角）。根拠として確かめた直角は自動表示の印（緑）でかく
+    (fig.rightMarks || []).forEach(function (n) {
+      const k = g.angleKey(fig, n);
+      if (autoMarks[k] === 'right') return;
+      rightMark(gm, fig.points[n[1]], fig.points[n[0]], fig.points[n[2]], 'mark-fig');
+    });
     Object.keys(userMarks).forEach(function (k) {
       if (autoMarks[k] == null && els.byKey[k]) drawMark(gm, els.byKey[k], userMarks[k], 'mark-user', fig);
     });

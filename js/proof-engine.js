@@ -4,7 +4,7 @@
  * 新しい多段階証明の問題は、従来のデータ（evidence・congruence・finalStep）に proofSteps を加える。
  *   proofSteps: [
  *     { id, type: 'theorem',    stage: 'pre'|'post', rule, premise: [左辺, 右辺], premiseLabel, items | triangle, label, dependsOn },
- *     { id, type: 'expression', rule: 'angleAddition'|'angleSubtraction', target, parts, value, premiseLabel, label, dependsOn },
+ *     { id, type: 'expression', rule: 'angleAddition'|'angleSubtraction'|'triangleAngleSum', target, parts, value, premiseLabel, note?, label, dependsOn },
  *     { id, type: 'compare',    dependsOn: [式のステップ2つ], items, label, distractors },
  *   ]
  *   evidence の fromStep … そのステップで導いた事実を、合同の根拠に使う（reason: 'proved'）
@@ -21,6 +21,7 @@
   function V() { return PH.validation; }
 
   const STAGES = ['final', 'congruence'];   // ステップ以外に依存先として書ける段階
+  const EXPRESSION_RULES = ['angleAddition', 'angleSubtraction', 'triangleAngleSum'];   // 角の式のステップのルール
 
   function hasSteps(problem) { return Array.isArray(problem.proofSteps) && problem.proofSteps.length > 0; }
 
@@ -94,6 +95,16 @@
 
   ProofEngine.prototype.isProved = function (eqKey) { return !!this.facts[eqKey]; };
 
+  /*
+   * 証明済みの事実（establishedFacts）に登録する（Ver.0.8）。ステップ以外で確かめた事実
+   * （例：直角の根拠 ∠ADB＝∠CEA＝90° を確かめた → 2つの三角形は直角三角形）を、あとの判定・表示に使う。
+   */
+  ProofEngine.prototype.establish = function (eqKey, source) {
+    if (eqKey && !this.facts[eqKey]) this.facts[eqKey] = source || true;
+  };
+
+  ProofEngine.prototype.establishedFacts = function () { return Object.assign({}, this.facts); };
+
   // ---- データの検証 -----------------------------------------------------------------
 
   /*
@@ -145,7 +156,7 @@
             if ((s.dependsOn || []).indexOf('final') < 0) errors.push(s.id + ': 最終結論のあとに解くステップなのに dependsOn に final がない');
           }
         } else if (s.type === 'expression') {
-          if (s.rule !== 'angleAddition' && s.rule !== 'angleSubtraction') errors.push(s.id + ': 角の式のルールが不正');
+          if (EXPRESSION_RULES.indexOf(s.rule) < 0) errors.push(s.id + ': 角の式のルールが不正');
           const err = R.checkExpression(problem, s);
           if (err) errors.push(s.id + ': ' + err);
         } else if (s.type === 'compare') {

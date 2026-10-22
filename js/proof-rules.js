@@ -9,6 +9,11 @@
  *   angleAddition        角の和（∠ACE＝∠ACD＋∠DCE）
  *   angleSubtraction     角の差（∠BAD＝∠BAC－∠DAC）
  *   equalExpressions     同じ式に等しい2つの角は等しい（③④の右辺が同じ → 左辺どうしが等しい）
+ *   Ver.0.8：
+ *   triangleAngleSum     三角形の内角の和は180°（∠ABD＝180°－∠ADB－∠DAB）
+ *   perpendicularRightAngle  垂直な2直線がつくる角は90°（根拠の理由 perpendicular）
+ *   squareRightAngle     正方形の角は90°（根拠の理由 squareAngle）
+ *   rightTriangleHypotenuseAcute / rightTriangleHypotenuseLeg  直角三角形の合同条件（RHA / RHS。js/right-triangle.js で判定）
  * 合同（三角形の合同・対応する辺・角）は既存の validation.js のしくみを使う（名前が重ならないよう、ここでは
  * 'triangleCongruence' は合同条件の判定、'correspondingSides'・'correspondingAngles' は PH.REASONS の既存の理由を指す）。
  *
@@ -32,6 +37,11 @@
     angleAddition: { label: '角の和より', short: '角の和' },
     angleSubtraction: { label: '角の差より', short: '角の差' },
     equalExpressions: { label: '同じ式に等しいから', short: '式の比較' },
+    triangleAngleSum: { label: '三角形の内角の和は180°だから', short: '三角形の内角の和' },
+    perpendicularRightAngle: { label: '垂直な2直線がつくる角だから', short: '垂直', reason: 'perpendicular' },
+    squareRightAngle: { label: '正方形の角だから', short: '正方形の角', reason: 'squareAngle' },
+    rightTriangleHypotenuseAcute: { label: '直角三角形の斜辺と1つの鋭角がそれぞれ等しい', short: '斜辺と1つの鋭角', condition: 'RHA' },
+    rightTriangleHypotenuseLeg: { label: '直角三角形の斜辺と他の1辺がそれぞれ等しい', short: '斜辺と他の1辺', condition: 'RHS' },
     triangleCongruence: { label: '三角形の合同条件', short: '合同' },
   };
 
@@ -41,6 +51,7 @@
     isoscelesConverse: ['二等辺三角形の底角は等しいから', '正三角形の1つの角は60°だから'],
     angleAddition: ['角の差より', '対頂角は等しいから'],
     angleSubtraction: ['角の和より', '対頂角は等しいから'],
+    triangleAngleSum: ['角の差より', '対頂角は等しいから'],
   };
 
   // ---- データの確認（図と仮定から、そのルールで本当に言えるか） ---------------------------
@@ -78,19 +89,61 @@
     return null;
   }
 
-  // 角の式：target ＝ parts ＝ value（parts は角の和・差、value は正三角形の 60° などを入れた式）
+  /*
+   * 大きさが分かっている角（角のキー → 度）。図の見た目ではなく、仮定から言えるものだけ：
+   *   正三角形の角 60°（problem.equilateral）、直角 90°（仮定の「∠ABC＝90°」・直角の根拠。js/right-triangle.js）
+   */
+  function knownAngles(problem) {
+    const fig = problem.figure;
+    const out = {};
+    (problem.equilateral || []).forEach(function (tri) {
+      const t = clean(tri).split('');
+      [0, 1, 2].forEach(function (i) {
+        try { out[G().angleKey(fig, t[(i + 1) % 3] + t[i] + t[(i + 2) % 3])] = 60; } catch (e) { /* 図にない角 */ }
+      });
+    });
+    if (PH.rightTriangle) PH.rightTriangle.knownRightAngles(problem).forEach(function (n) { out[G().elementKey(fig, n)] = 90; });
+    return out;
+  }
+
+  /*
+   * 角の式：target ＝ parts ＝ value
+   *   parts は角の和・差（angleAddition / angleSubtraction）、または 180°－2つの角（triangleAngleSum：三角形の内角の和）。
+   *   value は parts の角のうち、大きさが分かっている角（正三角形の 60°・直角の 90°）を数に置きかえた式。
+   */
   function checkExpression(problem, step) {
     const fig = problem.figure;
     const parts = E().parse(fig, step.parts), value = E().parse(fig, step.value);
     if (!parts || !value) return '角の式が読めない';
-    if (!E().parse(fig, step.target) || !E().singleAngle(E().parse(fig, step.target))) return '左辺が1つの角ではない';
+    const target = E().singleAngle(E().parse(fig, step.target));
+    if (!target) return '左辺が1つの角ではない';
     const signs = Object.keys(parts.terms).map(function (k) { return parts.terms[k]; });
-    if (step.rule === 'angleAddition' && !(signs.length === 2 && signs.every(function (s) { return s === 1; }))) return '角の和の式になっていない';
-    if (step.rule === 'angleSubtraction' && !(signs.length === 2 && signs.indexOf(-1) >= 0)) return '角の差の式になっていない';
+    if (step.rule === 'angleAddition' && !(parts.constant === 0 && signs.length === 2 && signs.every(function (s) { return s === 1; }))) return '角の和の式になっていない';
+    if (step.rule === 'angleSubtraction' && !(parts.constant === 0 && signs.length === 2 && signs.indexOf(-1) >= 0)) return '角の差の式になっていない';
+    if (step.rule === 'triangleAngleSum') {
+      // 180°－（同じ三角形のほかの2つの角）
+      if (!(parts.constant === 180 && signs.length === 2 && signs.every(function (s) { return s === -1; }))) return '三角形の内角の和の式になっていない';
+      const tv = clean(step.target), others = (String(step.parts).match(/∠[A-Z]{3}/g) || []).map(clean);
+      const tri = tv.split('').sort().join('');
+      if (!others.every(function (o) { return o.split('').sort().join('') === tri; }) || new Set([tv[1]].concat(others.map(function (o) { return o[1]; }))).size !== 3) {
+        return '三角形の3つの角になっていない';
+      }
+    }
     const t = E().evaluate(fig, step.target), a = E().evaluate(fig, step.parts), b = E().evaluate(fig, step.value);
     if (!near(t, a) || !near(a, b)) return '角の式が図の上で成り立たない（' + t.toFixed(1) + '／' + a.toFixed(1) + '／' + b.toFixed(1) + '）';
-    // 定数角（60°など）に置きかえた角は、正三角形の角であること
-    if (value.constant && !(problem.equilateral || []).length) return '定数角の根拠（正三角形）がない';
+    // 数に置きかえた角は、大きさが分かっている角（正三角形の角・直角）であること
+    const known = knownAngles(problem);
+    let constant = parts.constant;
+    const keys = Object.keys(parts.terms);
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      if (value.terms[k] === parts.terms[k]) continue;
+      if (value.terms[k] != null) return '角の係数が合わない';
+      if (known[k] == null) return '数に置きかえた角の大きさの根拠（正三角形・直角）がない';
+      constant += parts.terms[k] * known[k];
+    }
+    if (Object.keys(value.terms).some(function (k) { return parts.terms[k] == null; })) return '式にない角が右辺にある';
+    if (Math.abs(constant - value.constant) > 1e-9) return '数に置きかえた式の値が合わない';
     return null;
   }
 
@@ -122,6 +175,7 @@
     checkExpression: checkExpression,
     compareExpressions: compareExpressions,
     checkEquilateralSides: checkEquilateralSides,
+    knownAngles: knownAngles,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = PH.proofRules;

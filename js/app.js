@@ -12,9 +12,11 @@
  *   #/puzzle/review          証明パズル：苦手な問題
  *   #/puzzle/play/<id>       証明パズル：プレイ
  *   #/howto  #/howto/puzzle  #/howto/rank  あそびかた（ハンター／パズル／段位認定）
- *   #/rank                   段位認定：トップ（Ver.0.6）
- *   #/rank/play              段位認定：プレイ（「チャレンジ開始」から来たときだけ始まる）
- *   #/rank/result  #/rank/review  #/rank/grades   結果・間違えた問題・段位一覧
+ *   #/rank                   段位認定：トップ（Ver.0.6。Ver.0.8 から2つのコースを選ぶ）
+ *   #/rank/<コース>/play     段位認定：プレイ（「このコースに挑戦！」から来たときだけ始まる）。コースは basic / comprehensive
+ *   #/rank/<コース>/result  #/rank/<コース>/review  #/rank/<コース>/grades   結果・間違えた問題・段位一覧（コース別）
+ *   #/rank/legacy            Ver.0.7 までの段位認定の記録
+ *   （Ver.0.7 までの #/rank/play などを開いたときは、段位認定のトップへ戻す）
  * 記録・評価はモードごとに別々。証明パズルは、さらに解答レベル（おてがる／スタンダード／チャレンジ）ごとに別々
  * （storage.js の mode 引数：'hunter' / 'puzzle:<レベル>'）。
  */
@@ -81,7 +83,7 @@
       cont.querySelector('.cont-sub').textContent =
         (last.mode === 'puzzle' ? '証明パズル（' + currentLevel().label + '）' : 'ハンター') + '・問題' + problem.number;
     }
-    $('#title-rank-best').textContent = PH.rankView.bestName();
+    $('#title-rank-best').textContent = PH.rankView.bestSummary();
     renderSoundButtons();
   }
 
@@ -239,13 +241,18 @@
       },
       {
         title: '合同から結論を導こう！（STAGE 6）',
-        text: '結論が「AC＝BD」のような問題では、①証明する2つの三角形をタップして頂点の対応を決め、②根拠を3つ、③合同条件、④「合同な図形の対応する辺（角）は等しい」で結論を導くよ。',
+        text: '結論が「AC＝BD」のような問題では、①証明する2つの三角形をタップして「決定」、②根拠を3つ、③合同条件、④「合同な図形の対応する辺（角）は等しい」で結論を導くよ。',
         art: '<svg viewBox="0 0 200 120"><polygon points="20,100 60,20 95,100" class="h-tri1"/><polygon points="105,100 140,20 180,100" class="h-tri2"/><text x="60" y="80" class="h-btxt">1</text><text x="140" y="80" class="h-btxt">2</text><text x="100" y="114" class="h-btxt">A↔D・B↔E・C↔F</text></svg>',
       },
       {
         title: '新しい根拠を導こう！（STAGE 7）',
         text: '「AB＝ACより、二等辺三角形の底角は等しいから」のように定理の理由を選んだり、∠ACE＝∠ACD＋60°、∠BCD＝∠ACD＋60° の右辺（同じ部分）をタップして ∠ACE＝∠BCD を導いたりするよ。導いた等式は、合同の根拠に使えるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="28" class="h-btxt">∠ACE</text><rect x="110" y="10" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="28" class="h-btxt">∠ACD＋60°</text><rect x="10" y="46" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="64" class="h-btxt">∠BCD</text><rect x="110" y="46" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="64" class="h-btxt">∠ACD＋60°</text><text x="100" y="104" class="h-btxt">→ ∠ACE＝∠BCD</text></svg>',
+      },
+      {
+        title: '直角三角形の証明（STAGE 8）',
+        text: '直角三角形の問題では、根拠の欄が「直角」「斜辺」「他の1辺（または鋭角）」になるよ。まず2つの直角をタップして、90°と言える理由（仮定・垂直・正方形の角）を選ぼう。斜辺は直角に向かい合う辺だよ。欄をタップすると、集める根拠を切りかえられるよ。',
+        art: '<svg viewBox="0 0 200 120"><polygon points="20,100 20,30 90,100" class="h-tri1"/><polyline points="20,88 32,88 32,100" class="h-rule"/><line x1="20" y1="30" x2="90" y2="100" class="h-sel"/><text x="70" y="58" class="h-txt">斜辺</text><rect x="110" y="16" width="80" height="24" rx="8" class="h-btn h-on"/><text x="150" y="33" class="h-btxt">直角</text><rect x="110" y="48" width="80" height="24" rx="8" class="h-btn"/><text x="150" y="65" class="h-btxt">斜辺</text><rect x="110" y="80" width="80" height="24" rx="8" class="h-btn"/><text x="150" y="97" class="h-btxt">他の1辺</text></svg>',
       },
       {
         title: '証明成功！',
@@ -290,6 +297,11 @@
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="180" height="24" rx="8" class="h-btn h-on"/><text x="100" y="27" class="h-btxt">二等辺三角形の底角は等しいから</text><rect x="10" y="44" width="80" height="24" rx="8" class="h-btn"/><text x="50" y="61" class="h-btxt">③と④</text><text x="105" y="61" class="h-btxt">より、</text><rect x="40" y="78" width="120" height="24" rx="8" class="h-btn h-on"/><text x="100" y="95" class="h-btxt">∠ACE＝∠BCD</text></svg>',
       },
       {
+        title: '直角三角形の証明（STAGE 8）',
+        text: '直角の行（∠ABC＝∠DEF＝90°）は最初から表示されているよ。スタンダード・チャレンジでは、90°と言える理由を選ぼう。「斜辺」の行には直角に向かい合う辺の等式を、「他の1辺」「鋭角」の行にはそれ以外の等式を入れて、5つの合同条件から選ぼう。',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="40" height="24" rx="6" class="h-btn h-on"/><text x="30" y="27" class="h-btxt">直角</text><text x="120" y="27" class="h-btxt">∠ABC＝∠DEF＝90°</text><rect x="10" y="46" width="40" height="24" rx="6" class="h-btn"/><text x="30" y="63" class="h-btxt">斜辺</text><rect x="70" y="46" width="110" height="24" rx="8" class="h-btn h-on"/><text x="125" y="63" class="h-btxt">AC＝DF</text><rect x="10" y="82" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="99" class="h-btxt">斜辺と他の1辺がそれぞれ等しい</text></svg>',
+      },
+      {
         title: '証明を完成させよう！',
         text: 'すべて埋めたら「答え合わせ」！ まちがえた所は赤くなるので、そこだけ直してもう一度。★はレベルごとに記録されるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="104" rx="8" class="h-paper"/><line x1="45" y1="30" x2="150" y2="30" class="h-rule"/><line x1="45" y1="48" x2="135" y2="48" class="h-rule"/><line x1="45" y1="66" x2="145" y2="66" class="h-rule"/><text x="100" y="98" class="h-star">★★★</text></svg>',
@@ -300,6 +312,11 @@
         title: '120秒で何問解ける？',
         text: '段位認定は、証明の知識をすばやく使うゲーム！ 制限時間120秒の中で、ミニ問題を次々に解こう。一時停止はできないよ。',
         art: '<svg viewBox="0 0 200 120"><circle cx="100" cy="58" r="42" class="h-paper"/><line x1="100" y1="58" x2="100" y2="28" class="h-rule"/><line x1="100" y1="58" x2="122" y2="70" class="h-rule"/><text x="100" y="114" class="h-btxt">120秒チャレンジ</text></svg>',
+      },
+      {
+        title: '2つのコースから選ぼう',
+        text: '「基本の合同証明」は、3つの合同条件と、仮定・共通な辺や角・対頂角・平行線の角・合同な図形の性質の問題。「総合証明」は、二等辺三角形・正三角形・三段論法・直角三角形など、いろいろな証明の問題も出るよ。段位はコースごとに別々に認定されるよ。',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="20" width="85" height="80" rx="10" class="h-btn h-on"/><text x="52" y="55" class="h-btxt">基本の</text><text x="52" y="75" class="h-btxt">合同証明</text><rect x="105" y="20" width="85" height="80" rx="10" class="h-btn"/><text x="147" y="55" class="h-btxt">総合</text><text x="147" y="75" class="h-btxt">証明</text></svg>',
       },
       {
         title: '1〜10問目は選択式',
@@ -383,7 +400,7 @@
       renderReview(mode);
       show('select');
     } else if (name === 'rank' && mode === 'hunter') {
-      routeRank(parts[1]);
+      routeRank(parts[1], parts[2]);
     } else if (name === 'howto' && mode === 'hunter') {
       howtoMode = parts[1] === 'puzzle' || parts[1] === 'rank' ? parts[1] : 'hunter';
       howtoPage = 0;
@@ -406,23 +423,31 @@
     }
   }
 
-  // 段位認定の画面
-  function routeRank(sub) {
+  // 段位認定の画面（Ver.0.8：#/rank/<コース>/<画面>）
+  function routeRank(track, sub) {
     const el = doc.getElementById('screen-rank');
     doc.title = '段位認定｜証明ハンター';
+    if (track === 'legacy') {
+      PH.rankView.renderLegacy(el);
+      show('rank');
+      return;
+    }
+    // コースのない古いURL（#/rank/play など）・知らないコース・画面は、トップへ戻す
+    if (track && (!PH.rankTracks.isTrack(track) || ['play', 'grades', 'result', 'review'].indexOf(sub) < 0)) { go('#/rank'); return; }
     if (sub === 'play') {
       show('rank');
       const ok = PH.rankView.mountPlay(el, {
         home: function () { go('#/'); },
-        result: function () { go('#/rank/result'); },
-      });
+        result: function () { go('#/rank/' + track + '/result'); },
+      }, track);
       if (!ok) { go('#/rank'); return; }       // 再読み込み・直接のURLでは挑戦を再開しない
       doc.body.setAttribute('data-screen', 'rank-play');
+      doc.title = '段位認定（' + PH.rankTracks.get(track).label + '）｜証明ハンター';
       return;
     }
-    if (sub === 'grades') PH.rankView.renderGrades(el);
-    else if (sub === 'result') PH.rankView.renderResult(el);
-    else if (sub === 'review') PH.rankView.renderReview(el);
+    if (sub === 'grades') PH.rankView.renderGrades(el, track);
+    else if (sub === 'result') PH.rankView.renderResult(el, track);
+    else if (sub === 'review') PH.rankView.renderReview(el, track);
     else PH.rankView.renderTop(el);
     show('rank');
   }
@@ -434,9 +459,10 @@
       const t = e.target.closest('[data-go],[data-level],[data-sound-toggle],[data-act="rank-start"],#btn-continue,#howto-prev,#howto-next,#hint-close,#tri-close');
       if (!t) return;
       if (t.getAttribute('data-act') === 'rank-start') {
+        const track = PH.rankTracks.isTrack(t.getAttribute('data-track')) ? t.getAttribute('data-track') : 'basic';
         PH.sound.play('tap');
-        PH.rankView.requestStart();
-        go('#/rank/play');
+        PH.rankView.requestStart(track);
+        go('#/rank/' + track + '/play');
         return;
       }
       if (t.hasAttribute('data-level')) {

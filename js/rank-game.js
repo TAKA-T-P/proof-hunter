@@ -4,7 +4,8 @@
  * 時刻はすべて呼び出し側から渡す（画面では performance.now()）。残り時間は「開始時刻との差」から計算するので、
  * 描画の遅れ・別タブ・端末のロックで制限時間が延びることはない（setInterval の回数は数えない）。
  *
- *   const g = new PH.RankGame({ seed });
+ *   const g = new PH.RankGame({ seed, track })   … track：コース（'basic' 基本の合同証明 / 'comprehensive' 総合証明。Ver.0.8）
+ *                                                    コースの出題候補とカードの重みは js/rank-tracks.js から。省略時はすべての問題
  *   g.start(now)                      … 1問目を出題し、計測を始める
  *   g.timeLeft(now)                   … 残りミリ秒（0未満にならない）
  *   g.choose(blank, choiceId, now)    … 選択式：解答箇所が1つなら、その場で判定
@@ -60,9 +61,10 @@
    * 同じ問題は、未出題の候補があるうちは出さない。同じ元問題が続かないようにする。
    * 候補が足りなくなったら、直近の問題を避けて再利用する（無限ループにはならない）。
    */
-  function Picker(rnd, pool) {
+  function Picker(rnd, pool, weights) {
     this.rnd = rnd;
     this.pool = pool || Q().all();
+    this.weights = weights || null;       // カテゴリごとの出題の重み（コースの設定。なければ rank-config.js）
     this.used = {};
     this.recent = [];
     this.catCount = {};
@@ -99,7 +101,7 @@
     if (!cats.length) cats = allCats.filter(function (c) { return has(c, function (q) { return !self.used[q.id]; }); });
     if (!cats.length) cats = allCats;
     // 出題数を重み（categoryWeights）で割った値が最も小さいカテゴリ
-    const weights = cfg.categoryWeights || {};
+    const weights = this.weights || cfg.categoryWeights || {};
     const load = function (c) { return (self.catCount[c] || 0) / (weights[c] || 1); };
     const minCount = Math.min.apply(null, cats.map(load));
     const lows = cats.filter(function (c) { return load(c) === minCount; });
@@ -180,7 +182,11 @@
     const o = opts || {};
     this.seed = o.seed != null ? (o.seed >>> 0) : (Math.floor(Math.random() * 4294967296) >>> 0);
     this.rnd = mulberry32(this.seed);
-    this.picker = new Picker(this.rnd, o.pool);
+    // コース（Ver.0.8）：出題範囲（そのコースで出せる問題だけ）とカテゴリの重み
+    const T = PH.rankTracks;
+    this.track = o.track && T && T.isTrack(o.track) ? o.track : null;
+    const pool = o.pool || (this.track ? T.pool(this.track) : null);
+    this.picker = new Picker(this.rnd, pool, this.track ? T.get(this.track).categoryWeights : null);
     this.onFinish = o.onFinish || null;
     this.state = 'ready';     // ready → play → over（途中終了は aborted）
     this.startAt = null;
@@ -277,7 +283,7 @@
       if (passed) this.passes++;
       this.combo = 0;
       this.wrongs.push({
-        no: inst.no, qid: inst.q.id, sourceId: inst.q.sourceId, typeLabel: inst.q.typeLabel,
+        no: inst.no, qid: inst.q.id, sourceId: inst.q.sourceId, typeLabel: inst.q.typeLabel, track: this.track,
         question: inst.q.lines.concat([inst.q.ask]).join(' '),
         yourAnswer: given, correctAnswer: correctText(inst), explain: inst.q.explain, passed: passed,
       });
@@ -310,7 +316,7 @@
       correct: this.correct, misses: this.misses, passes: this.passes, answered: this.answered,
       effectiveScore: score, rank: grade.rank, rankName: grade.name, maxCombo: this.maxCombo,
       penaltyMs: this.penaltyMs(),
-      criteriaVersion: C().criteriaVersion, seed: this.seed,
+      criteriaVersion: C().criteriaVersion, seed: this.seed, track: this.track,
       wrongs: this.wrongs.slice(0, C().reviewLimit),
     };
     if (this.onFinish) this.onFinish(this.result);

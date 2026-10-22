@@ -15,9 +15,16 @@
  *     puzzleLevel: 'easy' | 'standard' | 'challenge',   // 選んでいる解答レベル（初期値 easy）
  *     puzzleMigrated: true,                    // Ver.0.3 の記録を移行ずみ（二重に移行しない）
  *     lastProblemId, lastPuzzleProblemId, lastMode: 'hunter' | 'puzzle', sound,
- *     rankCertification: {                     // Ver.0.6〜：段位認定（ハンター・パズルの記録とは独立）
+ *     rankCertification: {                     // 段位認定（ハンター・パズルの記録とは独立）
+ *       format: 2,                             // Ver.0.8：コース別の記録
+ *       tracks: {                              // コースごとの記録（基本の合同証明・総合証明は完全に独立）
+ *         basic: <コースの記録>, comprehensive: <コースの記録>,
+ *       },
+ *       legacy: <コースの記録> | null,         // Ver.0.6〜0.7 の段位認定の記録（そのまま残す。新しいコースには変換しない）
+ *     }
+ *     <コースの記録> = {
  *       criteriaVersion,                       // いまの最高記録の認定基準のバージョン
- *       best: { rank, rankName, effectiveScore, correct, maxCombo, at },   // 同じ基準での最高記録（認定時の段位名を保存）
+ *       best: { rank, rankName, effectiveScore, correct, maxCombo, at } | null,   // 同じ基準での最高記録（null は未認定）
  *       bestCorrect, bestEffectiveScore, bestCombo,
  *       playCount,                             // 挑戦回数（最後まで終えた回数）
  *       lastResult: { correct, misses, passes, effectiveScore, rank, rankName, maxCombo, criteriaVersion, completedAt },
@@ -25,6 +32,7 @@
  *       previous: [ { criteriaVersion, best } ],   // 基準が変わる前の最高記録（比べずに残す。最大3件）
  *     }
  *   }
+ *   Ver.0.7 までの rankCertification（コースの記録の形そのもの）は、読みこむときに legacy へ移す（1回だけ。保存すると新しい形になる）。
  *   記録はモードごと・解答レベルごとに別々。古いデータに無い項目は空として読み、過去のプレイ内容は推測で補わない。
  *   関数の mode 引数は 'hunter'（省略時）、'puzzle:easy' / 'puzzle:standard' / 'puzzle:challenge'、
  *   または 'puzzle'（Ver.0.3 の記録そのもの。互換のため）。
@@ -34,8 +42,9 @@
   const PH = root.PH = root.PH || {};
   const KEY = 'proofHunter.v1';
 
-  const VERSION = 5;
+  const VERSION = 6;
   const LEVELS = ['easy', 'standard', 'challenge'];
+  const TRACK_IDS = ['basic', 'comprehensive'];     // 段位認定のコース（Ver.0.8。js/rank-tracks.js）
 
   /*
    * Ver.0.3 の各問題の形式（移行用に固定した表）。
@@ -53,8 +62,37 @@
     return {
       version: VERSION, problems: {}, puzzleProblems: {}, puzzleLevels: blankLevels(), puzzleLevel: 'easy',
       puzzleMigrated: false, lastProblemId: null, lastPuzzleProblemId: null, lastMode: null, sound: true,
-      rankCertification: blankRank(),
+      rankCertification: blankCert(),
     };
+  }
+
+  // 段位認定の記録全体（コースごとの記録と、Ver.0.7 までの記録）
+  function blankCert() {
+    const tracks = {};
+    TRACK_IDS.forEach(function (id) { tracks[id] = blankRank(); });
+    return { format: 2, tracks: tracks, legacy: null };
+  }
+
+  // 挑戦したことがある記録か（未挑戦の空の記録は legacy に残さない）
+  function hasRankData(r) { return !!(r.best || r.playCount > 0 || r.lastResult); }
+
+  /*
+   * 保存されていた段位認定の記録を読む。
+   *   Ver.0.8 の形（tracks あり）… コースごとに安全な値にそろえる。legacy はそのまま残す
+   *   Ver.0.6〜0.7 の形（tracks なし）… legacy に移す（新しいコースは未認定から）。壊れた値・未挑戦なら legacy なし
+   */
+  function cleanCert(r) {
+    const out = blankCert();
+    if (!isObj(r)) return out;
+    if (isObj(r.tracks)) {
+      TRACK_IDS.forEach(function (id) { out.tracks[id] = cleanRank(r.tracks[id]); });
+      const lg = isObj(r.legacy) ? cleanRank(r.legacy) : null;
+      out.legacy = lg && hasRankData(lg) ? lg : null;
+      return out;
+    }
+    const old = cleanRank(r);
+    out.legacy = hasRankData(old) ? old : null;
+    return out;
   }
 
   function blankRank() {
@@ -143,7 +181,7 @@
           data.lastPuzzleProblemId = typeof parsed.lastPuzzleProblemId === 'string' ? parsed.lastPuzzleProblemId : null;
           data.lastMode = parsed.lastMode === 'puzzle' || parsed.lastMode === 'hunter' ? parsed.lastMode : null;
           data.sound = parsed.sound !== false;
-          data.rankCertification = cleanRank(parsed.rankCertification);
+          data.rankCertification = cleanCert(parsed.rankCertification);
           data.version = VERSION;
         }
       }
@@ -271,9 +309,15 @@
       LEVELS.some(function (lv) { return Object.keys(d.puzzleLevels[lv]).length > 0; });
   }
 
-  // ---- 段位認定（Ver.0.6） ------------------------------------------------------
+  // ---- 段位認定（Ver.0.6。Ver.0.8 からコース別） -------------------------------------------
 
-  function getRank() { return load().rankCertification; }
+  function trackId(track) { return TRACK_IDS.indexOf(track) >= 0 ? track : 'basic'; }
+
+  // コースの記録（track を省略すると基本の合同証明）
+  function getRank(track) { return load().rankCertification.tracks[trackId(track)]; }
+
+  // Ver.0.7 までの段位認定の記録（なければ null）
+  function getRankLegacy() { return load().rankCertification.legacy; }
 
   /*
    * 段位認定の結果を記録する（最後まで終えた挑戦だけ。途中終了は記録しない）。
@@ -281,9 +325,10 @@
    *   最高段位は下がらない。認定時の段位名を保存するので、あとで基準を変えても過去の認定は変わらない。
    *   戻り値 { newRecord（最高段位を更新）, bestScore（有効正解数を更新）, ... }
    */
-  function recordRank(result) {
+  function recordRank(result, track) {
     const d = load();
-    const r = d.rankCertification;
+    // コース：引数 → 結果の track → 基本の合同証明。ほかのコースの記録には反映しない
+    const r = d.rankCertification.tracks[trackId(track || (result && result.track))];
     const ver = result.criteriaVersion;
     if (r.criteriaVersion !== null && r.criteriaVersion !== ver && r.best) {
       r.previous.unshift({ criteriaVersion: r.criteriaVersion, best: r.best });
@@ -342,7 +387,9 @@
     getSound: getSound,
     setSound: setSound,
     getRank: getRank,
+    getRankLegacy: getRankLegacy,
     recordRank: recordRank,
+    RANK_TRACKS: TRACK_IDS,
     _reset: _reset,
   };
 

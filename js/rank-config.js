@@ -25,7 +25,8 @@
     difficultyCaps: [{ upTo: 3, max: 1 }, { upTo: 10, max: 2 }],
     recentAvoid: 12,             // 直近この問数に出た問題は、なるべく出さない
     // カテゴリごとの出題の重み（Ver.0.7 で追加した「定理・三段論法」は、既存のバランスを崩さないよう半分）
-    categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 0.5 },
+    // Ver.0.8：コース（基本・総合）ごとの重みは js/rank-tracks.js の categoryWeights。これはコースを指定しないときの値
+    categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 0.5, right: 0.5 },
     feedbackMs: 300,             // 正解・不正解の表示時間
     // 誤答（パスをふくむ）のペナルティ：n 回目の誤答で制限時間を 4×n 秒へらす（4秒、8秒、12秒…とだんだん重くなる）
     penaltyStepMs: 4000,

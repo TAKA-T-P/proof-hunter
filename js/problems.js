@@ -24,6 +24,10 @@
     isoscelesBaseAngles: { label: '二等辺三角形の底角より', short: '底角', proof: '二等辺三角形の底角は等しいから' },
     equilateralSides:    { label: '正三角形の辺より',       short: '正三角形', proof: '正三角形の3辺は等しいから' },
     proved:              { label: '導いた等式より',         short: '導いた等式', proof: '導いた等式より', meta: true },
+    // Ver.0.8：直角であることの理由（rightOnly：直角の確認だけで選ぶ）と、正方形の辺
+    perpendicular:       { label: '垂直な2直線がつくる角より', short: '垂直', proof: '垂直な2直線がつくる角だから', rightOnly: true },
+    squareAngle:         { label: '正方形の角より',         short: '正方形の角', proof: '正方形の角だから', rightOnly: true },
+    squareSides:         { label: '正方形の辺より',         short: '正方形の辺', proof: '正方形の4辺は等しいから' },
   };
 
   // 結論の種類（Ver.0.5）。conclusionType がない問題は三角形の合同
@@ -41,8 +45,18 @@
     SSS: { label: '3組の辺がそれぞれ等しい' },
     SAS: { label: '2組の辺とその間の角がそれぞれ等しい' },
     ASA: { label: '1組の辺とその両端の角がそれぞれ等しい' },
+    // Ver.0.8：直角三角形の合同条件（2つの三角形が直角三角形であることが前提。js/right-triangle.js で判定）
+    RHA: { label: '直角三角形の斜辺と1つの鋭角がそれぞれ等しい', right: true },
+    RHS: { label: '直角三角形の斜辺と他の1辺がそれぞれ等しい', right: true },
   };
   PH.CONDITION_ORDER = ['SSS', 'SAS', 'ASA'];
+  PH.RIGHT_CONDITION_ORDER = ['SSS', 'SAS', 'ASA', 'RHA', 'RHS'];
+  // 直角三角形の合同条件で証明する問題か（Ver.0.8）
+  PH.isRightProblem = function (p) { return !!(p && PH.CONDITIONS[p.congruence] && PH.CONDITIONS[p.congruence].right); };
+  // 問題ごとの合同条件の選択肢：直角三角形の問題は5つ、それ以外は従来の3つ
+  PH.conditionOrder = function (p) { return PH.isRightProblem(p) ? PH.RIGHT_CONDITION_ORDER : PH.CONDITION_ORDER; };
+  // 根拠の表示（直角の確認は「∠ABC＝∠DEF＝90°」。label は2つの角の等式のまま）
+  PH.evidenceText = function (ev) { return ev.role === 'right' ? ev.label + '＝90°' : ev.label; };
 
   // ステージ（問題の stage で参照）
   PH.STAGES = [
@@ -53,6 +67,7 @@
     { id: 5, title: '証明マスターへの道', theme: 'いろいろな根拠を組み合わせよう！' },
     { id: 6, title: '合同から結論を導け！', theme: 'どの三角形を合同にする？ 合同から辺・角の等しさを証明しよう！' },
     { id: 7, title: '証明をつなげろ！', theme: '新しい根拠を導き、それを使って証明を完成させよう！' },
+    { id: 8, title: '直角三角形を攻略せよ！', theme: '直角を確かめ、斜辺を見つけて、直角三角形の合同条件を使いこなそう！' },
   ];
 
   // 合同条件を選ぶときのヒント（問題データから呼び出す共通文）
@@ -75,6 +90,36 @@
       { text: '集めた根拠は、辺が何組、角が何組かな？' },
       { text: '等しい角' + angles + 'は、' + side + 'の「両端」にあるかな？' },
       { text: '1組の辺と、その両端の角が等しいね。「1組の辺とその両端の角がそれぞれ等しい」を選ぼう！' },
+    ];
+  }
+  // Ver.0.8：直角三角形の合同条件
+  function rhsHints() {
+    return [
+      { text: '直角三角形のどの辺が斜辺かな？ 集めた根拠を確認しよう。' },
+      { text: '直角のほかに、斜辺と、もう1組の対応する辺が等しいね。' },
+      { text: '斜辺と他の1辺がそれぞれ等しい、という条件を使おう！「直角三角形の斜辺と他の1辺がそれぞれ等しい」を選ぼう！' },
+    ];
+  }
+  function rhaHints() {
+    return [
+      { text: '斜辺のほかに、等しい角はないかな？' },
+      { text: '直角ではない方の角（鋭角）が等しいね。' },
+      { text: '斜辺と1つの鋭角がそれぞれ等しい、という条件を使おう！「直角三角形の斜辺と1つの鋭角がそれぞれ等しい」を選ぼう！' },
+    ];
+  }
+  // 直角の確認・斜辺のヒント（Ver.0.8）
+  function rightHints(where, reasonText, label, focus) {
+    return [
+      { text: '2つの三角形の中に90°の角はあるかな？' },
+      { text: where, focus: focus },
+      { text: 'この2つの角が直角であることを確認しよう。' + reasonText + ' ' + label + '＝90° だね！', focus: focus },
+    ];
+  }
+  function hypHints(where, last, focus) {
+    return [
+      { text: '直角三角形のどの辺が斜辺かな？ 斜辺は、直角に向かい合う辺だよ。' },
+      { text: where, focus: focus },
+      { text: last, focus: focus },
     ];
   }
 
@@ -1703,6 +1748,393 @@
       learningPoints: [
         '角の差を使って、2つの角を同じ式で表す。',
         '2つの式を比べて導いた角の等しさを、合同の根拠に使う。',
+      ],
+    }
+  );
+
+  // ==================================================================
+  // Ver.0.8 追加問題（STAGE 8）：直角三角形の合同条件
+  //   p25・p26 は新しい2つの合同条件の入門。p27〜p30 は教材「証明練習プリント」の
+  //   二等辺三角形と直角三角形 ⑤〜⑧ をもとにした（図の座標は作り直し、仮定・結論・証明の流れは原本の模範解答どおり）。
+  //   evidence の role: 'right' … 2つの三角形の直角（直角三角形であることの確認。表示は「∠ABC＝∠DEF＝90°」）
+  //     斜辺・他の1辺・鋭角の区別は、直角の位置から自動で求める（js/right-triangle.js。データに二重に書かない）。
+  //   figure.rightMarks … 図にかかれている直角の印（仮定・垂線の直角だけ。正方形の角など、導く直角は最初は表示しない）
+  //   perpendicular … 垂直な2直線（{ a, b, label }。label は仮定の書き方）、square … 正方形（頂点の順）
+  // ==================================================================
+  PH.problems.push(
+    // ------------------------------------------------------------------
+    {
+      id: 'p25',
+      number: '25',
+      title: '斜辺と他の1辺を見つけろ！',
+      difficulty: 1,
+      stage: 8,
+      statement: '四角形ABCDで、∠BAD＝∠BCD＝90°、AB＝CB のとき、△ABD≡△CBD であることを証明しよう。',
+      given: ['∠BAD＝∠BCD＝90°', 'AB＝CB'],
+      conclusion: '△ABD≡△CBD',
+      triangles: [['A', 'B', 'D'], ['C', 'B', 'D']],
+      figure: {
+        viewBox: [0, 0, 400, 400],
+        points: {
+          A: { x: 130, y: 78.76,  label: [0, -22] },
+          B: { x: 60,  y: 200,    label: [-22, 0] },
+          C: { x: 130, y: 321.24, label: [0, 26] },
+          D: { x: 340, y: 200,    label: [22, 0] },
+        },
+        lines: [],
+        segments: ['AB', 'AD', 'CB', 'CD', 'BD'],
+        angles: ['BAD', 'BCD', 'ABD', 'CBD', 'ADB', 'CDB'],
+        parallel: [],
+        rightMarks: ['BAD', 'BCD'],
+      },
+      reasons: ['given', 'common', 'vertical'],
+      evidence: [
+        { id: 'e1', role: 'right', items: ['∠BAD', '∠BCD'], reason: 'given', label: '∠BAD＝∠BCD', mark: 'right' },
+        { id: 'e2', items: ['BD', 'BD'], reason: 'common', label: 'BD＝BD', mark: 'common' },
+        { id: 'e3', items: ['AB', 'CB'], reason: 'given', label: 'AB＝CB', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'RHS',
+      proof: { intro: '△ABDと△CBDにおいて' },
+      puzzle: { type: 'fill', distractors: { equations: ['AB＝AD', 'AD＝BD', '∠ABD＝∠CDB'], reasons: ['vertical'] } },
+      hints: {
+        e1: rightHints('仮定の「∠BAD＝∠BCD＝90°」を図で探そう。∠BADと∠BCDをタップ！', '仮定より', '∠BAD＝∠BCD', ['∠BAD', '∠BCD']),
+        e2: hypHints('△ABDでも△CBDでも、直角に向かい合う辺は辺BDだね。同じ辺を2回タップしよう！',
+          'BD＝BD。共通な辺が斜辺になっているね！', ['BD']),
+        e3: stepHints('斜辺と、もう1組の対応する辺を探そう！', '仮定の「AB＝CB」に注目しよう！',
+          'AB＝CB。仮定より等しい、斜辺ではない方の辺（他の1辺）だね！', ['AB', 'CB']),
+        congruence: rhsHints(),
+      },
+      explanation: '直角三角形で、直角に向かい合う辺を「斜辺」といいます。△ABDと△CBDはどちらも直角三角形で、斜辺BDは共通、他の1辺はAB＝CBなので、「直角三角形の斜辺と他の1辺がそれぞれ等しい」で合同が言えます。',
+      learningPoints: [
+        '仮定の90°から、2つの三角形が直角三角形であることを確かめる。',
+        '直角に向かい合う辺が斜辺。共通な辺が斜辺になることもある。',
+        '斜辺と他の1辺がそれぞれ等しい → 直角三角形の合同条件。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p26',
+      number: '26',
+      title: '斜辺と1つの鋭角で合同！',
+      difficulty: 1,
+      stage: 8,
+      statement: '線分ADと線分BCが点Oで交わっている。∠ABO＝∠DCO＝90°、AO＝DO のとき、△ABO≡△DCO であることを証明しよう。',
+      given: ['∠ABO＝∠DCO＝90°', 'AO＝DO'],
+      conclusion: '△ABO≡△DCO',
+      triangles: [['A', 'B', 'O'], ['D', 'C', 'O']],
+      figure: {
+        viewBox: [0, 0, 400, 380],
+        points: {
+          A: { x: 70,  y: 90,  label: [-18, -12] },
+          B: { x: 70,  y: 190, label: [-22, 4] },
+          O: { x: 200, y: 190, label: [12, -14] },
+          C: { x: 330, y: 190, label: [22, 4] },
+          D: { x: 330, y: 290, label: [18, 14] },
+        },
+        lines: [['A', 'O', 'D'], ['B', 'O', 'C']],
+        segments: ['AB', 'BO', 'OC', 'CD', 'AO', 'OD'],
+        angles: ['ABO', 'DCO', 'AOB', 'DOC', 'BAO', 'CDO'],
+        parallel: [],
+        rightMarks: ['ABO', 'DCO'],
+      },
+      reasons: ['given', 'common', 'vertical'],
+      evidence: [
+        { id: 'e1', role: 'right', items: ['∠ABO', '∠DCO'], reason: 'given', label: '∠ABO＝∠DCO', mark: 'right' },
+        { id: 'e2', items: ['AO', 'DO'], reason: 'given', label: 'AO＝DO', mark: 1 },
+        { id: 'e3', items: ['∠AOB', '∠DOC'], reason: 'vertical', label: '∠AOB＝∠DOC', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'RHA',
+      proof: { intro: '△ABOと△DCOにおいて' },
+      puzzle: { type: 'fill', distractors: { equations: ['AB＝BO', 'AO＝BO', '∠BAO＝∠DOC'], reasons: [] } },
+      hints: {
+        e1: rightHints('仮定の「∠ABO＝∠DCO＝90°」を図で探そう。∠ABOと∠DCOをタップ！', '仮定より', '∠ABO＝∠DCO', ['∠ABO', '∠DCO']),
+        e2: hypHints('△ABOで直角∠ABOに向かい合う辺はAO、△DCOではDOだね。',
+          'AO＝DO。仮定より、斜辺どうしが等しいね！', ['AO', 'DO']),
+        e3: stepHints('斜辺のほかに、等しい角はないかな？', '直角ではない方の角（鋭角）に注目しよう！ 点Oのまわりの角はどうかな？',
+          '∠AOB＝∠DOC。対頂角は等しいね！', ['∠AOB', '∠DOC']),
+        congruence: rhaHints(),
+      },
+      explanation: '△ABOと△DCOはどちらも直角三角形です。斜辺AO＝DO（仮定）と、鋭角∠AOB＝∠DOC（対頂角）が等しいので、「直角三角形の斜辺と1つの鋭角がそれぞれ等しい」で合同が言えます。',
+      learningPoints: [
+        '直角三角形の斜辺は、直角に向かい合う辺。',
+        '直角ではない角（鋭角）の等しさは、対頂角などの理由で見つける。',
+        '斜辺と1つの鋭角がそれぞれ等しい → 直角三角形の合同条件。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p27',
+      number: '27',
+      title: '二等辺三角形にひいた垂線',
+      difficulty: 2,
+      stage: 8,
+      statement: 'AB＝AC である△ABCの頂点B、Cから辺AC、ABに垂線をひき、その交点をそれぞれD、Eとする。このとき、△EBC≡△DCB であることを証明しよう。',
+      given: ['AB＝AC', 'BD⊥AC', 'CE⊥AB'],
+      conclusion: '△EBC≡△DCB',
+      triangles: [['E', 'B', 'C'], ['D', 'C', 'B']],
+      figure: {
+        viewBox: [0, 0, 400, 370],
+        points: {
+          A: { x: 200,    y: 50,     label: [0, -20] },
+          B: { x: 70,     y: 330,    label: [-18, 14] },
+          C: { x: 330,    y: 330,    label: [18, 14] },
+          D: { x: 283.89, y: 230.69, label: [20, -4] },
+          E: { x: 116.11, y: 230.69, label: [-20, -4] },
+        },
+        lines: [['A', 'E', 'B'], ['A', 'D', 'C']],
+        segments: ['AE', 'EB', 'AD', 'DC', 'BC', 'BD', 'CE'],
+        angles: ['BEC', 'CDB', 'EBC', 'DCB'],
+        parallel: [],
+        rightMarks: ['BEC', 'CDB'],
+      },
+      perpendicular: [{ a: 'BD', b: 'AC', label: 'BD⊥AC' }, { a: 'CE', b: 'AB', label: 'CE⊥AB' }],
+      reasons: ['given', 'common', 'perpendicular', 'proved'],
+      proofSteps: [
+        { id: 's1', type: 'theorem', stage: 'pre', rule: 'isoscelesBaseAngles', premise: ['AB', 'AC'], premiseLabel: 'AB＝AC',
+          items: ['∠ABC', '∠ACB'], label: '∠ABC＝∠ACB', short: '底角が等しい', dependsOn: [] },
+      ],
+      evidence: [
+        { id: 'e1', role: 'right', items: ['∠BEC', '∠CDB'], reason: 'perpendicular', label: '∠BEC＝∠CDB', mark: 'right' },
+        { id: 'e2', items: ['BC', 'CB'], reason: 'common', label: 'BC＝CB', mark: 'common' },
+        { id: 'e3', items: ['∠EBC', '∠DCB'], reason: 'proved', fromStep: 's1', label: '∠EBC＝∠DCB', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'RHA',
+      proof: { intro: '△EBCと△DCBにおいて' },
+      puzzle: { type: 'build', distractors: { equations: ['BE＝BC', '∠EBC＝∠ECB', 'BD＝BC'], reasons: ['vertical'] } },
+      hints: {
+        s1: stepHints('どんな図形の性質が使えるかな？', '2辺が等しい三角形には、角についてどんな性質があるかな？',
+          '「二等辺三角形の底角は等しい」という性質を使おう！', ['∠EBC', '∠DCB']),
+        e1: rightHints('垂直な線に注目しよう！ BD⊥AC、CE⊥ABだね。', '垂直な2直線がつくる角だから', '∠BEC＝∠CDB', ['∠BEC', '∠CDB']),
+        e2: hypHints('△EBCでも△DCBでも、直角に向かい合う辺は辺BCだね。同じ辺を2回タップしよう！',
+          'BC＝CB。共通な辺が斜辺になっているね！', ['BC']),
+        e3: stepHints('斜辺のほかに、等しい角はないかな？', '直角ではない方の角（鋭角）に注目しよう！ さっき導いた底角の等しさが使えるよ。',
+          '∠EBC＝∠DCB。二等辺三角形の底角から導いたね！', ['∠EBC', '∠DCB']),
+        congruence: rhaHints(),
+      },
+      explanation: 'BD⊥AC、CE⊥ABなので∠BEC＝∠CDB＝90°で、△EBCと△DCBは直角三角形です。斜辺BCは共通。AB＝ACの二等辺三角形の底角から∠EBC＝∠DCBが言えるので、「直角三角形の斜辺と1つの鋭角がそれぞれ等しい」で△EBC≡△DCBです。',
+      learningPoints: [
+        '垂直な2直線がつくる角は90°。垂線から直角三角形を見つける。',
+        '二等辺三角形の底角を、直角三角形の鋭角として使う。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p28',
+      number: '28',
+      title: '正方形と正三角形',
+      difficulty: 3,
+      stage: 8,
+      statement: '正方形ABCDの辺AD、AB上にそれぞれ点E、Fをとると、△CEFが正三角形になった。このとき、∠ECD＝∠FCB であることを証明しよう。',
+      given: ['四角形ABCDは正方形', '△CEFは正三角形'],
+      conclusion: '∠ECD＝∠FCB',
+      conclusionType: 'equalAngle',
+      square: ['ABCD'],
+      equilateral: ['CEF'],
+      triangles: [['C', 'E', 'D'], ['C', 'F', 'B']],
+      figure: {
+        viewBox: [0, 0, 400, 370],
+        points: {
+          A: { x: 60,     y: 40,     label: [-18, -12] },
+          B: { x: 60,     y: 320,    label: [-18, 14] },
+          C: { x: 340,    y: 320,    label: [18, 14] },
+          D: { x: 340,    y: 40,     label: [18, -12] },
+          E: { x: 264.97, y: 40,     label: [0, -18] },
+          F: { x: 60,     y: 244.97, label: [-20, 0] },
+        },
+        lines: [['A', 'E', 'D'], ['A', 'F', 'B']],
+        segments: ['AE', 'ED', 'AF', 'FB', 'BC', 'CD', 'CE', 'CF', 'EF'],
+        angles: ['CDE', 'CBF', 'ECD', 'FCB', 'ECF', 'CED', 'CFB'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'squareSides', 'squareAngle', 'equilateralSides'],
+      evidence: [
+        { id: 'e1', role: 'right', items: ['∠CDE', '∠CBF'], reason: 'squareAngle', label: '∠CDE＝∠CBF', mark: 'right' },
+        { id: 'e2', items: ['CE', 'CF'], reason: 'equilateralSides', label: 'CE＝CF', mark: 2 },
+        { id: 'e3', items: ['CD', 'CB'], reason: 'squareSides', label: 'CD＝CB', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'RHS',
+      finalStep: { relationType: 'angle', items: ['∠ECD', '∠FCB'], reason: 'correspondingAngles', label: '∠ECD＝∠FCB' },
+      proof: { intro: '△CEDと△CFBにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['CD＝DE', '∠CDE＝∠ECF', 'FB＝CB'],
+          reasons: ['vertical'],
+          triangles: ['CED/CBF', 'CED/FBC'],
+          finals: ['∠ECD＝∠ECF', '∠CED＝∠ECD'],
+        },
+      },
+      hints: {
+        triangleSelection: [
+          { text: '結論の∠ECDと∠FCBは、どの三角形にふくまれているかな？' },
+          { text: '∠ECDをふくむ三角形と、∠FCBをふくむ三角形を見つけよう！', focus: ['∠ECD', '∠FCB'] },
+          { text: '△CEDと△CFBに注目しよう。対応する頂点は C↔C、E↔F、D↔B だよ。', focus: ['∠ECD', '∠FCB'] },
+        ],
+        e1: rightHints('正方形の角に注目しよう！', '正方形の角だから', '∠CDE＝∠CBF', ['∠CDE', '∠CBF']),
+        e2: hypHints('△CEDで直角∠CDEに向かい合う辺はCE、△CFBではCFだね。どちらも正三角形CEFの辺だよ。',
+          'CE＝CF。正三角形の3辺は等しいね！', ['CE', 'CF']),
+        e3: stepHints('斜辺と、もう1組の対応する辺を探そう！', '正方形の辺に注目しよう！ 辺CDと辺CBはどうかな？',
+          'CD＝CB。正方形の4辺は等しいね！', ['CD', 'CB']),
+        congruence: rhsHints(),
+        finalStep: [
+          { text: '合同な三角形で、対応する辺や角にはどんな性質があるかな？' },
+          { text: '結論の∠ECDと∠FCBを、合同な三角形の対応関係で確認しよう！', focus: ['∠ECD', '∠FCB'] },
+          { text: '「合同な図形の対応する角は等しい」という性質を使おう！', focus: ['∠ECD', '∠FCB'] },
+        ],
+      },
+      explanation: '正方形の角だから∠CDE＝∠CBF＝90°で、△CEDと△CFBは直角三角形です。斜辺CE＝CF（正三角形の辺）、他の1辺CD＝CB（正方形の辺）なので、「直角三角形の斜辺と他の1辺がそれぞれ等しい」で△CED≡△CFB。対応する角から∠ECD＝∠FCBが言えます。',
+      learningPoints: [
+        '正方形の角は90°、正方形の4辺は等しい。',
+        '正三角形の辺を斜辺として使い、直角三角形の合同から角の等しさを導く。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p29',
+      number: '29',
+      title: '角の二等分線と垂線',
+      difficulty: 2,
+      stage: 8,
+      statement: '∠XOYの二等分線上の点Pから、辺OX、OYに垂線をひき、その交点をそれぞれQ、Rとする。このとき、PQ＝PR であることを証明しよう。',
+      given: ['∠POQ＝∠POR', 'PQ⊥OX', 'PR⊥OY'],
+      conclusion: 'PQ＝PR',
+      conclusionType: 'equalSide',
+      triangles: [['P', 'O', 'Q'], ['P', 'O', 'R']],
+      figure: {
+        viewBox: [0, 0, 400, 370],
+        points: {
+          O: { x: 40,     y: 330,    label: [-16, 10] },
+          X: { x: 252.12, y: 77.21,  label: [12, -10] },
+          Y: { x: 370,    y: 330,    label: [16, 10] },
+          P: { x: 275.64, y: 220.12, label: [18, -4] },
+          Q: { x: 191.47, y: 149.49, label: [-16, -12] },
+          R: { x: 275.64, y: 330,    label: [0, 24] },
+        },
+        lines: [['O', 'Q', 'X'], ['O', 'R', 'Y']],
+        segments: ['OQ', 'QX', 'OR', 'RY', 'OP', 'PQ', 'PR'],
+        angles: ['PQO', 'PRO', 'POQ', 'POR', 'OPQ', 'OPR'],
+        parallel: [],
+        rightMarks: ['PQO', 'PRO'],
+      },
+      perpendicular: [{ a: 'PQ', b: 'OX', label: 'PQ⊥OX' }, { a: 'PR', b: 'OY', label: 'PR⊥OY' }],
+      reasons: ['given', 'common', 'perpendicular', 'vertical'],
+      evidence: [
+        { id: 'e1', role: 'right', items: ['∠PQO', '∠PRO'], reason: 'perpendicular', label: '∠PQO＝∠PRO', mark: 'right' },
+        { id: 'e2', items: ['PO', 'PO'], reason: 'common', label: 'PO＝PO', mark: 'common' },
+        { id: 'e3', items: ['∠POQ', '∠POR'], reason: 'given', label: '∠POQ＝∠POR', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'RHA',
+      finalStep: { relationType: 'side', items: ['PQ', 'PR'], reason: 'correspondingSides', label: 'PQ＝PR' },
+      proof: { intro: '△POQと△PORにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['PQ＝OQ', '∠POQ＝∠OPQ', 'OQ＝QX'],
+          reasons: ['vertical'],
+          triangles: ['POQ/ORP', 'POQ/OPR'],
+          finals: ['OQ＝PR', 'PQ＝OP'],
+        },
+      },
+      hints: {
+        triangleSelection: [
+          { text: '結論の辺PQと辺PRは、どの三角形にふくまれているかな？' },
+          { text: '辺PQをふくむ三角形と、辺PRをふくむ三角形を見つけよう！', focus: ['PQ', 'PR'] },
+          { text: '△POQと△PORに注目しよう。対応する頂点は P↔P、O↔O、Q↔R だよ。', focus: ['PQ', 'PR'] },
+        ],
+        e1: rightHints('垂直な線に注目しよう！ PQ⊥OX、PR⊥OYだね。', '垂直な2直線がつくる角だから', '∠PQO＝∠PRO', ['∠PQO', '∠PRO']),
+        e2: hypHints('△POQでも△PORでも、直角に向かい合う辺は辺POだね。同じ辺を2回タップしよう！',
+          'PO＝PO。共通な辺が斜辺になっているね！', ['PO']),
+        e3: stepHints('斜辺のほかに、等しい角はないかな？', '直角ではない方の角（鋭角）に注目しよう！ 点Pは∠XOYの二等分線上にあるね。',
+          '∠POQ＝∠POR。仮定（角の二等分線）より等しいね！', ['∠POQ', '∠POR']),
+        congruence: rhaHints(),
+        finalStep: [
+          { text: '合同な三角形で、対応する辺や角にはどんな性質があるかな？' },
+          { text: '結論の辺PQと辺PRを、合同な三角形の対応関係で確認しよう！', focus: ['PQ', 'PR'] },
+          { text: '「合同な図形の対応する辺は等しい」という性質を使おう！', focus: ['PQ', 'PR'] },
+        ],
+      },
+      explanation: 'PQ⊥OX、PR⊥OYなので∠PQO＝∠PRO＝90°。斜辺POは共通で、OPは∠XOYの二等分線なので∠POQ＝∠POR。「直角三角形の斜辺と1つの鋭角がそれぞれ等しい」で△POQ≡△PORとなり、対応する辺からPQ＝PRが言えます（角の二等分線上の点から、角の2辺までの距離は等しい）。',
+      learningPoints: [
+        '垂線から直角三角形を見つけ、共通な斜辺を使う。',
+        '角の二等分線は、2つの鋭角が等しいことを表す。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p30',
+      number: '30',
+      title: '直角二等辺三角形と三段論法',
+      difficulty: 3,
+      stage: 8,
+      statement: '△ABCは∠BAC＝90°、AB＝AC の直角二等辺三角形である。頂点Aを通り辺BCと交わる直線ℓに、頂点B、Cから垂線をひき、ℓとの交点をそれぞれD、Eとする。このとき、△ABD≡△CAE であることを証明しよう。',
+      given: ['∠BAC＝90°', 'AB＝AC', 'BD⊥ℓ', 'CE⊥ℓ'],
+      conclusion: '△ABD≡△CAE',
+      triangles: [['A', 'B', 'D'], ['C', 'A', 'E']],
+      figure: {
+        viewBox: [0, 0, 440, 336],
+        points: {
+          A: { x: 220,    y: 50,     label: [0, -20] },
+          B: { x: 40,     y: 230,    label: [-18, 10] },
+          C: { x: 400,    y: 230,    label: [18, 10] },
+          D: { x: 256.79, y: 151.09, label: [20, -6] },
+          E: { x: 298.91, y: 266.79, label: [-20, 8] },
+        },
+        lines: [['A', 'D', 'E']],
+        segments: ['AB', 'AC', 'BC', 'AD', 'DE', 'BD', 'CE'],
+        angles: ['ADB', 'CEA', 'ABD', 'CAE', 'DAB'],
+        parallel: [],
+        rightMarks: ['BAC', 'ADB', 'CEA'],
+        // 直線ℓ（A・D・E を通る）を E の先までのばして、名前「ℓ」をつける（飾り。タップできない）
+        rays: [{ from: 'A', through: 'E', extend: 34, label: 'ℓ' }],
+      },
+      perpendicular: [{ a: 'BD', b: 'AE', label: 'BD⊥ℓ' }, { a: 'CE', b: 'AE', label: 'CE⊥ℓ' }],
+      reasons: ['given', 'common', 'perpendicular', 'proved'],
+      proofSteps: [
+        { id: 's1', type: 'expression', rule: 'triangleAngleSum', target: '∠ABD', parts: '180°－∠ADB－∠DAB', value: '90°－∠DAB',
+          premiseLabel: '△ABDで、∠ADB＝90°', note: '△ABDの内角の和は180°、∠ADB＝90°',
+          label: '∠ABD＝180°－(90°＋∠DAB)＝90°－∠DAB', short: '∠ABDの式', dependsOn: [] },
+        { id: 's2', type: 'expression', rule: 'angleSubtraction', target: '∠CAE', parts: '∠BAC－∠DAB', value: '90°－∠DAB',
+          premiseLabel: '∠BAC＝90°', note: '∠BAC＝90°',
+          label: '∠CAE＝∠BAC－∠DAB＝90°－∠DAB', short: '∠CAEの式', dependsOn: [] },
+        { id: 's3', type: 'compare', items: ['∠ABD', '∠CAE'], label: '∠ABD＝∠CAE', short: '式を比べる', dependsOn: ['s1', 's2'],
+          distractors: ['∠ABD＝∠DAB', '∠CAE＝∠DAB'] },
+      ],
+      evidence: [
+        { id: 'e1', role: 'right', items: ['∠ADB', '∠CEA'], reason: 'perpendicular', label: '∠ADB＝∠CEA', mark: 'right' },
+        { id: 'e2', items: ['AB', 'CA'], reason: 'given', label: 'AB＝CA', mark: 1 },
+        { id: 'e3', items: ['∠ABD', '∠CAE'], reason: 'proved', fromStep: 's3', label: '∠ABD＝∠CAE', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'RHA',
+      proof: { intro: '△ABDと△CAEにおいて' },
+      puzzle: { type: 'build', distractors: { equations: ['BD＝AD', 'AB＝BC', '∠ABD＝∠DAB'], reasons: ['vertical'] } },
+      hints: {
+        s1: stepHints('△ABDの3つの角の和は何度かな？', '∠ADB＝90°だね。∠ABDを、∠DABを使って表そう。',
+          '三角形の内角の和が180°であることを使おう！', ['∠ABD', '∠DAB']),
+        s2: stepHints('∠BAC＝90°だね。∠CAEは、どんな角の差で表せるかな？', '∠CAE＝∠BAC－∠DAB だね。',
+          '大きい角から小さい角を引いた角だから「角の差」を使おう！', ['∠CAE', '∠DAB']),
+        s3: stepHints('2つの式を見比べてみよう。', '右辺に共通する部分はないかな？', '2つの式の右辺は同じだから、左辺どうしが等しいね！', ['∠ABD', '∠CAE']),
+        e1: rightHints('垂直な線に注目しよう！ BD⊥ℓ、CE⊥ℓだね。', '垂直な2直線がつくる角だから', '∠ADB＝∠CEA', ['∠ADB', '∠CEA']),
+        e2: hypHints('△ABDで直角∠ADBに向かい合う辺はAB、△CAEではCAだね。',
+          'AB＝CA。仮定より、斜辺どうしが等しいね！', ['AB', 'CA']),
+        e3: stepHints('斜辺のほかに、等しい角はないかな？', '式を比べて導いた角の等しさを使おう！ ∠ABDと∠CAEに注目しよう。',
+          '∠ABD＝∠CAE。2つの式を比べて導いたね！', ['∠ABD', '∠CAE']),
+        congruence: rhaHints(),
+      },
+      explanation: '△ABDの内角の和から∠ABD＝180°－(90°＋∠DAB)＝90°－∠DAB、∠BAC＝90°から∠CAE＝90°－∠DAB。右辺が同じなので∠ABD＝∠CAE（三段論法）。BD⊥ℓ、CE⊥ℓから∠ADB＝∠CEA＝90°、斜辺AB＝CA（仮定）と合わせて、「直角三角形の斜辺と1つの鋭角がそれぞれ等しい」で△ABD≡△CAEです。',
+      learningPoints: [
+        '三角形の内角の和・角の差を使って、2つの角を同じ式で表す。',
+        '三段論法で導いた鋭角の等しさを、直角三角形の合同に使う。',
       ],
     }
   );

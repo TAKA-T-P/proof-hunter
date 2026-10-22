@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/right-triangle.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');

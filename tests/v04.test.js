@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/right-triangle.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -48,7 +49,8 @@ test('3つの解答レベルが定義され、表示名・説明・形式が正�
 });
 
 // 多段階証明（STAGE 7。proofSteps あり）は根拠の行の数がちがうので、v07.test.js で同じ内容を確かめる
-const SINGLE = PH.problems.filter((p) => !p.proofSteps);
+// 直角三角形の問題（STAGE 8）は根拠の行の役割（直角・斜辺・他の1辺）が決まっているので、v08.test.js で確かめる
+const SINGLE = PH.problems.filter((p) => !p.proofSteps && !PH.isRightProblem(p));
 // 全問題（多段階証明をのぞく）× 3レベル：正しい証明でクリア・根拠の順番の入れかえ・合同条件の誤り
 SINGLE.forEach((p) => {
   Object.keys(TYPES).forEach((level) => {
@@ -75,7 +77,7 @@ SINGLE.forEach((p) => {
 });
 
 test('どのレベルでも、根拠にならない等式ではクリアできない', () => {
-  PH.problems.forEach((p) => {
+  PH.problems.filter((p) => !PH.isRightProblem(p)).forEach((p) => {
     // 図の上の辺の組から、根拠でない（まちがいの）等式を1つ探す
     const segs = geo.getElements(p.figure).segments;
     let wrong = null;
@@ -104,7 +106,7 @@ test('どのレベルでも、根拠にならない等式ではクリアでき�
 });
 
 test('チャレンジでは等式カードを表示しない（理由・合同条件はカード）', () => {
-  PH.problems.forEach((p) => {
+  PH.problems.filter((p) => !PH.isRightProblem(p)).forEach((p) => {
     const z = new PH.Puzzle(p, 'challenge');
     assert.equal(z.cards.eq.length, 0);
     assert.ok(z.cards.reason.length >= 3);

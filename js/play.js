@@ -132,7 +132,8 @@
           '</div>' +
           '<div class="play-side">' +
             '<div class="card panel" data-ref="panel"></div>' +
-            '<div class="slots-wrap"><div class="slots" data-ref="slots"></div><p class="slots-note">見つけた根拠をタップすると、図の場所が光るよ</p></div>' +
+            '<div class="slots-wrap"><div class="slots" data-ref="slots"></div><p class="slots-note">' +
+              (PH.isRightProblem(p) ? '空いている欄をタップすると、集める根拠を切りかえられるよ。見つけた根拠をタップすると図が光るよ' : '見つけた根拠をタップすると、図の場所が光るよ') + '</p></div>' +
             '<div class="facts-wrap" data-ref="facts"></div>' +
             '<div class="stats" data-ref="stats"></div>' +
           '</div>' +
@@ -171,15 +172,15 @@
   };
 
   PlayController.prototype.handleClick = function (e) {
-    const t = e.target.closest('[data-key],[data-tri],[data-vx],[data-step-opt],[data-cmp],[data-step-go],[data-fact],[data-act],[data-mode],[data-reason],[data-cond],[data-tool],[data-ev],[data-proof-reason]');
+    const t = e.target.closest('[data-key],[data-tri],[data-step-opt],[data-cmp],[data-step-go],[data-fact],[data-act],[data-mode],[data-reason],[data-cond],[data-tool],[data-ev],[data-proof-reason],[data-role]');
     if (!t || t.disabled) return;
+    if (t.hasAttribute('data-role')) return this.selectRole(t.getAttribute('data-role'));
     if (t.hasAttribute('data-step-opt')) return this.chooseStepOption(t.getAttribute('data-step-opt'));
     if (t.hasAttribute('data-cmp')) { const v = t.getAttribute('data-cmp').split(':'); return this.pickPart(v[0], v[1]); }
     if (t.hasAttribute('data-step-go')) return this.selectStep(t.getAttribute('data-step-go'));
     if (t.hasAttribute('data-fact')) return this.flashStep(t.getAttribute('data-fact'));
     if (t.hasAttribute('data-key')) return this.tapFromFigure(t, e.clientX, e.clientY);
     if (t.hasAttribute('data-tri')) return this.tapTriangleFromFigure(t, e.clientX, e.clientY);
-    if (t.hasAttribute('data-vx')) return this.pressVertex(t.getAttribute('data-vx'));
     if (t.hasAttribute('data-mode')) return this.setMode(t.getAttribute('data-mode'));
     if (t.hasAttribute('data-reason')) return this.selectReason(t.getAttribute('data-reason'));
     if (t.hasAttribute('data-cond')) return this.selectCondition(t.getAttribute('data-cond'));
@@ -199,8 +200,7 @@
       case 'confirm': return this.confirm();
       case 'confirm-cond': return this.confirmCondition();
       case 'clear-marks': return this.clearMarks();
-      case 'tri-back': return this.triAction('back');
-      case 'tri-clear': return this.triAction('clear');
+      case 'tri-clear': return this.triAction();
       case 'confirm-tri': return this.confirmTriangles();
       case 'confirm-final': return this.confirmFinal();
       case 'confirm-step': return this.confirmStep();
@@ -239,18 +239,8 @@
     this.render();
   };
 
-  PlayController.prototype.pressVertex = function (v) {
-    if (this.game.pressVertex(v)) {
-      PH.sound.play('tap');
-      this.say(null);
-      this.render();
-    }
-  };
-
-  PlayController.prototype.triAction = function (what) {
-    const g = this.game;
-    const ok = what === 'back' ? g.backVertex() : g.clearTriangles();
-    if (ok) {
+  PlayController.prototype.triAction = function () {
+    if (this.game.clearTriangles()) {
       PH.sound.play('tap');
       this.say(null);
       this.render();
@@ -267,13 +257,11 @@
       PH.hints.hide(doc.getElementById('hint-popup'));
       this.setTriCheck(false);
       this.popMessage('三角形が決まった！');
-      this.say(triName(g.triangles[0]) + 'と' + triName(g.triangles[1]) + 'で証明しよう！ ' +
-        (g.phase === 'step' ? 'まず、根拠に使う新しい関係を導こう。' : '次は3つの根拠を見つけよう。'), 'ok');
+      this.say(triName(g.triangles[0]) + 'と' + triName(g.triangles[1]) + 'で証明しよう！（対応する頂点は「△ 三角形を確認」で見られるよ）' +
+        (g.phase === 'step' ? 'まず、根拠に使う新しい関係を導こう。'
+          : g.isRight() ? 'まず、2つの三角形の直角を確かめよう。' : '次は3つの根拠を見つけよう。'), 'ok');
     } else {
-      const text = {
-        order: '三角形は見つけられたね！ 頂点の対応順を確認しよう！',
-        same: '同じ三角形を2つ選んでいるよ。ちがう2つの三角形を選ぼう！',
-      }[r.status] || 'この2つの三角形で、結論を導けるかな？ 対応する辺・角に注目しよう！';
+      const text = 'この2つの三角形で、結論を導けるかな？ 結論の辺・角をふくむ三角形に注目しよう！';
       this.say(text, 'ng');
       PH.sound.play(r.miss ? 'wrong' : 'soft');
       this.shake = true;
@@ -371,7 +359,8 @@
       this.flash(stepKeys(this.problem, s), 1200);
       if (r.stageDone === 'post') return this.cleared();
       if (r.stageDone === 'pre') {
-        this.say(s.label + ' を導けた！ 次は、合同を示す3つの根拠を集めよう。導いた等式も根拠に使えるよ。', 'ok');
+        this.say(s.label + ' を導けた！ 次は、合同を示す3つの根拠を集めよう。' +
+          (this.game.isRight() ? 'まず、2つの三角形の直角を確かめよう。' : '') + '導いた等式も根拠に使えるよ。', 'ok');
       } else {
         this.say(s.label + ' を導けた！ 次のステップへ進もう。', 'ok');
       }
@@ -464,6 +453,16 @@
 
   PlayController.prototype.selectReason = function (id) {
     if (this.game.selectReason(id)) {
+      PH.sound.play('tap');
+      this.say(null);
+      this.render();
+    }
+  };
+
+  // 直角三角形の根拠の欄（直角・斜辺・他の1辺・鋭角）を選ぶ（Ver.0.8）
+  PlayController.prototype.selectRole = function (role) {
+    if (this.game.phase === 'clear') return;
+    if (this.game.selectRole(role)) {
       PH.sound.play('tap');
       this.say(null);
       this.render();
@@ -650,20 +649,31 @@
         return;
       case 'correct': {
         const ev = r.evidence;
+        const role = g.isRight() ? g.roleOf(ev) : null;
         PH.sound.play('get');
         this.newSlot = ev.id;
-        this.popMessage('根拠発見！');
+        this.popMessage(role === 'right' ? '直角三角形を確認！' : '根拠発見！');
         this.flash(g.evidenceKeys(ev.id), 1100);
         PH.hints.hide(doc.getElementById('hint-popup'));
         this.bumpCounter = true;
         if (r.complete) {
           this.say('3つの根拠がそろった！ 合同条件を見極めよう！', 'ok');
           this.focusPanel = true;
+        } else if (role === 'right') {
+          const t = p.triangles;
+          this.say(PH.evidenceText(ev) + '（' + PH.REASONS[ev.reason].short + '）。' + triName(t[0]) + 'と' + triName(t[1]) +
+            'は直角三角形だね！ 次は' + PH.rightTriangle.ROLE_LABEL[g.role] + 'を見つけよう。', 'ok');
+        } else if (role) {
+          this.say(PH.rightTriangle.ROLE_LABEL[role] + 'を発見！ ' + ev.label + '（' + PH.REASONS[ev.reason].short + '）' +
+            (g.role ? ' 次は' + PH.rightTriangle.ROLE_LABEL[g.role] + 'を見つけよう。' : ''), 'ok');
         } else {
           this.say('根拠発見！ ' + ev.label + '（' + PH.REASONS[ev.reason].short + '）', 'ok');
         }
         break;
       }
+      case 'wrong-role':
+        this.say(wrongRoleText(p, r), 'ng');
+        break;
       case 'duplicate':
         this.say('この根拠はもう見つけているよ！', 'info');
         break;
@@ -672,7 +682,9 @@
         this.say('たしかに等しいね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！', 'info');
         break;
       case 'wrong-reason':
-        this.say('等しい' + what + 'は見つけられたね！ でも、理由をもう一度考えてみよう。', 'ng');
+        this.say(r.evidence && r.evidence.role === 'right'
+          ? '直角は見つけられたね！ でも、なぜ90°と言えるのか、仮定や図形の性質をもう一度確認しよう。'
+          : '等しい' + what + 'は見つけられたね！ でも、理由をもう一度考えてみよう。', 'ng');
         break;
       case 'from-conclusion':
         // 対応する辺・角が等しいと言えるのは、合同を証明してから（STAGE 6 では最終結論ではなく途中の合同を示す）
@@ -698,10 +710,20 @@
     const g = this.game;
     const r = g.confirmCondition();
     if (r.status === 'incomplete') return;
+    if (r.status === 'classic-condition') {
+      // 直角三角形の問題で3つの合同条件を選んだ（ミスにはしない）
+      PH.sound.play('soft');
+      this.say('3つの合同条件で示せる場合もあるけれど、今回集めた根拠（直角・斜辺・' +
+        PH.rightTriangle.ROLE_LABEL[g.roles[2]] + '）には、直角三角形の合同条件がぴったり合うよ。選び直そう！', 'info');
+      this.render();
+      return;
+    }
     if (!r.ok) {
       PH.sound.play('wrong');
       this.shake = true;
-      this.say('集めた3つの根拠をもう一度確認しよう！', 'ng');
+      this.say(g.isRight()
+        ? '集めた根拠をもう一度確認しよう！ 斜辺のほかに等しいのは、辺かな？ 角かな？'
+        : '集めた3つの根拠をもう一度確認しよう！', 'ng');
       this.render();
       return;
     }
@@ -829,6 +851,7 @@
       selection: g.selection,
       flash: this.flashKeys,
       autoMarks: g.autoMarks(),
+      hypotenuse: g.hypotenuseKeys(),
       userMarks: g.userMarks,
       flashLines: this.flashLines,
       // 合同が成立したら（STEP 4）2つの三角形を色分けして表示する
@@ -921,7 +944,7 @@
       }
     } else {
       const lead = s.type === 'expression'
-        ? '<p class="step-premise">' + esc(s.premiseLabel) + 'だから、正三角形の1つの角は60°</p><p class="step-expr">' + esc(s.label) + '</p><p class="panel-note">この式は、何を使って導いたかな？</p>'
+        ? '<p class="step-premise">' + esc(s.note || s.premiseLabel + 'だから、正三角形の1つの角は60°') + '</p><p class="step-expr">' + esc(s.label) + '</p><p class="panel-note">この式は、何を使って導いたかな？</p>'
         : '<p class="step-premise">' + esc(s.premiseLabel) + 'より、</p><p class="panel-note">理由を選ぼう</p>';
       html += lead + '<div class="choices reasons step-opts" role="group" aria-label="理由">' + g.stepOptions(s).map(function (o) {
         return '<button class="choice" data-step-opt="' + o.id + '" aria-pressed="' + (g.stepChoice === o.id) + '">' + esc(o.text) + '</button>';
@@ -947,35 +970,23 @@
       }).join('') + '</ul>' : '<p class="small-note">ステップを証明すると、ここに増えていくよ。</p>') + '</details>';
   };
 
-  // STEP 1：証明する三角形と頂点の対応を選ぶパネル
+  // STEP 1：証明する2つの三角形を選ぶパネル（ハンターは入門用なので、頂点の対応は答えない）
   PlayController.prototype.trianglePanel = function () {
     const g = this.game;
     const sel = g.triSel;
     let note;
     if (sel.length === 0) note = 'どの2つの三角形を合同にすればよい？ 図の三角形の内側をタップしよう。';
     else if (sel.length === 1) note = '2つ目の三角形をタップしよう。（もう一度タップで選び直し）';
-    else if (g.triMap.length < 3) note = triName(sel[0]) + 'の頂点 <b>' + esc(sel[0][g.triMap.length]) + '</b> に対応する頂点を、' + triName(sel[1]) + 'から選ぼう。';
-    else note = '頂点の対応が決まったよ。「決定」を押そう！';
-    const slotTri = function (tri, i, letters) {
+    else note = '2つの三角形を選んだよ。「決定」を押そう！';
+    const slotTri = function (tri, i) {
       return '<span class="tri-slot tri-slot-' + i + (tri ? ' filled' : '') + '">△' +
-        (tri ? letters.map(function (c) { return '<span>' + esc(c || '＿') + '</span>'; }).join('') : '＿＿＿') + '</span>';
+        (tri ? tri.map(function (c) { return '<span>' + esc(c) + '</span>'; }).join('') : '＿＿＿') + '</span>';
     };
-    const second = sel[1] ? [0, 1, 2].map(function (k) { return g.triMap[k] || ''; }) : null;
     let html = '<div class="panel-head">△ 証明する三角形を選ぼう</div>' + this.stepBar() +
       '<p class="panel-note">' + note + '</p>' +
-      '<div class="tri-answer" aria-label="選んだ三角形">' + slotTri(sel[0], 0, sel[0] || []) + '<span class="tri-and">と</span>' +
-        slotTri(sel[1], 1, second || []) + '<span class="tri-and">において</span></div>';
-    if (sel.length === 2) {
-      html += '<div class="vx-map">' + sel[0].map(function (v, k) {
-        return '<span class="vx-pair"><span class="vx-chip vx-' + k + '">' + esc(v) + '</span>↔<span class="vx-chip ' + (g.triMap[k] ? 'vx-' + k : 'vx-empty') + '">' + esc(g.triMap[k] || '？') + '</span></span>';
-      }).join('') + '</div>' +
-      '<div class="vx-keys" role="group" aria-label="対応する頂点">' + sel[1].map(function (v) {
-        const used = g.triMap.indexOf(v) >= 0;
-        return '<button class="choice vx-key" data-vx="' + esc(v) + '"' + (used || g.triMap.length >= 3 ? ' disabled' : '') + '>' + esc(v) + '</button>';
-      }).join('') + '</div>';
-    }
+      '<div class="tri-answer" aria-label="選んだ三角形">' + slotTri(sel[0], 0) + '<span class="tri-and">と</span>' +
+        slotTri(sel[1], 1) + '<span class="tri-and">において</span></div>';
     html += '<div class="panel-actions">' +
-      '<button class="btn" data-act="tri-back"' + (g.triMap.length ? '' : ' disabled') + ' aria-label="1つもどす">←</button>' +
       '<button class="btn" data-act="tri-clear"' + (sel.length ? '' : ' disabled') + ' aria-label="選んだ三角形を消す">消す</button>' +
       '<button class="btn btn-confirm" data-act="confirm-tri"' + (g.canConfirmTriangles() ? '' : ' disabled') + ' aria-label="この2つの三角形で証明する">決定</button>' +
       '</div>' + this.feedbackHtml();
@@ -1031,8 +1042,8 @@
     if (g.phase === 'congruence') {
       html += '<div class="panel-head">⚖️ 合同条件を見極めよう！</div>' + this.stepBar() +
         '<p class="panel-note">3つの根拠がそろった！ どの合同条件で <b>' + esc(PH.congruenceText(this.problem)) + '</b> といえるかな？</p>' +
-        '<div class="choices conds">' +
-          PH.CONDITION_ORDER.map(function (id, i) {
+        '<div class="choices conds' + (g.isRight() ? ' conds-5' : '') + '">' +
+          g.conditionOptions().map(function (id, i) {
             return '<button class="choice" data-cond="' + id + '" aria-pressed="' + (g.condition === id) + '">' +
               '<span class="choice-no">' + CIRCLED[i] + '</span>' + esc(PH.CONDITIONS[id].label) + '</button>';
           }).join('') +
@@ -1065,15 +1076,31 @@
       else note = '「証明を完成する」を押そう！';
     }
 
-    const head = final ? '⭐ 結論を導こう！' : g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
+    // Ver.0.8：直角三角形の問題は、今集めている欄（直角・斜辺・他の1辺・鋭角）を見出しに出す
+    const RT = PH.rightTriangle;
+    const roleNow = !final && g.isRight() ? g.role : null;
+    let head = final ? '⭐ 結論を導こう！' : g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
+    if (roleNow) {
+      head = roleNow === 'right' ? '📐 直角を確かめよう' : '📐 ' + RT.ROLE_LABEL[roleNow] + 'をさがそう';
+      if (n === 0) note = {
+        right: '2つの三角形の直角を、角の内側をタップして選ぼう。図が直角に見えるだけではダメ。理由も選ぶよ。',
+        hypotenuse: '斜辺は、直角に向かい合う辺だよ。2つの三角形の斜辺をタップしよう（共通な辺は同じ辺を2回）。',
+        leg: '斜辺ではない、もう1組の等しい辺（他の1辺）をタップしよう。',
+        acute: '直角ではない方の角（鋭角）で、等しい2つの角をタップしよう。',
+      }[roleNow] + (g.mode !== (roleNow === 'right' || roleNow === 'acute' ? 'angle' : 'side') ? '（' + (roleNow === 'right' || roleNow === 'acute' ? '角選択' : '辺選択') + 'に切り替えよう）' : '');
+      else if (roleNow === 'right' && n === 1) note = 'もう1つの三角形の直角をタップしよう。';
+      else if (roleNow === 'right' && n === 2 && !g.reason) note = '2つの角が90°と言える理由を選ぼう。';
+    }
     html += '<div class="panel-head">' + head + '</div>' + this.stepBar() +
+      (roleNow ? '<p class="role-now">いま集める根拠：<b class="role-tag role-' + roleNow + '">' + RT.ROLE_LABEL[roleNow] + '</b><span>' + esc(RT.ROLE_NOTE[roleNow]) + '</span></p>' : '') +
       '<p class="panel-note">' + note + '</p>' +
       '<div class="equation' + (n === 2 ? ' is-ready' : '') + (same ? ' is-common' : '') + '" aria-label="等式の候補">' +
         '<span class="eq-part' + (cand[0] ? ' filled' : '') + '">' + esc(cand[0] || '？') + '</span>' +
         '<span class="eq-sign">＝</span>' +
         '<span class="eq-part' + (cand[1] ? ' filled' : '') + '">' + esc(cand[1] || '？') + '</span>' +
+        (roleNow === 'right' ? '<span class="eq-sign">＝</span><span class="eq-part filled eq-90">90°</span>' : '') +
       '</div>' +
-      '<div class="reasons-label">等しい理由</div>' +
+      '<div class="reasons-label">' + (roleNow === 'right' ? '90°と言える理由' : '等しい理由') + '</div>' +
       '<div class="choices reasons" role="group" aria-label="等しい理由">' +
         g.availableReasons().map(function (id) {
           return '<button class="choice" data-reason="' + id + '" aria-pressed="' + (g.reason === id) + '"' + (n === 2 ? '' : ' disabled') + '>' +
@@ -1094,11 +1121,37 @@
     const self = this;
     const total = g.total();
     let html = '';
+    if (g.isRight()) {
+      // Ver.0.8：直角三角形の根拠の欄（直角 → 斜辺 → 他の1辺／鋭角）。空いている欄はタップで選べる
+      const RT = PH.rightTriangle;
+      g.roles.forEach(function (role) {
+        const id = g.found.find(function (x) { return g.roleOf(g.evidenceById(x)) === role; });
+        if (id) {
+          const ev = g.evidenceById(id);
+          html += '<button class="slot filled slot-role role-' + role + (self.newSlot === id ? ' is-new' : '') + '" data-ev="' + id + '" aria-label="' + RT.ROLE_LABEL[role] + ' ' + esc(PH.evidenceText(ev)) + ' ' + esc(PH.REASONS[ev.reason].label) + '">' +
+            '<span class="slot-role-tag">' + RT.ROLE_LABEL[role] + '</span>' +
+            '<span class="slot-eq">' + esc(PH.evidenceText(ev)) + '</span>' +
+            '<span class="slot-reason">' + esc(PH.REASONS[ev.reason].short) + '</span></button>';
+        } else {
+          const on = g.phase === 'collect' && g.role === role;
+          html += '<button class="slot empty slot-role role-' + role + (on ? ' is-active' : '') + '" data-role="' + role + '" aria-pressed="' + on + '"' + (g.phase === 'collect' ? '' : ' disabled') + '>' +
+            '<span class="slot-role-tag">' + RT.ROLE_LABEL[role] + '</span><span class="slot-q">？</span></button>';
+        }
+      });
+      const slots = this.ref('slots');
+      slots.innerHTML = html;
+      const facts = this.ref('facts');
+      if (facts) facts.innerHTML = this.factsHtml();
+      slots.classList.toggle('complete', g.found.length === total);
+      slots.classList.add('slots-role');
+      this.newSlot = null;
+      return;
+    }
     for (let i = 0; i < total; i++) {
       const id = g.found[i];
       if (id) {
         const ev = g.evidenceById(id);
-        html += '<button class="slot filled' + (self.newSlot === id ? ' is-new' : '') + '" data-ev="' + id + '" aria-label="根拠' + CIRCLED[i] + ' ' + esc(ev.label) + ' ' + esc(PH.REASONS[ev.reason].label) + '">' +
+        html += '<button class="slot filled' + (self.newSlot === id ? ' is-new' : '') + '" data-ev="' + id + '" aria-label="根拠' + CIRCLED[i] + ' ' + esc(PH.evidenceText(ev)) + ' ' + esc(PH.REASONS[ev.reason].label) + '">' +
           '<span class="slot-eq">' + esc(ev.label) + '</span>' +
           '<span class="slot-reason">' + esc(PH.REASONS[ev.reason].short) + '</span></button>';
       } else {
@@ -1215,6 +1268,18 @@
         '<p class="proof-concl proof-goal"><button class="pl-eq" data-fact="' + l.stepId + '">' + esc(l.conclusion) + '</button></p>' +
         '</div>';
     }).join('');
+  }
+
+  // 欄に合わない根拠のメッセージ（Ver.0.8）：正しい根拠だが、今集めている欄（斜辺など）ではない
+  function wrongRoleText(p, r) {
+    const RT = PH.rightTriangle;
+    const want = RT.ROLE_LABEL[r.want], got = RT.ROLE_LABEL[r.role];
+    if (r.want === 'hypotenuse' && r.role === 'leg') {
+      return r.evidence.label + ' は等しいけれど、斜辺ではなく「他の1辺」だよ。斜辺は、直角に向かい合う辺だよ。';
+    }
+    if (r.want === 'leg' && r.role === 'hypotenuse') return r.evidence.label + ' は斜辺だよ。「他の1辺」は、斜辺ではない方の辺だよ。';
+    if (r.role === 'right') return 'それは2つの三角形の直角だね！ 今は「' + want + '」の欄だよ。直角の欄をタップして入れよう。';
+    return PH.evidenceText(r.evidence) + ' は「' + got + '」の根拠だね。今は「' + want + '」の欄だよ。欄を確認しよう！';
   }
 
   // ---------------------------------------------------------------------

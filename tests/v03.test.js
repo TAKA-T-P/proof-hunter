@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/right-triangle.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -43,9 +44,10 @@ test('全問題のデータ検証（パズルのダミーカードを含む）�
 });
 
 // 多段階証明（STAGE 7。proofSteps あり）は根拠の行の数がちがうので、v07.test.js で同じ内容を確かめる
-const SINGLE = PH.problems.filter((p) => !p.proofSteps);
+// 直角三角形の問題（STAGE 8）は根拠の行の役割が決まっているので、v08.test.js で確かめる
+const SINGLE = PH.problems.filter((p) => !p.proofSteps && !PH.isRightProblem(p));
 test('全問題でパズルを作れ、正解カード・合同条件カードがそろっている', () => {
-  assert.equal(PH.problems.length, 24);
+  assert.equal(PH.problems.length, 30);
   SINGLE.forEach((p) => {
     const z = new PH.Puzzle(p);
     assert.equal(z.type, p.puzzle.type);

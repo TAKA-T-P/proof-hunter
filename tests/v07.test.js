@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/right-triangle.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -16,6 +17,7 @@ require('../js/game.js');
 require('../js/math-keypad.js');
 require('../js/puzzle.js');
 require('../js/rank-config.js');
+require('../js/rank-tracks.js');
 require('../js/rank-questions.js');
 require('../js/rank-game.js');
 
@@ -25,7 +27,8 @@ const geo = PH.geometry;
 const E = PH.angleExpr;
 const R = PH.proofRules;
 const k = (p, n) => geo.elementKey(p.figure, n);
-const MULTI = PH.problems.filter((p) => p.proofSteps);
+// STAGE 7 の多段階証明（STAGE 8 の p27・p30 も proofSteps を持つが、直角三角形の欄があるので v08.test.js で確かめる）
+const MULTI = PH.problems.filter((p) => p.proofSteps && p.stage === 7);
 const TYPES = ['fill', 'build', 'challenge'];
 
 function fill(z, placement) {
@@ -42,9 +45,6 @@ function chooseTriangles(g) {
   const t = g.problem.triangles;
   g.tapTriangle(t[0]);
   g.tapTriangle(t[1]);
-  const first = g.triSel[0];
-  const from = first.join('') === t[0].slice().sort().join('') ? [t[0], t[1]] : [t[1], t[0]];
-  first.forEach((v) => g.pressVertex(from[1][from[0].indexOf(v)]));
   return g.confirmTriangles();
 }
 
@@ -88,8 +88,8 @@ function solveHunter(p) {
 
 // ---- 問題データ ---------------------------------------------------------------------
 
-test('24問・7ステージ。STAGE 7「証明をつなげろ！」は p21〜p24 の多段階証明', () => {
-  assert.equal(PH.problems.length, 24);
+test('STAGE 7「証明をつなげろ！」は p21〜p24 の多段階証明', () => {
+  assert.equal(PH.problems.length, 30);
   assert.equal(PH.getStage(7).title, '証明をつなげろ！');
   assert.deepEqual(PH.stageProblems(7).map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
   assert.deepEqual(MULTI.map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
@@ -495,7 +495,9 @@ test('回帰：Ver.0.6 の保存データを引き継ぎ、STAGE 7 は未クリ�
     const S = PH.storage;
     assert.equal(S.getProblem('p01').bestStars, 3);
     assert.equal(S.getProblem('p16', 'puzzle:easy').bestStars, 2);
-    assert.equal(S.getRank().best.rankName, '四段');
+    // Ver.0.8：Ver.0.7 までの段位認定は「過去の記録」として残し、新しいコースは未認定から
+    assert.equal(S.getRankLegacy().best.rankName, '四段');
+    assert.equal(S.getRank('basic').best, null);
     assert.equal(S.stageStats(7).cleared, 0);
     assert.equal(S.stageStats(7).total, 4);
     S.recordClear('p23', 3, 0, 'puzzle:challenge');

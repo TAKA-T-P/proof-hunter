@@ -6,6 +6,8 @@
  *         'triangle'（証明する三角形と頂点の対応を選ぶ） → 'collect' → 'congruence' → 'final'（合同から結論を導く） → 'clear'
  * mode  : 'side'（辺選択） / 'angle'（角選択） / 'mark'（印つけ） / 'erase'（印を消す） / 'tri'（三角形を選ぶ）
  *         辺選択では辺だけ、角選択では角だけがタップに反応する（頂点付近の誤選択を防ぐ）。
+ * Ver.0.8：直角三角形の合同条件の問題（PH.isRightProblem）は、根拠の欄が「直角・斜辺・他の1辺（鋭角）」になる。
+ *         role（今集めている欄）に合わない根拠は 'wrong-role'（例：他の1辺を斜辺の欄に入れた）。欄はタップで切りかえられる。
  */
 (function (root) {
   'use strict';
@@ -37,7 +39,6 @@
     if (!this.hasFinal && this.engine && this.engine.available('pre').length) this.enterSteps('pre');
     this.answerMode = this.mode; // 印つけ等から「解答にもどる」ときの戻り先
     this.triSel = [];            // 選んだ三角形（頂点の配列。1つ目が青、2つ目が黄）
-    this.triMap = [];            // 1つ目の三角形の頂点の順に対応する、2つ目の三角形の頂点
     this.triCounted = {};        // ミスに数えた三角形の誤答（同じ誤答の再判定ではミスを増やさない）
     this.congruent = false;      // 合同が成立した（最終結論を導ける）
     this.selection = [];         // 選択中の要素キー（共通な辺は同じキーが2つ）
@@ -50,7 +51,43 @@
     this.markTool = { kind: 'seg', n: 1 };   // 印つけ：辺の印か角の印のどちらか一方と、その本数
     this.condition = null;       // 選択中の合同条件
     this.stars = 0;
+    // Ver.0.8：直角三角形の根拠の欄（直角 → 斜辺 → 他の1辺／鋭角）と、今集めている欄
+    this.roles = PH.rightTriangle ? PH.rightTriangle.slotRoles(this.problem) : [];
+    this.role = this.roles[0] || null;
+    this.established = {};       // 確かめた事実（等式キー → 根拠ID）。直角の根拠を確かめると、2つの三角形が直角三角形
+    if (this.phase === 'collect') this.applyRoleMode();
   };
+
+  // ---- 直角三角形の根拠の欄（Ver.0.8） -----------------------------------------------
+
+  Game.prototype.isRight = function () { return this.roles.length > 0; };
+
+  Game.prototype.roleOf = function (ev) { return PH.rightTriangle.roleOf(this.problem, ev); };
+
+  // その欄の根拠を見つけたか
+  Game.prototype.roleFound = function (role) {
+    const self = this;
+    return this.found.some(function (id) { return self.roleOf(self.evidenceById(id)) === role; });
+  };
+
+  // 今の欄に合わせて辺選択・角選択を切りかえる（直角・鋭角は角、斜辺・他の1辺は辺）
+  Game.prototype.applyRoleMode = function () {
+    if (!this.isRight() || !this.role || this.phase !== 'collect') return;
+    this.mode = this.role === 'right' || this.role === 'acute' ? 'angle' : 'side';
+    this.answerMode = this.mode;
+  };
+
+  // 集める欄を選ぶ（まだ見つけていない欄だけ）
+  Game.prototype.selectRole = function (role) {
+    if (!this.isRight() || this.phase !== 'collect' || this.roles.indexOf(role) < 0 || this.roleFound(role)) return false;
+    this.role = role;
+    this.clearSelection();
+    this.applyRoleMode();
+    return true;
+  };
+
+  // 2つの三角形が直角三角形であることを確かめたか（直角の根拠を見つけた）
+  Game.prototype.rightConfirmed = function () { return this.isRight() && this.roleFound('right'); };
 
   Game.prototype.total = function () { return this.problem.evidence.length; };
 
@@ -152,7 +189,9 @@
 
   Game.prototype.availableReasons = function () {
     if (this.phase === 'final') return this.finalReasons();
-    const list = this.problem.reasons.slice();
+    // Ver.0.8：直角の欄は「直角であることの理由」、ほかの欄では直角専用の理由を出さない
+    if (this.isRight() && this.role === 'right') return PH.rightTriangle.RIGHT_REASONS.slice();
+    const list = this.problem.reasons.filter(function (r) { return !(PH.REASONS[r] && PH.REASONS[r].rightOnly); });
     if (this.isSameTwice()) {
       const id = this.selectionKind() === 'ang' ? 'commonAngle' : 'common';
       if (list.indexOf(id) < 0) list.splice(1, 0, id);
@@ -187,60 +226,54 @@
     const idx = this.triSel.findIndex(function (t) { return t.slice().sort().join('') === id; });
     if (idx >= 0) {
       this.triSel.splice(idx, 1);
-      this.triMap = [];
       return { type: 'deselect' };
     }
     const t = tri.slice().sort();
     if (this.triSel.length < 2) this.triSel.push(t);
     else this.triSel[1] = t;
-    this.triMap = [];
     return { type: 'select' };
-  };
-
-  // 1つ目の三角形の頂点（順に）に対応する、2つ目の三角形の頂点を押す
-  Game.prototype.pressVertex = function (v) {
-    if (this.phase !== 'triangle' || this.triSel.length !== 2 || this.triMap.length >= 3) return false;
-    if (this.triSel[1].indexOf(v) < 0 || this.triMap.indexOf(v) >= 0) return false;
-    this.triMap.push(v);
-    return true;
-  };
-
-  Game.prototype.backVertex = function () {
-    if (this.phase !== 'triangle' || !this.triMap.length) return false;
-    this.triMap.pop();
-    return true;
   };
 
   Game.prototype.clearTriangles = function () {
     if (this.phase !== 'triangle') return false;
     this.triSel = [];
-    this.triMap = [];
     return true;
   };
 
+  // ハンターは入門用のモードなので、2つの三角形を選べば「決定」できる（頂点の対応は答えない。証明パズルでは答える）
   Game.prototype.canConfirmTriangles = function () {
-    return this.phase === 'triangle' && this.triSel.length === 2 && this.triMap.length === 3;
+    return this.phase === 'triangle' && this.triSel.length === 2;
   };
 
-  // 「決定」（この2つの三角形で証明する）：正しければ根拠の収集へ。誤りはミス1回（同じ誤答の再判定では増やさない）
+  /*
+   * 「決定」（この2つの三角形で証明する）：三角形の組が正しければ根拠の収集へ。
+   * 頂点の対応は問題データ（triangles・altTriangles）から決まり、「△ 三角形を確認」で見られる。
+   * 誤りはミス1回（同じ組の再判定では増やさない）
+   */
   Game.prototype.confirmTriangles = function () {
     if (!this.canConfirmTriangles()) return { status: 'incomplete', ok: false, miss: false };
-    const t1 = this.triSel[0], t2 = this.triMap.slice();
-    const r = PH.validation.checkTriangles(this.problem, t1, t2);
-    r.miss = false;
-    if (r.ok) {
+    const key = function (t) { return t.slice().sort().join(''); };
+    const sel = this.triSel.map(key);
+    const pair = sel.slice().sort().join('|');
+    const hit = [this.problem.triangles].concat(this.problem.altTriangles || []).find(function (c) {
+      return [key(c[0]), key(c[1])].sort().join('|') === pair;
+    });
+    if (hit) {
+      // 1つ目に選んだ三角形を先にした、正しい対応の順
+      const tris = key(hit[0]) === sel[0] ? [hit[0], hit[1]] : [hit[1], hit[0]];
       this.phase = 'collect';
       this.mode = 'side';
       this.answerMode = 'side';
-      this.triangles = [t1.slice(), t2];
+      this.triangles = [tris[0].slice(), tris[1].slice()];
       if (this.engine && this.engine.available('pre').length) this.enterSteps('pre');
-    } else if (r.status === 'order' || r.status === 'wrong') {
-      const sig = PH.validation.correspondenceKey(t1, t2);
-      if (!this.triCounted[sig]) {
-        this.triCounted[sig] = true;
-        this.misses++;
-        r.miss = true;
-      }
+      else this.applyRoleMode();
+      return { status: 'ok', ok: true, miss: false };
+    }
+    const r = { status: 'wrong', ok: false, miss: false };
+    if (!this.triCounted[pair]) {
+      this.triCounted[pair] = true;
+      this.misses++;
+      r.miss = true;
     }
     return r;
   };
@@ -281,16 +314,31 @@
   // 「根拠を確定」
   Game.prototype.confirmEvidence = function () {
     if (!this.canConfirm()) return { status: 'incomplete', miss: false };
-    const r = PH.validation.checkEvidence(this.problem, this.selection, this.reason, this.found, this.engine);
+    let r = PH.validation.checkEvidence(this.problem, this.selection, this.reason, this.found, this.engine);
+    // Ver.0.8：今の欄（直角・斜辺・他の1辺・鋭角）に合わない根拠（例：他の1辺を斜辺の欄に入れた）
+    if (this.isRight() && r.evidence && r.status !== 'duplicate') {
+      const got = this.roleOf(r.evidence);
+      if (got !== this.role) r = { status: 'wrong-role', miss: true, evidence: r.evidence, kind: r.kind, role: got, want: this.role };
+    }
     if (r.miss) this.misses++;
     switch (r.status) {
       case 'correct':
         this.found.push(r.evidence.id);
         this.clearSelection();
+        this.establish(r.evidence);
         if (this.found.length === this.total()) {
           this.phase = 'congruence';
           r.complete = true;
+        } else if (this.isRight()) {
+          // 次の空いている欄へ
+          const self = this;
+          this.role = this.roles.find(function (x) { return !self.roleFound(x); }) || null;
+          this.applyRoleMode();
+          r.nextRole = this.role;
         }
+        break;
+      case 'wrong-role':
+        this.clearSelection();
         break;
       case 'wrong-reason':
         this.reason = null;      // 等式の選択は残して理由だけ選び直す
@@ -301,8 +349,19 @@
     return r;
   };
 
+  // 見つけた根拠を、確かめた事実として登録する（直角の根拠なら2つの三角形が直角三角形になる）
+  Game.prototype.establish = function (ev) {
+    const keys = this.evidenceKeys(ev.id);
+    const eq = PH.validation.equationKey(keys[0], keys[1]);
+    this.established[eq] = ev.id;
+    if (this.engine) this.engine.establish(eq, ev.id);
+  };
+
+  // 合同条件の選択肢（直角三角形の問題は5つ、それ以外は3つ）
+  Game.prototype.conditionOptions = function () { return PH.conditionOrder(this.problem); };
+
   Game.prototype.selectCondition = function (id) {
-    if (this.phase !== 'congruence' || !PH.CONDITIONS[id]) return false;
+    if (this.phase !== 'congruence' || !PH.CONDITIONS[id] || this.conditionOptions().indexOf(id) < 0) return false;
     this.condition = id;
     return true;
   };
@@ -324,8 +383,13 @@
       this.phase = 'clear';
       this.mode = this.answerMode;
       this.stars = calcStars(this.misses, this.hintsUsed);
+    } else if (r.status === 'classic-condition') {
+      // 直角三角形の問題で3つの合同条件を選んだ：数学的には別の道すじで示せる場合もあるので、ミスにはしない
+      r.miss = false;
+      this.condition = null;
     } else {
       this.misses++;
+      r.miss = true;
       this.condition = null;
     }
     return r;
@@ -449,6 +513,7 @@
       this.phase = 'collect';
       this.mode = 'side';
       this.answerMode = 'side';
+      this.applyRoleMode();
       r.stageDone = 'pre';
     } else {
       this.stepId = null;
@@ -475,6 +540,14 @@
   };
 
   Game.prototype.clearUserMarks = function () { this.userMarks = {}; };
+
+  // 見つけた斜辺の要素キー（図で斜辺を強調する。Ver.0.8）
+  Game.prototype.hypotenuseKeys = function () {
+    const self = this;
+    if (!this.isRight()) return [];
+    const ev = this.found.map(function (id) { return self.evidenceById(id); }).find(function (e) { return self.roleOf(e) === 'hypotenuse'; });
+    return ev ? this.evidenceKeys(ev.id) : [];
+  };
 
   // 登録済み根拠に対応する自動表示の印（要素キー → 印）
   Game.prototype.autoMarks = function () {
@@ -547,8 +620,9 @@
       return {
         evidenceId: ev.id,
         reason: ev.proofReason || PH.REASONS[ev.reason].proof,
-        equation: ev.label,
+        equation: PH.evidenceText(ev),     // 直角の確認は「∠ABC＝∠DEF＝90°」
         no: CIRCLED[i],
+        role: PH.rightTriangle ? PH.rightTriangle.roleOf(problem, ev) : null,
       };
     });
     const stepNo = {};

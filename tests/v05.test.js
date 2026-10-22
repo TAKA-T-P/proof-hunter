@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/right-triangle.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -23,7 +24,7 @@ const KP = PH.mathKeypad;
 const k = (p, n) => geo.elementKey(p.figure, n);
 // STAGE 6（Ver.0.5）の5問。STAGE 7（多段階証明）は v07.test.js で確かめる
 const NEW = PH.problems.filter((p) => PH.hasFinalStep(p) && p.stage === 6);
-const LEGACY = PH.problems.filter((p) => !PH.hasFinalStep(p));
+const LEGACY = PH.problems.filter((p) => !PH.hasFinalStep(p) && p.stage <= 7);
 const TYPES = ['fill', 'build', 'challenge'];
 
 // 対応を保ったまま頂点を同時に並べ替えた表記（6通り）と、左右を交換した表記（さらに6通り）
@@ -37,14 +38,11 @@ function equivalentForms(t1, t2) {
   return out;
 }
 
-// ハンター：三角形を選んで頂点の対応を押す（t1 の頂点はアルファベット順に並ぶ）
+// ハンター：2つの三角形を選んで決定（ハンターでは頂点の対応は答えない）
 function chooseTriangles(g, t1, t2) {
   g.clearTriangles();
   g.tapTriangle(t1);
   g.tapTriangle(t2);
-  const first = g.triSel[0];
-  const from = first.join('') === t1.slice().sort().join('') ? [t1, t2] : [t2, t1];
-  first.forEach((v) => g.pressVertex(from[1][from[0].indexOf(v)]));
   return g.confirmTriangles();
 }
 
@@ -104,7 +102,7 @@ function withFakeStorage(initial, fn) {
 // ---- 問題データ ---------------------------------------------------------------
 
 test('STAGE 6 は p16〜p20 で、結論が辺・角の等しさ', () => {
-  assert.equal(PH.problems.length, 24);
+  assert.equal(PH.problems.length, 30);
   const st6 = PH.getStage(6);
   assert.equal(st6.title, '合同から結論を導け！');
   assert.deepEqual(PH.stageProblems(6).map((p) => p.id), ['p16', 'p17', 'p18', 'p19', 'p20']);
@@ -255,7 +253,7 @@ test('三角形の選択：図にない三角形・一直線上の3点・同じ�
   assert.equal(geo.triangleCandidates(p14.figure, near).length, 2);
 });
 
-test('ハンター：三角形の選択（タップ・解除・入れかえ・頂点の対応・ミスの数え方）', () => {
+test('ハンター：三角形の選択（タップ・解除・入れかえ・頂点の対応は答えない・ミスの数え方）', () => {
   const p = PH.getProblem('p16');        // △ABD≡△CBD
   const g = new PH.Game(p);
   assert.equal(g.phase, 'triangle');
@@ -276,31 +274,42 @@ test('ハンター：三角形の選択（タップ・解除・入れかえ・�
   g.tapTriangle(['B', 'C', 'D']);
   assert.deepEqual(g.triSel.map((t) => t.join('')), ['ABD', 'BCD']);
   assert.equal(g.tapTriangle(['A', 'B', 'C']).type, 'ignored');        // 図にない三角形
+  // ハンターは入門用：2つの三角形を選べば決定できる（頂点の対応は答えない）
+  assert.equal(g.canConfirmTriangles(), true);
+  assert.equal(g.pressVertex, undefined);
+  // 三角形の組がちがう → ミス1回（同じ組のまま再判定してもミスは増えない）
+  g.clearTriangles();
   assert.equal(g.canConfirmTriangles(), false);
-  // 対応：A→C、B→D（誤り）、D→B
-  assert.equal(g.pressVertex('C'), true);
-  assert.equal(g.pressVertex('C'), false);                             // 同じ頂点は2回使えない
-  assert.equal(g.pressVertex('A'), false);                             // 2つ目の三角形の頂点ではない
-  g.pressVertex('D'); g.pressVertex('B');
+  g.tapTriangle(['A', 'B', 'D']);
+  g.tapTriangle(['A', 'B', 'C']);                                      // 図にない三角形は選べない
+  assert.equal(g.canConfirmTriangles(), false);
   assert.equal(g.misses, 0);                                           // 選択途中の操作はミスにしない
-  let r = g.confirmTriangles();
-  assert.equal(r.status, 'order');
-  assert.equal(g.misses, 1);
-  r = g.confirmTriangles();                                            // 同じ誤答のまま再判定してもミスは増えない
+  const p21 = PH.getProblem('p21');                                     // △ABD≡△ACE（図には △ABE・△ADE などもある）
+  const gw = new PH.Game(p21);
+  gw.tapTriangle(['A', 'B', 'D']); gw.tapTriangle(['A', 'D', 'E']);
+  let r = gw.confirmTriangles();
+  assert.equal(r.status, 'wrong');
+  assert.equal(gw.misses, 1);
+  r = gw.confirmTriangles();
   assert.equal(r.miss, false);
-  assert.equal(g.misses, 1);
-  assert.equal(g.phase, 'triangle');
-  // 1つもどして直す
-  g.backVertex(); g.backVertex();
-  g.pressVertex('B'); g.pressVertex('D');
+  assert.equal(gw.misses, 1);
+  assert.equal(gw.phase, 'triangle');
+  // 2つ目を入れかえて正しい組にすると、問題データの対応（A↔A、B↔C、D↔E）で進む
+  gw.tapTriangle(['A', 'C', 'E']);
+  assert.equal(gw.confirmTriangles().status, 'ok');
+  assert.deepEqual(gw.triangles.map((t) => t.join('')), ['ABD', 'ACE']);
+  // 正しい組 → 正しい頂点の対応（問題データ）で根拠の収集へ
+  g.tapTriangle(['B', 'C', 'D']);
   r = g.confirmTriangles();
   assert.equal(r.status, 'ok');
+  assert.deepEqual(g.triangles.map((t) => t.join('')), ['ABD', 'CBD']);
   assert.equal(g.phase, 'collect');
   assert.equal(g.mode, 'side');
   // 2つ目を先に選んでも（左右の交換）正解
   const g2 = new PH.Game(p);
   assert.equal(chooseTriangles(g2, ['C', 'B', 'D'], ['A', 'B', 'D']).status, 'ok');
   assert.equal(g2.misses, 0);
+  assert.deepEqual(g2.triangles.map((t) => t.join('')), ['CBD', 'ABD']);   // 1つ目に選んだ三角形が先
 });
 
 // ---- 最終結論 -------------------------------------------------------------------

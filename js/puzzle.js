@@ -12,6 +12,11 @@
  *
  * 判定は validation.js の正規化（AB＝BA、∠ABC＝∠CBA、一直線上の別名の同一視）を使う。
  * 同じ理由の空欄どうしなら等式の順番を入れ替えても正解。
+ *
+ * Ver.0.8：直角三角形の合同条件の問題（PH.isRightProblem）は、根拠の行が「直角・斜辺・他の1辺（鋭角）」になる。
+ *   直角の行 … 等式（∠ABC＝∠DEF＝90°）は表示済み。おてがるは理由も表示済み、スタンダード・チャレンジは理由（rreason）を選ぶ
+ *   斜辺・他の1辺・鋭角の行 … その役割の等式を入れる（他の1辺を斜辺の行に入れると 'wrong-role'）
+ *   合同条件のカードは5つ。3つの合同条件を選んだときは、ミスに数えずに選び直してもらう
  */
 (function (root) {
   'use strict';
@@ -72,7 +77,7 @@
     const fig = problem.figure;
     const seen = {};
     const out = [];
-    const labels = problem.evidence.map(function (e) { return e.label; })
+    const labels = problem.evidence.filter(function (e) { return e.role !== 'right'; }).map(function (e) { return e.label; })
       .concat(((problem.puzzle && problem.puzzle.distractors) || {}).equations || []);
     labels.forEach(function (label) {
       const items = splitEquation(label);
@@ -93,9 +98,10 @@
       texts[card.text] = true;
       out.push(card);
     }
-    // 根拠に使う理由（根拠専用の書き方があればそれを使う）
+    // 根拠に使う理由（根拠専用の書き方があればそれを使う）。直角の根拠の理由は、直角の行のカード（rreason）で選ぶ
     const specificReasons = {};
     problem.evidence.forEach(function (ev) {
+      if (ev.role === 'right') return;
       if (ev.proofReason) {
         specificReasons[ev.reason] = true;
         add({ kind: 'reason', reason: ev.reason, text: ev.proofReason, specific: true });
@@ -106,14 +112,23 @@
     // 選択肢として出す理由・ダミーの理由（根拠専用の書き方がある理由は、一般的な書き方を重ねて出さない）
     const extra = problem.reasons.concat(((problem.puzzle && problem.puzzle.distractors) || {}).reasons || []);
     extra.forEach(function (r) {
-      if (specificReasons[r] || !PH.REASONS[r]) return;
+      if (specificReasons[r] || !PH.REASONS[r] || PH.REASONS[r].rightOnly) return;
       add({ kind: 'reason', reason: r, text: PH.REASONS[r].proof, specific: false });
     });
     return shuffle(out, problem.id + ':reason').map(function (c, i) { c.id = 'r' + i; return c; });
   }
 
-  function makeConditionCards() {
-    return PH.CONDITION_ORDER.map(function (c, i) {
+  // Ver.0.8：直角であることの理由のカード（仮定より／垂直な2直線がつくる角だから／正方形の角だから）
+  function makeRightReasonCards(problem) {
+    if (!PH.isRightProblem(problem)) return [];
+    return shuffle(PH.rightTriangle.RIGHT_REASONS.map(function (r) {
+      return { kind: 'rreason', reason: r, text: PH.REASONS[r].proof, specific: false };
+    }), problem.id + ':rreason').map(function (c, i) { c.id = 'rr' + i; return c; });
+  }
+
+  // 合同条件のカード（直角三角形の問題は5つ、それ以外は従来の3つ）
+  function makeConditionCards(problem) {
+    return PH.conditionOrder(problem).map(function (c, i) {
       return { id: 'c' + i, kind: 'cond', cond: c, text: PH.CONDITIONS[c].label };
     });
   }
@@ -266,13 +281,17 @@
     // Ver.0.7：多段階証明。根拠の行は、前のステップで導いた事実を使わない根拠だけ（導いた事実はステップの行で書く）
     this.multi = !!(PH.proofEngine && PH.proofEngine.hasSteps(problem));
     this.rowEv = problem.evidence.filter(function (ev) { return !ev.fromStep; });
+    // Ver.0.8：直角三角形の問題は、根拠の行ごとの役割（直角・斜辺・他の1辺・鋭角）
+    this.right = !!(PH.isRightProblem && PH.isRightProblem(problem));
+    this.rowRoles = this.right ? this.rowEv.map(function (ev) { return PH.rightTriangle.roleOf(problem, ev); }) : [];
     this.preSteps = this.multi ? PH.proofEngine.stepsOf(problem, 'pre') : [];
     this.postSteps = this.multi ? PH.proofEngine.stepsOf(problem, 'post') : [];
     const triCards = this.hasFinal && this.type === 'build' ? makeTriCards(problem) : { tri1: [], tri2: [] };
     this.cards = {
       eq: this.type === 'challenge' ? [] : makeEquationCards(problem),   // チャレンジでは等式カードを出さない
       reason: this.buildLike ? makeReasonCards(problem) : [],
-      cond: makeConditionCards(),
+      rreason: this.buildLike ? makeRightReasonCards(problem) : [],
+      cond: makeConditionCards(problem),
       tripair: this.hasFinal && this.type === 'fill' ? makeTriPairCards(problem) : [],
       tri1: triCards.tri1,
       tri2: triCards.tri2,
@@ -311,7 +330,24 @@
       } else slots.push({ id: 'tri', kind: 'tri', label: '証明する三角形', input: true, inputKind: 'tri' });
     }
     this.preSteps.forEach(function (st) { this.stepSlots(st).forEach(function (x) { slots.push(x); }); }, this);
+    const RT = PH.rightTriangle;
     this.rowEv.forEach(function (ev, i) {
+      const role = this.rowRoles[i];
+      if (role === 'right') {
+        // 直角の行：等式は表示済み。理由はスタンダード・チャレンジで選ぶ（おてがるは表示済み）
+        if (this.buildLike) slots.push({ id: 'r' + i, kind: 'rreason', row: i, label: '直角である理由' });
+        return;
+      }
+      if (role) {
+        const name = RT.ROLE_LABEL[role];
+        if (this.buildLike) {
+          slots.push({ id: 'r' + i, kind: 'reason', row: i, label: name + 'の理由' });
+          slots.push({ id: 'e' + i, kind: 'eq', row: i, label: name + 'の等式', input: this.type === 'challenge' });
+        } else {
+          slots.push({ id: 's' + i, kind: 'eq', row: i, label: name + 'の等式', fixed: { reason: ev.reason, text: reasonText(ev), specific: !!ev.proofReason } });
+        }
+        return;
+      }
       if (this.buildLike) {
         slots.push({ id: 'r' + i, kind: 'reason', row: i, label: '根拠' + CIRCLED[i] + 'の理由' });
         slots.push({ id: 'e' + i, kind: 'eq', row: i, label: '根拠' + CIRCLED[i] + 'の等式', input: this.type === 'challenge' });
@@ -519,7 +555,21 @@
   // 根拠の行ごとの理由（fill は表示済みの理由、build・challenge は理由カード）
   Puzzle.prototype.rowReason = function (row) {
     if (this.buildLike) return this.cardIn('r' + row);
+    if (this.rowRoles[row] === 'right') {
+      const ev = this.rowEv[row];
+      return { reason: ev.reason, text: reasonText(ev), specific: false };
+    }
     return this.slot('s' + row).fixed;
+  };
+
+  // 根拠の行の等式（直角の行は表示済みの等式「∠ABC＝∠DEF＝90°」）
+  Puzzle.prototype.rowEq = function (row) {
+    if (this.rowRoles[row] === 'right') {
+      const ev = this.rowEv[row];
+      const keys = ev.items.map(function (n) { return G().elementKey(this.problem.figure, n); }, this);
+      return { id: 'fx' + row, kind: 'eq', text: PH.evidenceText(ev), items: ev.items.slice(), keys: keys, eq: V().equationKey(keys[0], keys[1]), fixed: true };
+    }
+    return this.cardIn(this.eqSlotId(row));
   };
 
   Puzzle.prototype.eqSlotId = function (row) {
@@ -538,7 +588,7 @@
     const used = {};
     const rows = [];
     for (let i = 0; i < this.rowEv.length; i++) {
-      const eqCard = this.cardIn(this.eqSlotId(i));
+      const eqCard = this.rowEq(i);
       const reason = this.rowReason(i);
       const row = { row: i, status: 'ok', evidence: null, eqCard: eqCard, reason: reason, orderOk: true };
       if (!eqCard) {
@@ -552,6 +602,10 @@
         if (ev && eqCard.input) row.orderOk = V().correspondenceOrder(p, eqCard.items) !== 'order';
         if (!ev) row.status = V().equationStatus(p, eqCard.keys);
         else if (ev.fromStep) row.status = 'derived';     // 前のステップで導いた等式（ステップの行で書くので、ここには入れない）
+        else if (this.right && PH.rightTriangle.roleOf(p, ev) !== this.rowRoles[i]) {
+          row.status = 'wrong-role';                      // Ver.0.8：その行の役割（斜辺など）ではない根拠
+          row.role = PH.rightTriangle.roleOf(p, ev);
+        }
         else if (!reason) row.status = 'empty';
         else if (!reasonAccepts(reason, ev)) row.status = 'wrong-reason';
         else if (used[ev.id]) row.status = 'duplicate';
@@ -656,6 +710,10 @@
         : 'それは' + p.conclusion + 'が証明できたら言えることだよ！ 結論はまだ根拠に使えないよ。',
       wrongEquation: challenge ? 'その2つが等しいと言えるか、図と仮定を確認しよう。' : 'この等式は、まだ言えないよ！',
       cond: challenge ? '3つの根拠と合同条件の関係を確認しよう。' : 'この3つの根拠では、その合同条件は使えないよ！',
+      // Ver.0.8：直角三角形
+      condClassic: '3つの合同条件で示せる場合もあるけれど、今回の根拠（直角・斜辺・' +
+        (this.right ? PH.rightTriangle.ROLE_LABEL[PH.rightTriangle.slotRoles(p)[2]] : '') + '）には、直角三角形の合同条件がぴったり合うよ。選び直そう！（ミスには数えないよ）',
+      rightReason: '直角は確かめられたね！ なぜ90°と言えるのか、仮定や図形の性質をもう一度考えよう。',
       order: this.hasFinal ? '対応順が合っていないよ！ 2つの三角形の頂点の対応に合わせて書こう。'
         : '対応順が合っていないよ！ 結論 ' + p.conclusion + ' の頂点の順番に合わせて書こう。',
       triOrder: '三角形は見つけられたね！ 頂点の対応順を確認しよう！',
@@ -691,7 +749,15 @@
     rows.forEach(function (r) {
       const eqId = self.eqSlotId(r.row);
       const rsId = self.buildLike ? 'r' + r.row : null;
-      const label = (self.buildLike ? '根拠' : '') + CIRCLED[r.row];
+      const role = self.rowRoles[r.row];
+      const label = role ? PH.rightTriangle.ROLE_LABEL[role] : (self.buildLike ? '根拠' : '') + CIRCLED[r.row];
+      if (role === 'right') {
+        // 直角の行：等式は表示済み。理由だけを確かめる（おてがるは理由も表示済み）
+        if (!rsId) return;
+        if (r.status === 'ok') slotStatus[rsId] = 'ok';
+        else fail(rsId, 'right:' + self.placed[rsId], MSG.rightReason, label);
+        return;
+      }
       const sig = eqId + ':' + r.eqCard.id + (rsId ? '/' + self.placed[rsId] : '');
       switch (r.status) {
         case 'ok':
@@ -724,6 +790,11 @@
         case 'derived':
           fail(eqId, sig, 'その等式は、ステップで導いた等式（' + self.stepNo(r.evidence.fromStep) + '）だよ。ここには、ほかの根拠を入れよう。', label);
           break;
+        case 'wrong-role':
+          fail(eqId, sig, role === 'hypotenuse' && r.role === 'leg' ? 'それは斜辺ではなく「他の1辺」だよ。斜辺は、直角に向かい合う辺だよ。'
+            : role === 'leg' && r.role === 'hypotenuse' ? 'それは斜辺だよ。ここには、斜辺ではない方の辺（他の1辺）を入れよう。'
+            : 'それは「' + PH.rightTriangle.ROLE_LABEL[r.role] + '」の根拠だよ。ここには「' + label + '」を入れよう。', label);
+          break;
         case 'not-common':
           fail(eqId, sig, 'その辺（角）は、2つの三角形の両方にふくまれているかな？', label);
           break;
@@ -738,6 +809,7 @@
     const fixedEv = p.evidence.filter(function (ev) { return ev.fromStep; });
     const expected = allRowsOk ? V().deriveCondition(p, rows.map(function (r) { return r.evidence; }).concat(fixedEv)) : p.congruence;
     if (condCard.cond === expected) slotStatus.cond = 'ok';
+    else if (this.right && !PH.CONDITIONS[condCard.cond].right) note('cond', MSG.condClassic, '合同条件');   // ミスに数えない
     else fail('cond', 'cond:' + condCard.id + ':' + rows.map(function (r) { return r.eqCard.id; }).join(','),
       MSG.cond, '合同条件');
 
@@ -780,6 +852,15 @@
     vertical: '2本の直線が交わってできる、向かい合う角（対頂角）に注目しよう！',
     alternate: '平行線と交わる直線に注目して、錯角を探そう！',
     corresponding: '平行線と交わる直線に注目して、同位角を探そう！',
+    equilateralSides: '正三角形の辺に注目しよう！',
+    squareSides: '正方形の辺に注目しよう！',
+    isoscelesBaseAngles: '二等辺三角形の底角に注目しよう！',
+  };
+  // Ver.0.8：直角三角形の根拠の役割ごとの最初のヒント
+  const ROLE_HINT = {
+    hypotenuse: '直角三角形のどの辺が斜辺かな？ 斜辺は、直角に向かい合う辺だよ。',
+    leg: '斜辺と、もう1組の対応する辺を探そう！',
+    acute: '斜辺のほかに、等しい角はないかな？ 直角ではない方の角（鋭角）に注目しよう！',
   };
 
   // ヒントの対象：まだ正しくそろっていない根拠（答え合わせで誤りがあった所・空欄を優先）、最後に合同条件
@@ -800,6 +881,11 @@
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       if (r.status === 'ok') continue;
+      if (this.right) {
+        // 直角三角形の問題は、行ごとに役割が決まっている（直角の行は理由の欄）
+        if (this.type === 'fill' && this.rowRoles[i] === 'right') continue;
+        return { id: rowEv[i].id, ev: rowEv[i], slotId: this.rowRoles[i] === 'right' ? 'r' + i : this.eqSlotId(i) };
+      }
       if (this.type === 'fill') {
         // 表示済みの理由で言える根拠のうち、まだ使っていないもの（同じ理由の行どうしは入れかえ可）
         const fixed = this.slot('s' + i).fixed;
@@ -839,9 +925,20 @@
     const keys = ev.items.map(function (n) { return G().elementKey(fig, n); });
     const name = function (n) { return G().isAngleName(n) ? n : '辺' + n; };
     const same = keys[0] === keys[1];
-    const first = this.type === 'fill'
-      ? '「' + reasonText(ev) + '」で言える等式を考えよう。' + REASON_HINT[ev.reason]
-      : REASON_HINT[ev.reason];
+    const role = this.right ? PH.rightTriangle.roleOf(p, ev) : null;
+    if (role === 'right') {
+      // 直角の行（スタンダード・チャレンジ）：なぜ90°と言えるか
+      return [
+        { text: '2つの三角形の中に90°の角はあるかな？ ' + PH.evidenceText(ev) + ' になる理由を考えよう。', focus: [] },
+        { text: '仮定の90°・垂直な線・正方形の角に注目しよう！', focus: keys },
+        { text: 'この2つの角が直角であることを確認しよう。理由は「' + reasonText(ev) + '」だよ。', focus: keys },
+      ];
+    }
+    const base = REASON_HINT[ev.reason] || '仮定や、図形の性質を確認しよう！';
+    const first = role ? ROLE_HINT[role] + (this.type === 'fill' ? '（' + reasonText(ev) + '）' : '')
+      : this.type === 'fill'
+        ? '「' + reasonText(ev) + '」で言える等式を考えよう。' + base
+        : base;
     const second = same
       ? name(ev.items[0]) + 'は、2つの三角形で共通しているよ！'
       : name(ev.items[0]) + 'と' + name(ev.items[1]) + 'に注目しよう！';
@@ -887,6 +984,11 @@
     };
     order.forEach(function (evIndex, row) {
       const ev = self.rowEv[evIndex];
+      if (self.rowRoles[row] === 'right') {
+        // 直角の行：等式は表示済み。理由のカードだけ
+        if (self.buildLike) out['r' + row] = self.cards.rreason.find(function (c) { return reasonAccepts(c, ev); }).id;
+        return;
+      }
       out[self.eqSlotId(row)] = self.type === 'challenge' ? ev.items.join('=') : findEq(ev).id;
       if (self.buildLike) {
         out['r' + row] = self.cards.reason.find(function (c) { return reasonAccepts(c, ev); }).id;

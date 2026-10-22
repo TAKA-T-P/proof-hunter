@@ -2,7 +2,7 @@
  * hints.js — 段階式ヒント
  *
  * 対象の選び方：
- *   根拠収集中   … 問題データの順で「まだ見つけていない根拠」の最初のもの
+ *   根拠収集中   … 問題データの順で「まだ見つけていない根拠」の最初のもの（直角三角形の問題は、今集めている欄の根拠）
  *   合同条件選択 … hints.congruence
  *   三角形の選択 … hints.triangleSelection、最終結論 … hints.finalStep（Ver.0.5。最終段階でも自動では答えを入れない）
  * 同じ対象には 1→2→3 段階の順に表示。最終段階は繰り返し表示できる（回数は増えない）。
@@ -17,6 +17,11 @@
     if (game.phase === 'final') return 'finalStep';              // Ver.0.5：合同から結論を導く
     if (game.phase === 'congruence') return 'congruence';
     if (game.phase !== 'collect') return null;
+    // Ver.0.8：直角三角形の問題は、今集めている欄（直角・斜辺・他の1辺・鋭角）の根拠
+    if (game.isRight && game.isRight() && game.role) {
+      const ev = PH.rightTriangle.evidenceForRole(problem, game.role);
+      if (ev && game.found.indexOf(ev.id) < 0) return ev.id;
+    }
     const next = problem.evidence.find(function (e) { return game.found.indexOf(e.id) < 0; });
     return next ? next.id : null;
   }

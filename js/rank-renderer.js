@@ -3,11 +3,13 @@
  *
  * 進行と判定は PH.RankGame（rank-game.js）が持ち、この画面は操作を渡して描画するだけにする。
  * 残り時間は performance.now() と開始時刻の差から毎回計算する（タイマーの呼び出し回数は数えない）。
- *   #/rank          トップ（ルール・最高記録・チャレンジ開始）
- *   #/rank/play     プレイ（「チャレンジ開始」から来たときだけ始める。再読み込みでは再開しない）
- *   #/rank/result   結果（直近の挑戦）
- *   #/rank/review   間違えた問題の振り返り（直近1回分）
- *   #/rank/grades   段位一覧
+ * Ver.0.8：コース（基本の合同証明 basic / 総合証明 comprehensive。js/rank-tracks.js）ごとに記録・画面を分ける。
+ *   #/rank                    トップ（2つのコースのカード・ルール）
+ *   #/rank/<コース>/play      プレイ（「このコースに挑戦！」から来たときだけ始める。再読み込みでは再開しない）
+ *   #/rank/<コース>/result    結果（そのコースの直近の挑戦）
+ *   #/rank/<コース>/review    間違えた問題の振り返り（そのコースの直近1回分）
+ *   #/rank/<コース>/grades    段位一覧（そのコースの最高段位）
+ *   #/rank/legacy             Ver.0.7 までの段位認定の記録
  */
 (function (root) {
   'use strict';
@@ -32,13 +34,43 @@
 
   // ---- トップ ---------------------------------------------------------------------
 
-  function bestLine() {
-    const r = PH.storage.getRank();
+  function T() { return PH.rankTracks; }
+  function trackOf(id) { return T().get(id) || T().get('basic'); }
+
+  // そのコースの最高段位（未挑戦は「未認定」。最高段位の記録がない＝10級とは表示しない）
+  function bestLine(track) {
+    const r = PH.storage.getRank(track);
     return r.best ? r.best.rankName : '未認定';
   }
 
+  // タイトル画面の表示（2つのコースの最高段位）
+  function bestSummary() {
+    return T().ORDER.map(function (id) { return trackOf(id).short + ' ' + bestLine(id); }).join('・');
+  }
+
+  function courseCard(id) {
+    const t = trackOf(id);
+    const r = PH.storage.getRank(id);
+    const played = r.playCount > 0;
+    return '<div class="card rank-course course-' + id + '">' +
+      '<h2 class="rank-course-name">' + esc(t.label) + '</h2>' +
+      '<p class="rank-course-lead">' + esc(t.lead) + '</p>' +
+      '<p class="rank-course-desc">' + esc(t.desc) + '</p>' +
+      '<div class="rank-best">' +
+        '<div class="rank-best-item"><span>最高段位</span><b class="rank-best-name">' + esc(bestLine(id)) + '</b></div>' +
+        '<div class="rank-best-item"><span>最高正解数</span><b>' + (played ? r.bestCorrect + '問' : '－') + '</b></div>' +
+        '<div class="rank-best-item"><span>挑戦回数</span><b>' + r.playCount + '回</b></div>' +
+      '</div>' +
+      '<button class="btn btn-confirm btn-big rank-start" data-act="rank-start" data-track="' + id + '">このコースに挑戦！</button>' +
+      '<div class="rank-top-links">' +
+        '<button class="btn" data-go="#/rank/' + id + '/grades">段位一覧</button>' +
+        (r.lastResult ? '<button class="btn" data-go="#/rank/' + id + '/result">前回の結果</button>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
   function renderTop(el) {
-    const r = PH.storage.getRank();
+    const legacy = PH.storage.getRankLegacy();
     el.innerHTML =
       '<header class="page-header rank-header">' +
         '<button class="head-btn" data-go="#/" aria-label="ホームに戻る"><span class="ico">⌂</span><span class="lbl">ホーム</span></button>' +
@@ -48,22 +80,18 @@
         '<div class="card rank-hero">' +
           '<div class="rank-hero-ico" aria-hidden="true">⏱️</div>' +
           '<p class="rank-hero-tag">120秒チャレンジ</p>' +
-          '<p class="rank-hero-lead">120秒で何問解ける？ 目指せ皆伝！</p>' +
-          '<div class="rank-best">' +
-            '<div class="rank-best-item"><span>最高段位</span><b class="rank-best-name">' + esc(bestLine()) + '</b></div>' +
-            '<div class="rank-best-item"><span>最高正解数</span><b>' + r.bestCorrect + '問</b></div>' +
-            '<div class="rank-best-item"><span>挑戦回数</span><b>' + r.playCount + '回</b></div>' +
-          '</div>' +
-          '<button class="btn btn-confirm btn-big rank-start" data-act="rank-start">チャレンジ開始</button>' +
+          '<p class="rank-hero-lead">120秒で何問解ける？ コースを選んで、目指せ皆伝！</p>' +
           '<div class="rank-top-links">' +
-            '<button class="btn" data-go="#/rank/grades">段位一覧</button>' +
             '<button class="btn" data-go="#/howto/rank">あそびかた</button>' +
-            (r.lastResult ? '<button class="btn" data-go="#/rank/result">前回の結果</button>' : '') +
+            (legacy ? '<button class="btn" data-go="#/rank/legacy">Ver.0.7までの記録を見る</button>' : '') +
           '</div>' +
         '</div>' +
+        '<div class="rank-courses">' + T().ORDER.map(courseCard).join('') + '</div>' +
         '<div class="card rank-rules">' +
           '<h2>ルール</h2>' +
           '<ul>' +
+            '<li><b>基本の合同証明</b>は、3つの合同条件・仮定・共通な辺や角・対頂角・平行線の角・合同な図形の性質の問題。<b>総合証明</b>は、それに二等辺三角形・正三角形・角の式（三段論法）・直角三角形などが加わるよ。</li>' +
+            '<li>2つのコースの段位・記録は別々。どちらのコースからでも挑戦できるよ。</li>' +
             '<li>制限時間は <b>120秒</b>。時間内なら何問でも挑戦できるよ。</li>' +
             '<li><b>1〜10問目</b>はセレクトゾーン（選択式）。<b>11問目から</b>はチャレンジゾーン（記号の入力もあるよ）。</li>' +
             '<li><b>正解数</b>で段位が決まるよ（10級〜皆伝の21段階）。</li>' +
@@ -76,8 +104,9 @@
 
   // ---- 段位一覧 -------------------------------------------------------------------
 
-  function renderGrades(el) {
-    const r = PH.storage.getRank();
+  function renderGrades(el, track) {
+    const t = trackOf(track);
+    const r = PH.storage.getRank(t.id);
     const bestRank = r.best ? r.best.rank : -1;
     const score = r.best ? r.best.effectiveScore : 0;
     const nxt = r.best ? PH.rank.nextGrade(score) : { grade: PH.rank.config.grades[0], need: 0 };
@@ -85,11 +114,12 @@
     el.innerHTML =
       '<header class="page-header rank-header">' +
         '<button class="head-btn" data-go="#/rank" aria-label="段位認定に戻る"><span class="ico">◀</span><span class="lbl">段位認定</span></button>' +
-        '<h1 class="page-title">段位一覧</h1>' +
+        '<h1 class="page-title">' + esc(t.label) + '｜段位一覧</h1>' +
       '</header>' +
       '<div class="rank-grades">' +
         '<div class="card rank-now">' +
-          '<p>現在の最高段位：<b>' + esc(bestLine()) + '</b>' + (r.best ? '（正解数 ' + fmtScore(score) + '問）' : '') + '</p>' +
+          '<p class="rank-course-tag course-' + t.id + '">' + esc(t.label) + '</p>' +
+          '<p>現在の最高段位：<b>' + esc(bestLine(t.id)) + '</b>' + (r.best ? '（正解数 ' + fmtScore(score) + '問）' : '') + '</p>' +
           (r.best && nxt ? '<p class="rank-next">次の<b>' + esc(nxt.grade.name) + '</b>まで：<b class="rank-need">あと' + fmtScore(nxt.need) + '問！</b></p>' : '') +
           (r.best && !nxt ? '<p class="rank-next">最高の段位「皆伝」に到達！</p>' : '') +
           (!r.best ? '<p class="rank-next">まずは挑戦して、段位を認定してもらおう！</p>' : '') +
@@ -110,21 +140,27 @@
 
   let lastShown = null;   // 直近に終えた挑戦（結果画面の演出用。再読み込み後は保存した記録から表示）
 
-  function renderResult(el) {
-    const r = PH.storage.getRank();
-    const res = lastShown ? lastShown.result : r.lastResult;
+  // 直近に終えた挑戦が、そのコースのものなら返す（別のコースの結果を表示しない）
+  function shownFor(track) { return lastShown && lastShown.track === track ? lastShown : null; }
+
+  function renderResult(el, track) {
+    const t = trackOf(track);
+    const r = PH.storage.getRank(t.id);
+    const shown = shownFor(t.id);
+    const res = shown ? shown.result : r.lastResult;
     if (!res) { el.innerHTML = ''; root.location.hash = '#/rank'; return; }
-    const fresh = !!lastShown;
-    const saved = lastShown ? lastShown.saved : { newRecord: !!res.newRecord };
+    const fresh = !!shown;
+    const saved = shown ? shown.saved : { newRecord: !!res.newRecord };
     const tier = PH.rank.tierFor(res.rank);
-    const review = lastShown ? lastShown.result.wrongs.length : r.lastReview.length;
+    const review = shown ? shown.result.wrongs.length : r.lastReview.length;
     el.innerHTML =
       '<header class="page-header rank-header">' +
         '<button class="head-btn" data-go="#/rank" aria-label="段位認定に戻る"><span class="ico">◀</span><span class="lbl">段位認定</span></button>' +
-        '<h1 class="page-title">段位認定終了！</h1>' +
+        '<h1 class="page-title">' + esc(t.label) + '｜段位認定結果</h1>' +
       '</header>' +
       '<div class="rank-result">' +
         '<div class="card rank-cert tier-' + tier + (fresh ? ' is-fresh' : '') + '">' +
+          '<p class="rank-course-tag course-' + t.id + '">' + esc(t.label) + '</p>' +
           '<p class="rank-cert-label">認定段位</p>' +
           '<div class="rank-cert-ico" aria-hidden="true">' + TIER_ICON[tier] + '</div>' +
           '<p class="rank-cert-name">' + esc(res.rankName) + '</p>' +
@@ -141,27 +177,29 @@
           })() +
         '</div>' +
         '<div class="rank-result-actions">' +
-          '<button class="btn btn-confirm btn-big" data-act="rank-start">もう一度挑戦！</button>' +
-          (review ? '<button class="btn" data-go="#/rank/review">間違えた問題を確認（' + review + '）</button>' : '') +
-          '<button class="btn" data-go="#/rank/grades">段位一覧へ</button>' +
-          '<button class="btn" data-go="#/">タイトルへ</button>' +
+          '<button class="btn btn-confirm btn-big" data-act="rank-start" data-track="' + t.id + '">もう一度挑戦！</button>' +
+          (review ? '<button class="btn" data-go="#/rank/' + t.id + '/review">間違えた問題を確認（' + review + '）</button>' : '') +
+          '<button class="btn" data-go="#/rank/' + t.id + '/grades">段位一覧へ</button>' +
+          '<button class="btn" data-go="#/rank">コースを選ぶ</button>' +
         '</div>' +
       '</div>';
-    if (fresh && !lastShown.played) {
-      lastShown.played = true;
+    if (fresh && !shown.played) {
+      shown.played = true;
       PH.sound.play(saved.newRecord ? 'record' : 'certify');
     }
   }
 
-  function renderReview(el) {
-    const list = lastShown ? lastShown.result.wrongs : PH.storage.getRank().lastReview;
+  function renderReview(el, track) {
+    const t = trackOf(track);
+    const shown = shownFor(t.id);
+    const list = shown ? shown.result.wrongs : PH.storage.getRank(t.id).lastReview;
     el.innerHTML =
       '<header class="page-header rank-header">' +
-        '<button class="head-btn" data-go="#/rank/result" aria-label="結果に戻る"><span class="ico">◀</span><span class="lbl">結果</span></button>' +
-        '<h1 class="page-title">間違えた問題</h1>' +
+        '<button class="head-btn" data-go="#/rank/' + t.id + '/result" aria-label="結果に戻る"><span class="ico">◀</span><span class="lbl">結果</span></button>' +
+        '<h1 class="page-title">' + esc(t.label) + '｜間違えた問題</h1>' +
       '</header>' +
       '<div class="rank-review">' +
-        (list.length ? '<p class="select-note">前回の挑戦で、まちがえた問題・パスした問題だよ。</p>' : '<div class="card review-empty"><p class="review-empty-title">まちがえた問題はありません！</p></div>') +
+        (list.length ? '<p class="select-note">' + esc(t.label) + 'の前回の挑戦で、まちがえた問題・パスした問題だよ。</p>' : '<div class="card review-empty"><p class="review-empty-title">まちがえた問題はありません！</p></div>') +
         '<ol class="rank-review-list">' + list.map(function (w, i) {
           const q = PH.rankQuestions.byId(w.qid);
           const p = q && q.figure ? PH.getProblem(q.figure) : null;
@@ -187,12 +225,34 @@
     });
   }
 
+  // Ver.0.7 までの段位認定の記録（コースに分かれる前。新しいコースの記録とは別に残す）
+  function renderLegacy(el) {
+    const r = PH.storage.getRankLegacy();
+    el.innerHTML =
+      '<header class="page-header rank-header">' +
+        '<button class="head-btn" data-go="#/rank" aria-label="段位認定に戻る"><span class="ico">◀</span><span class="lbl">段位認定</span></button>' +
+        '<h1 class="page-title">Ver.0.7までの記録</h1>' +
+      '</header>' +
+      '<div class="rank-grades">' +
+        (r ? '<div class="card rank-now rank-legacy">' +
+          '<p>Ver.0.7までの段位認定（コースに分かれる前）の記録だよ。新しい2つのコースの記録とは別に、そのまま残しているよ。</p>' +
+          '<div class="rank-best">' +
+            '<div class="rank-best-item"><span>最高段位</span><b class="rank-best-name">' + esc(r.best ? r.best.rankName : '未認定') + '</b></div>' +
+            '<div class="rank-best-item"><span>最高正解数</span><b>' + r.bestCorrect + '問</b></div>' +
+            '<div class="rank-best-item"><span>挑戦回数</span><b>' + r.playCount + '回</b></div>' +
+          '</div>' +
+        '</div>' : '<div class="card review-empty"><p class="review-empty-title">Ver.0.7までの記録はありません。</p></div>') +
+        '<p class="select-note">Ver.0.8 からは「基本の合同証明」と「総合証明」の2つのコースで、それぞれ未認定から認定するよ。</p>' +
+      '</div>';
+  }
+
   // ---- プレイ ---------------------------------------------------------------------
 
-  function RankPlay(el, nav) {
+  function RankPlay(el, nav, track) {
     this.el = el;
     this.nav = nav;
-    this.game = new PH.RankGame({ onFinish: this.onFinish.bind(this) });
+    this.track = trackOf(track).id;
+    this.game = new PH.RankGame({ track: this.track, onFinish: this.onFinish.bind(this) });
     this.kp = null;
     this.locked = false;       // 正解・不正解の表示中は操作しない（時間は進む）
     this.warned = false;
@@ -218,6 +278,7 @@
           '<button class="head-btn" data-act="rank-quit" aria-label="やめる"><span class="ico">✕</span><span class="lbl">やめる</span></button>' +
           '<div class="rank-timer" data-ref="timer" aria-label="残り時間">2:00</div>' +
           '<div class="rank-score">' +
+            '<span class="rs-course course-' + this.track + '">' + esc(trackOf(this.track).short) + '</span>' +
             '<span class="rs-q">問題 <b data-ref="qno">-</b></span>' +
             '<span class="rs-ok">正解 <b data-ref="ok">0</b></span>' +
             '<span class="rs-ng">ミス <b data-ref="ng">0</b></span>' +
@@ -279,8 +340,8 @@
 
   RankPlay.prototype.onFinish = function (result) {
     clearInterval(this.loop);
-    const saved = PH.storage.recordRank(result);
-    lastShown = { result: result, saved: saved, played: false };
+    const saved = PH.storage.recordRank(result, this.track);
+    lastShown = { track: this.track, result: result, saved: saved, played: false };
     PH.sound.play('timeup');
     const t = this.ref('timer');
     if (t) { t.textContent = '0:00'; t.className = 'rank-timer is-danger'; }
@@ -461,22 +522,25 @@
   // ---------------------------------------------------------------------------
 
   let current = null;
-  let pendingStart = false;
+  let pendingStart = null;    // 「このコースに挑戦！」で選んだコース
 
   PH.rankView = {
     renderTop: renderTop,
     renderGrades: renderGrades,
     renderResult: renderResult,
     renderReview: renderReview,
+    renderLegacy: renderLegacy,
     bestName: bestLine,
-    // 「チャレンジ開始」「もう一度挑戦！」から来たときだけ挑戦を始める（再読み込み・直接のURLでは始めない）
-    requestStart: function () { pendingStart = true; },
-    mountPlay: function (el, nav) {
+    bestSummary: bestSummary,
+    // 「このコースに挑戦！」「もう一度挑戦！」から来たときだけ挑戦を始める（再読み込み・直接のURLでは始めない）
+    requestStart: function (track) { pendingStart = T().isTrack(track) ? track : 'basic'; },
+    // 挑戦中にコースを変えることはできない（選んだコースと URL のコースが同じときだけ始める）
+    mountPlay: function (el, nav, track) {
       PH.rankView.unmount();
-      if (!pendingStart) return false;
-      pendingStart = false;
+      if (!pendingStart || pendingStart !== track) { pendingStart = null; return false; }
+      pendingStart = null;
       lastShown = null;
-      current = new RankPlay(el, nav);
+      current = new RankPlay(el, nav, track);
       return true;
     },
     unmount: function () {

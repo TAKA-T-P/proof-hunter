@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/right-triangle.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -16,6 +17,7 @@ require('../js/game.js');
 require('../js/math-keypad.js');
 require('../js/puzzle.js');
 require('../js/rank-config.js');
+require('../js/rank-tracks.js');
 require('../js/rank-questions.js');
 require('../js/rank-game.js');
 
@@ -211,6 +213,15 @@ function isCorrectChoice(q, blankIndex, text) {
       return text === '60°';
     case 'syllogism':
       return text === '∠A＝∠B';
+    // Ver.0.8：直角三角形
+    case 'hypotenuse':
+      return geo.segKey(text) === geo.segKey(PH.rightTriangle.hypotenuse(p, q.hypIndex));
+    case 'rightReason':
+      return text === PH.REASONS[PH.rightTriangle.rightEvidence(p).reason].proof;
+    case 'rightCondition':
+      return text === PH.CONDITIONS[q.cond].label;
+    case 'rightNeed': case 'rightFirst': case 'rightHypDef':
+      return text === q.answerText;
   }
   throw new Error('unknown type ' + q.type);
 }
@@ -339,7 +350,8 @@ test('同じ問題を短時間に出さない・同じ元問題が続かない�
     assert.ok(same <= 2, 'seed ' + seed + ' 同じ元問題の連続 ' + same);
     // 最初の10問で、等しい辺・角／理由／合同条件／合同からの結論 がすべて出る（証明する三角形は難しいので11問目から）
     // Ver.0.7 の「定理・三段論法」は重み 0.5 で、出ることも出ないこともある
-    const first = [...new Set(out.slice(0, 10).map((c) => c.q.category))].filter((c) => c !== 'theorem').sort();
+    // Ver.0.8 の「直角三角形」も重みが軽いので同じ（コースを指定しないときは、すべての問題から出題）
+    const first = [...new Set(out.slice(0, 10).map((c) => c.q.category))].filter((c) => c !== 'theorem' && c !== 'right').sort();
     assert.deepEqual(first, ['cond', 'eq', 'final', 'reason'], 'seed ' + seed);
     assert.ok(!out.slice(0, 10).some((c) => c.q.category === 'corr'), 'seed ' + seed);
     assert.ok(out.slice(10).some((c) => c.q.category === 'corr'), 'seed ' + seed);
@@ -579,8 +591,9 @@ test('最高段位を保存し、下がらない。認定基準のバージョ�
     assert.equal(r.criteriaVersion, CFG.criteriaVersion);
     assert.equal(r.lastResult.rankName, '八段');
     const saved = JSON.parse(mem[S.KEY]);
-    assert.equal(saved.rankCertification.criteriaVersion, CFG.criteriaVersion);
-    assert.equal(saved.rankCertification.best.rankName, '八段');
+    // Ver.0.8 からコース別に保存（getRank() は基本の合同証明のコース）
+    assert.equal(saved.rankCertification.tracks.basic.criteriaVersion, CFG.criteriaVersion);
+    assert.equal(saved.rankCertification.tracks.basic.best.rankName, '八段');
     // 認定基準が変わったら、以前の最高記録は比べずに previous に残す
     s = S.recordRank(result({ criteriaVersion: CFG.criteriaVersion + 1, rank: 2, rankName: '8級', effectiveScore: 2, correct: 2 }));
     assert.equal(S.getRank().best.rankName, '8級');
@@ -633,7 +646,7 @@ test('Ver.0.5 の保存データを引き継ぎ、ハンター・パズル3レ�
     const saved = JSON.parse(mem[S.KEY]);
     assert.equal(saved.problems.p01.bestStars, 3);
     assert.equal(saved.puzzleLevels.easy.p02.bestStars, 3);
-    assert.equal(saved.rankCertification.best.rankName, '四段');
+    assert.equal(saved.rankCertification.tracks.basic.best.rankName, '四段');
     // 段位認定の記録は、ハンター・パズルの記録を変えない（逆も同じ）
     S.recordClear('p03', 3, 0);
     assert.equal(S.getRank().best.rankName, '四段');
