@@ -83,7 +83,6 @@
       cont.querySelector('.cont-sub').textContent =
         (last.mode === 'puzzle' ? '証明パズル（' + currentLevel().label + '）' : 'ハンター') + '・問題' + problem.number;
     }
-    $('#title-rank-best').textContent = PH.rankView.bestSummary();
     renderSoundButtons();
   }
 

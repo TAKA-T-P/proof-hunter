@@ -323,6 +323,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .tool .ico { font-size: 1.25rem; }
 .tool .ico-glyph { font-weight: 900; line-height: 1.2; }
 .tool .lbl { font-size: .72rem; font-weight: 700; white-space: nowrap; }
+.tool-tri .lbl { font-size: .64rem; letter-spacing: -.02em; }   /* 「三角形確認」は5文字なので少し小さく */
 .tool[aria-pressed="true"] {
   background: var(--blue); border-color: var(--gold); color: #fff;
   box-shadow: 0 0 0 2px var(--gold), 0 3px 8px rgba(29, 78, 216, .35);
@@ -502,7 +503,6 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
     background: var(--bg); box-shadow: 0 3px 8px rgba(30, 58, 138, .08); position: relative; z-index: 1;
   }
   .play-stage .figure-card { flex: 1; min-width: 0; padding: 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .play-stage .tri-btn { min-height: 28px; font-size: .74rem; padding: 1px 10px; }
   .play-stage .figure { max-height: 38vh; max-height: 38dvh; }
   .play-stage .pt-label { font-size: 30px; }
   .play-stage .toolbar {
@@ -589,13 +589,6 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .review-empty-title { margin: 0; font-size: 1.15rem; font-weight: 900; color: var(--green); }
 
 /* 三角形を確認 */
-/* 図に重ならないよう、図の下に置く */
-.tri-btn {
-  display: block; margin: 2px auto 0;
-  padding: 2px 12px; min-height: 30px; border: 2px solid var(--line); border-radius: 99px;
-  background: #fff; font-size: .8rem; font-weight: 800; color: var(--navy);
-}
-.tri-btn[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
 .tri-check .tri { stroke-width: 3; stroke-dasharray: 7 5; }
 .tri-check .tri-0 { stroke: #2563eb; }
 .tri-check .tri-1 { stroke: #d97706; }
@@ -819,8 +812,10 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 }
 .chooser-box { width: 100%; max-width: 320px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; animation: tray-in .15s ease-out; }
 .chooser-title { margin: 0; font-weight: 900; color: var(--navy); text-align: center; }
-.chooser-options { display: flex; gap: 8px; }
-.chooser-option { flex: 1; min-height: 48px; font-size: 1.3rem; font-weight: 900; border-color: var(--blue-600); color: var(--blue); }
+.chooser.is-placed { align-items: flex-start; justify-content: flex-start; padding: 0; }   /* 図と重ならない位置（chooser.js が margin で指定） */
+.chooser-options { display: flex; flex-wrap: wrap; gap: 8px; }
+/* 選択肢が3つ以上でもはみ出さないよう、ボタンは縮められるようにする（左右の余白を小さく） */
+.chooser-option { flex: 1 1 0; min-width: 0; min-height: 48px; padding: 3px 4px; font-size: 1.3rem; font-weight: 900; border-color: var(--blue-600); color: var(--blue); white-space: nowrap; }
 .chooser.is-text .chooser-option { font-size: 1rem; white-space: nowrap; padding-left: 4px; padding-right: 4px; }
 .chooser-cancel { min-height: 36px; font-size: .85rem; color: var(--muted); }
 
@@ -1032,10 +1027,6 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 /* タイトルのモードカード（ゴールド系） */
 .mode-card.mode-rank { border-color: #fcd34d; background: linear-gradient(135deg, #fffbeb, #fef3c7); color: var(--gold-deep); }
 .mode-rank .mode-ico { background: #fde68a; }
-.mode-new { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 6px; background: var(--red); color: #fff; font-size: .62rem; vertical-align: middle; letter-spacing: .04em; }
-.mode-rank-line { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; font-size: .74rem; font-weight: 800; }
-.mode-rank-tag { padding: 0 6px; border-radius: 99px; background: var(--gold-deep); color: #fff; }
-.mode-rank-best { color: #78350f; }
 
 /* 段位認定の画面（トップ・結果・一覧・振り返り） */
 body[data-screen="rank"], body[data-screen="rank-play"] { background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 60%, #fde68a 100%); }

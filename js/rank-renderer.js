@@ -43,11 +43,6 @@
     return r.best ? r.best.rankName : '未認定';
   }
 
-  // タイトル画面の表示（2つのコースの最高段位）
-  function bestSummary() {
-    return T().ORDER.map(function (id) { return trackOf(id).short + ' ' + bestLine(id); }).join('・');
-  }
-
   function courseCard(id) {
     const t = trackOf(id);
     const r = PH.storage.getRank(id);
@@ -531,7 +526,6 @@
     renderReview: renderReview,
     renderLegacy: renderLegacy,
     bestName: bestLine,
-    bestSummary: bestSummary,
     // 「このコースに挑戦！」「もう一度挑戦！」から来たときだけ挑戦を始める（再読み込み・直接のURLでは始めない）
     requestStart: function (track) { pendingStart = T().isTrack(track) ? track : 'basic'; },
     // 挑戦中にコースを変えることはできない（選んだコースと URL のコースが同じときだけ始める）

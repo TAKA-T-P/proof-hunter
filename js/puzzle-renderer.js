@@ -77,7 +77,7 @@
     const p = this.problem;
     this.root.innerHTML =
       '<header class="play-header">' +
-        '<button class="head-btn" data-act="home" aria-label="ホームに戻る"><span class="ico">⌂</span><span class="lbl">ホーム</span></button>' +
+        '<button class="head-btn" data-act="list" aria-label="問題選択に戻る"><span class="ico">◀</span><span class="lbl">問題</span></button>' +
         '<div class="play-title"><span class="play-no">証明パズル ・ 問題' + esc(p.number) + '</span><span class="play-name">' + esc(p.title) + '</span></div>' +
         '<button class="pz-level-badge pz-level-' + this.level.id + '" data-act="change-level" aria-label="解答レベル：' + this.level.label + '（変更する）">' +
           esc(this.level.label) + '<span class="pz-level-chg">変更</span></button>' +
@@ -162,6 +162,7 @@
     if (t.hasAttribute('data-proof-reason')) return this.showEvidence(t.getAttribute('data-proof-reason'), true);
     switch (t.getAttribute('data-act')) {
       case 'home': return this.nav.home();
+      case 'list': return this.nav.list();
       case 'stages': return this.nav.stages();
       case 'next': return this.nav.next();
       case 'next-stage': return this.nav.nextStage();
@@ -386,6 +387,7 @@
     PH.chooser.open({
       title: this.markMode === 'erase' ? 'どちらの印を消しますか？' : 'どちらに印をつけますか？',
       options: list.map(function (k) { return { value: k, label: byKey[k].display }; }),
+      avoid: this.ref('markFigWrap'),
       onChoose: function (k) { self.tapMarkElement(k); },
     });
   };

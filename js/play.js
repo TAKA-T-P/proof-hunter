@@ -99,7 +99,7 @@
     const p = this.problem;
     this.root.innerHTML =
       '<header class="play-header">' +
-        '<button class="head-btn" data-act="home" aria-label="ホームに戻る"><span class="ico">⌂</span><span class="lbl">ホーム</span></button>' +
+        '<button class="head-btn" data-act="list" aria-label="問題選択に戻る"><span class="ico">◀</span><span class="lbl">問題</span></button>' +
         '<div class="play-title"><span class="play-no">問題' + esc(p.number) + '</span><span class="play-name">' + esc(p.title) + '</span></div>' +
         '<div class="counter" data-ref="counter" aria-live="polite"><span class="counter-label">根拠</span><b data-ref="count">0</b><span>/' + p.evidence.length + '</span></div>' +
         '<button class="head-btn head-hint" data-act="hint" aria-label="ヒント"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
@@ -111,7 +111,6 @@
           '<div class="card figure-card" data-ref="figureCard">' +
             '<div class="mode-badge" data-ref="modeBadge"></div>' +
             '<svg class="figure" data-ref="svg" role="group" aria-label="問題の図"></svg>' +
-            '<button class="tri-btn" data-act="tri-check" aria-pressed="false" data-ref="triBtn">△ 三角形を確認</button>' +
             '<div class="pop-msg" data-ref="popMsg" aria-hidden="true"></div>' +
           '</div>' +
           '<div class="toolbar" role="toolbar" aria-label="操作">' +
@@ -119,7 +118,7 @@
             '<button class="tool" data-mode="angle"><span class="ico ico-glyph">∠</span><span class="lbl">角選択</span></button>' +
             '<button class="tool" data-mode="mark"><span class="ico">🖍️</span><span class="lbl">印つけ</span></button>' +
             '<button class="tool" data-mode="erase"><span class="ico">🧽</span><span class="lbl">消す</span></button>' +
-            '<button class="tool" data-act="hint"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
+            '<button class="tool tool-tri" data-act="tri-check" aria-pressed="false" data-ref="triBtn" aria-label="三角形確認"><span class="ico ico-glyph">△</span><span class="lbl">三角形確認</span></button>' +
             '<button class="tool" data-act="restart"><span class="ico">↺</span><span class="lbl">最初から</span></button>' +
           '</div>' +
         '</div>' +
@@ -225,6 +224,7 @@
     PH.chooser.open({
       title: 'どの三角形を選びますか？',
       options: list.map(function (t) { return { value: t, label: triName(t) }; }),
+      avoid: this.ref('figureCard'),
       onChoose: function (t) { self.tapTriangle(t); },
     });
   };
@@ -256,7 +256,7 @@
       PH.hints.hide(doc.getElementById('hint-popup'));
       this.setTriCheck(false);
       this.popMessage('三角形が決まった！');
-      this.say(triName(g.triangles[0]) + 'と' + triName(g.triangles[1]) + 'で証明しよう！（対応する頂点は「△ 三角形を確認」で見られるよ）' +
+      this.say(triName(g.triangles[0]) + 'と' + triName(g.triangles[1]) + 'で証明しよう！（対応する頂点は「三角形確認」ボタンで見られるよ）' +
         (g.phase === 'step' ? 'まず、根拠に使う新しい関係を導こう。'
           : g.isRight() ? 'まず、2つの三角形の直角を確かめよう。' : '次は3つの根拠を見つけよう。'), 'ok');
     } else {
@@ -419,6 +419,7 @@
     PH.chooser.open({
       title: g.mode === 'mark' ? 'どちらに印をつけますか？' : g.mode === 'erase' ? 'どちらの印を消しますか？' : 'どちらを選びますか？',
       options: list.map(function (k) { return { value: k, label: byKey[k].display }; }),
+      avoid: this.ref('figureCard'),
       onChoose: function (k) { self.tapElement(k); },
     });
   };
@@ -582,7 +583,7 @@
     } else {
       PH.hints.hide(popup);
     }
-    const btn = this.root.querySelector('.tri-btn');
+    const btn = this.ref('triBtn');
     if (btn) btn.setAttribute('aria-pressed', String(this.triCheck));
     this.renderFigures();
   };
@@ -843,9 +844,9 @@
     const mb = this.ref('modeBadge');
     mb.textContent = badge;
     mb.hidden = !badge;
-    // 「三角形を確認」のボタン：STEP 1 の前は「三角形を探すヒント」（正しい三角形は見せない）
+    // 「三角形確認」のボタン（図の右のボタン）：STEP 1 の前は「三角形を探すヒント」を表示する（正しい三角形は見せない）
     const tb = this.ref('triBtn');
-    if (tb) tb.textContent = this.trianglesHidden() ? '△ 三角形を探すヒント' : '△ 三角形を確認';
+    if (tb) tb.setAttribute('title', this.trianglesHidden() ? '三角形を探すヒント' : '証明する三角形を確認');
     PH.renderer.render(this.ref('svg'), this.problem, {
       selection: g.selection,
       flash: this.flashKeys,

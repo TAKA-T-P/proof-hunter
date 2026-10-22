@@ -3,6 +3,7 @@
  *
  * PH.chooser.open({ title, message?, options: [{ value, label }], onChoose(value), textOptions? })
  *   textOptions: true … 選択肢が長い文字（「スタンダード」など）のとき、改行しない小さめの文字で表示
+ *   avoid: 要素   … その要素（図）と重ならない位置に出す（図の下 → 図の右 → 図の左 → 図の上。どこにも入らなければ中央）
  * キャンセル（ボタン・外側のタップ・Esc）では何もしない。
  */
 (function (root) {
@@ -58,8 +59,40 @@
       return '<button class="btn chooser-option" data-choose="' + i + '">' + esc(o.label) + '</button>';
     }).join('');
     el.hidden = false;
+    place(el, opts.avoid);
     const first = el.querySelector('.chooser-option');
     if (first && first.focus) first.focus({ preventScroll: true });
+  }
+
+  // 図と重ならない位置に置く（入らなければ画面の中央）
+  function place(el, avoid) {
+    const card = el.querySelector('.chooser-box');
+    el.classList.remove('is-placed');
+    card.style.marginTop = card.style.marginLeft = card.style.width = '';
+    if (!avoid || !avoid.getBoundingClientRect) return;
+    const r = avoid.getBoundingClientRect();
+    const vw = root.innerWidth, vh = root.innerHeight;
+    const w = card.offsetWidth, h = card.offsetHeight;
+    const gap = 10, edge = 8;
+    let top = null, left = null;
+    if (r.bottom + gap + h <= vh - edge) {            // 図の下
+      top = Math.max(edge, r.bottom + gap);
+      left = (vw - w) / 2;
+    } else if (r.right + gap + w <= vw - edge) {      // 図の右
+      left = r.right + gap;
+      top = Math.min(Math.max(edge, r.top + (r.height - h) / 2), vh - h - edge);
+    } else if (r.left - gap - w >= edge) {            // 図の左
+      left = r.left - gap - w;
+      top = Math.min(Math.max(edge, r.top + (r.height - h) / 2), vh - h - edge);
+    } else if (r.top - gap - h >= edge) {             // 図の上
+      top = r.top - gap - h;
+      left = (vw - w) / 2;
+    }
+    if (top == null) return;
+    el.classList.add('is-placed');
+    card.style.width = w + 'px';
+    card.style.marginTop = Math.round(top) + 'px';
+    card.style.marginLeft = Math.round(Math.max(edge, left)) + 'px';
   }
 
   function close() {
