@@ -668,7 +668,7 @@ test('キーパッド：三角形の入力（△□□□と△□□□）。�
   assert.equal(KP.parse('AAB/CDE'), null);
   // 等式の欄のキーパッドは従来どおり
   const eq = KP.create(['A', 'B', 'C', 'D']);
-  assert.equal(eq.kind, null);
+  assert.equal(eq.kind, 'seg');                                 // 最初は辺の等式（「辺⇔角」で切りかえ）
   assert.equal(eq.load('△ABC/△ABD'), false);
 });
 

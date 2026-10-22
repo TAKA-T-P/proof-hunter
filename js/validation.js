@@ -98,7 +98,7 @@
       if (found.indexOf(hit.ev.id) >= 0) return { status: 'duplicate', miss: false, evidence: hit.ev, kind: kind };
       // Ver.0.7：前のステップで導く事実は、そのステップを証明してから（未証明の事実は根拠に使えない）
       if (hit.ev.fromStep && engine && !engine.canUse(hit.ev)) return { status: 'not-proved', miss: true, evidence: hit.ev, kind: kind };
-      if (hit.ev.reason === reasonId) return { status: 'correct', miss: false, evidence: hit.ev, kind: kind };
+      if (PH.acceptedReasons(hit.ev).indexOf(reasonId) >= 0) return { status: 'correct', miss: false, evidence: hit.ev, kind: kind };
       return { status: 'wrong-reason', miss: true, evidence: hit.ev, kind: kind };
     }
 

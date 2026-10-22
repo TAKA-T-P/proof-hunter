@@ -57,6 +57,13 @@
   PH.conditionOrder = function (p) { return PH.isRightProblem(p) ? PH.RIGHT_CONDITION_ORDER : PH.CONDITION_ORDER; };
   // 根拠の表示（直角の確認は「∠ABC＝∠DEF＝90°」。label は2つの角の等式のまま）
   PH.evidenceText = function (ev) { return ev.role === 'right' ? ev.label + '＝90°' : ev.label; };
+  /*
+   * その根拠の理由として正しいと認める理由。標準の理由（ev.reason）に加えて：
+   *   垂直から言える直角（perpendicular）は、仮定に「BD⊥AC」と書かれているので「仮定より」も正しい
+   */
+  PH.acceptedReasons = function (ev) {
+    return ev.reason === 'perpendicular' ? ['perpendicular', 'given'] : [ev.reason];
+  };
 
   // ステージ（問題の stage で参照）
   PH.STAGES = [

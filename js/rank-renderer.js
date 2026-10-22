@@ -496,7 +496,7 @@
       if (!kp.complete()) return;
       return this.after(this.game.submit(now(), kp.value()));
     }
-    if (action.indexOf('kind:') === 0) { if (kp.kind !== action.slice(5)) kp.setKind(action.slice(5)); }
+    if (action === 'toggle') kp.toggleKind();
     else if (action.indexOf('key:') === 0) kp.press(action.slice(4));
     else if (action === 'back') kp.backspace();
     else if (action === 'clear') kp.clear();

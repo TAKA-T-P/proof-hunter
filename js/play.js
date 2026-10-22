@@ -128,7 +128,6 @@
             '<p class="statement-text">' + esc(p.statement) + '</p>' +
             '<div class="cond-row"><span class="tag tag-given">仮定</span><span class="cond-text">' + p.given.map(esc).join('、') + '</span></div>' +
             '<div class="cond-row"><span class="tag tag-goal">結論</span><span class="cond-text">' + esc(p.conclusion) + '</span></div>' +
-            '<p class="cond-note"><span class="tag-mini tag-given">仮定</span>証明の根拠に使える　<span class="tag-mini tag-goal">結論</span>証明するゴール（根拠には使えない）</p>' +
           '</div>' +
           '<div class="play-side">' +
             '<div class="card panel" data-ref="panel"></div>' +

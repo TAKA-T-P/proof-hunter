@@ -304,9 +304,25 @@ test('キーパッド：図にある頂点記号だけを使う', () => {
 test('キーパッド：辺の等式・角の等式を入力でき、不完全なときは決定できない', () => {
   const kp = KP.create(['A', 'B', 'C', 'D', 'E', 'F']);
   assert.equal(kp.complete(), false);
-  assert.equal(kp.press('A'), false);              // 種類を選ぶまでは入力できない
-  kp.setKind('seg');
+  // 最初は辺の等式。入力欄の右の「辺⇔角」ボタンで角の等式に切りかえる（入力はリセット）
+  assert.equal(kp.kind, 'seg');
   assert.equal(kp.display(), '＿＿＝＿＿');
+  const html = KP.render(kp);
+  assert.ok(html.includes('data-kp="toggle"'));
+  assert.ok(html.includes('辺⇔角'));
+  assert.ok(!html.includes('data-kp="kind:'));     // 「辺の等式」「角の等式」ボタンはない
+  assert.ok(/class="kp-row"><div class="kp-display"[^>]*>[^<]*<\/div><button class="kp-toggle"/.test(html));   // 入力欄と同じ行の右
+  kp.press('A');
+  assert.equal(kp.toggleKind(), true);
+  assert.equal(kp.kind, 'ang');
+  assert.equal(kp.display(), '∠＿＿＿＝∠＿＿＿');
+  assert.equal(kp.isEmpty(), true);
+  assert.equal(kp.toggleKind(), true);
+  assert.equal(kp.display(), '＿＿＝＿＿');
+  // 三角形の欄・左辺を固定した欄には「辺⇔角」ボタンを出さない
+  assert.ok(!KP.render(KP.create(['A', 'B', 'C'], { kinds: ['tri'] })).includes('data-kp="toggle"'));
+  assert.ok(!KP.render(KP.create(['A', 'B', 'C'], { fixedLeft: 'AB' })).includes('data-kp="toggle"'));
+  assert.equal(KP.create(['A', 'B', 'C'], { kinds: ['ang'] }).toggleKind(), false);
   kp.press('A');
   assert.equal(kp.display(), 'A＿＝＿＿');
   kp.press('B');                                   // 左辺が終わると、＝を押さなくても右辺へ進む

@@ -3,10 +3,11 @@
  *
  * 入力のモデル（DOMに依存しない。テスト可能）
  *   PH.mathKeypad.create(letters, opts)  … letters はその問題の図にある頂点記号だけ
- *     opts.kinds      入力できる種類（省略時 ['seg', 'ang']。三角形の入力欄は ['tri']。種類が1つなら最初から選ばれている）
+ *     opts.kinds      入力できる種類（省略時 ['seg', 'ang']。三角形の入力欄は ['tri']。最初は1つ目の種類（辺）が選ばれている）
  *     opts.isTriangle 三角形の入力で、3点が図の上の三角形かを確かめる関数（図にない三角形は決定できない）
  *     opts.fixedLeft  左辺を固定して右辺だけ入力する（'AC' や '∠ABC'。段位認定の「AC＝＿＿」）。左辺は消せない
  *     .setKind('seg' | 'ang' | 'tri')  辺の等式（□□＝□□）／角の等式（∠□□□＝∠□□□）／三角形（△□□□と△□□□）。切りかえると入力はリセット
+ *     .toggleKind()                 「辺⇔角」ボタン：辺の等式と角の等式を切りかえる（入力はリセット）
  *     .press('A')                   頂点記号を1文字（同じ辺・角・三角形の中で同じ文字は使えない）
  *                                   左辺（1つ目の三角形）を入力しおわると、そのまま右辺へ進む（＝・∠・△ は表示ずみなので押さなくてよい）
  *     .pressEq()                    ＝（キーボードの = 用。左辺が入力しおわっていれば右辺へ。押さなくても進む）
@@ -33,7 +34,7 @@
     this.letters = letters.slice();
     this.kinds = (o.kinds || ['seg', 'ang']).filter(function (k) { return SIZE[k]; });
     this.isTriangle = o.isTriangle || null;
-    this.kind = this.kinds.length === 1 ? this.kinds[0] : null;   // 種類が1つなら選ぶ必要はない
+    this.kind = this.kinds[0] || null;     // 最初は辺の等式（「辺⇔角」ボタンで角の等式に切りかえる）
     this.left = [];
     this.right = [];
     this.eq = false;
@@ -54,6 +55,16 @@
     this.kind = kind;
     this.clear();
     return true;
+  };
+
+  // 辺の等式と角の等式を切りかえる（両方を入力できる欄だけ）
+  Keypad.prototype.canToggle = function () {
+    return !this.locked && this.kinds.indexOf('seg') >= 0 && this.kinds.indexOf('ang') >= 0;
+  };
+
+  Keypad.prototype.toggleKind = function () {
+    if (!this.canToggle()) return false;
+    return this.setKind(this.kind === 'ang' ? 'seg' : 'ang');
   };
 
   Keypad.prototype.clear = function () {
@@ -213,27 +224,17 @@
     });
   }
 
-  const KIND_LABEL = {
-    seg: ['辺の等式', '□□＝□□'],
-    ang: ['角の等式', '∠□□□＝∠□□□'],
-    tri: ['三角形', '△□□□と△□□□'],
-  };
-
   /*
    * キーパッドのHTML。ボタンは data-kp 属性で操作を表す：
-   *   kind:seg / kind:ang / key:A / back / clear / decide
+   *   toggle（辺⇔角）/ key:A / back / clear / decide
+   *   入力欄の右に「辺⇔角」ボタン（辺の等式と角の等式の両方を入力できる欄だけ）
    */
   function render(kp) {
-    const kindBtn = function (k) {
-      return '<button class="kp-kind' + (kp.kind === k ? ' is-on' : '') + '" data-kp="kind:' + k + '" aria-pressed="' + (kp.kind === k) + '">' +
-        '<span class="kp-kind-label">' + KIND_LABEL[k][0] + '</span><span class="kp-kind-sample">' + KIND_LABEL[k][1] + '</span></button>';
-    };
-    // 種類が1つ（三角形の入力欄）なら、種類のボタンは出さない
-    let html = kp.kinds.length > 1 ? '<div class="kp-kinds">' + kp.kinds.map(kindBtn).join('') + '</div>' : '';
-    if (!kp.kind) {
-      return html + '<p class="kp-guide">はじめに「辺の等式」か「角の等式」を選ぼう。</p>';
-    }
-    html += '<div class="kp-display" aria-live="polite">' + esc(kp.display()) + '</div>';
+    if (!kp.kind) return '';
+    let html = '<div class="kp-row">' +
+      '<div class="kp-display" aria-live="polite">' + esc(kp.display()) + '</div>' +
+      (kp.canToggle() ? '<button class="kp-toggle" data-kp="toggle" aria-label="' + (kp.kind === 'ang' ? '辺の等式に切りかえる' : '角の等式に切りかえる') + '">辺⇔角</button>' : '') +
+      '</div>';
     const prob = kp.problem();
     if (prob) html += '<p class="kp-warn">' + esc(prob) + '</p>';
     html += '<div class="kp-keys">' + kp.letters.map(function (L) {

@@ -237,8 +237,6 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .tag { flex: none; padding: 2px 10px; border-radius: 8px; font-size: .85rem; font-weight: 800; color: #fff; }
 .tag-given { background: var(--blue-600); }
 .tag-goal { background: var(--green); }
-.cond-note { margin: 2px 0 0; font-size: .75rem; color: var(--muted); }
-.tag-mini { display: inline-block; padding: 0 6px; border-radius: 6px; color: #fff; font-weight: 700; margin-right: 3px; }
 
 .figure-card { position: relative; padding: 4px; background: #fff; border-width: 3px; transition: border-color .2s; }
 .figure-card.mode-side { border-color: #93c5fd; }
@@ -869,15 +867,13 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 
 /* 数学キーパッド */
 .pz-cards.kind-input { display: flex; flex-direction: column; gap: 6px; }
-.kp-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.kp-kind {
-  display: flex; flex-direction: column; align-items: center; min-height: 44px; padding: 2px 4px;
-  border: 2px solid var(--line); border-radius: 10px; background: #fff; line-height: 1.2;
+.kp-row { display: flex; align-items: stretch; gap: 6px; }
+.kp-row .kp-display { flex: 1; min-width: 0; }
+.kp-toggle {
+  flex: none; padding: 0 12px; border: 2px solid var(--purple); border-radius: 10px; background: var(--purple-soft);
+  color: var(--purple); font-weight: 900; font-size: .95rem; white-space: nowrap;
 }
-.kp-kind-label { font-weight: 900; font-size: .88rem; }
-.kp-kind-sample { font-size: .78rem; color: var(--muted); letter-spacing: .05em; }
-.kp-kind.is-on { border-color: var(--purple); background: var(--purple-soft); }
-.kp-guide { margin: 0; font-size: .82rem; color: var(--muted); text-align: center; }
+.kp-toggle:active { transform: scale(.95); }
 .kp-display {
   text-align: center; font-size: 1.6rem; font-weight: 900; letter-spacing: .08em; padding: 2px 8px;
   border-radius: 10px; background: #fffbeb; border: 2px solid var(--gold); color: var(--ink);
@@ -906,8 +902,6 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
     padding: 4px 16px calc(6px + env(safe-area-inset-bottom));
   }
   .screen-puzzle.tray-open .pz-body { padding-bottom: 72vh; padding-bottom: 72dvh; }
-  .kp-kinds { grid-template-columns: 1fr 1fr; }
-  .kp-kind { min-height: 34px; flex-direction: row; justify-content: center; gap: 8px; }
   .kp-display { font-size: 1.2rem; padding: 0 8px; }
   .kp-keys { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px; }
   .kp-key, .kp-op, .kp-decide { min-height: 34px; }

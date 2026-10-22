@@ -375,7 +375,7 @@ NEW.forEach((p) => {
     const g = new PH.Game(p);
     toCollect(g);
     const right = evOf(p, 'right');
-    const wrongReason = ['given', 'perpendicular', 'squareAngle'].find((x) => x !== right.reason);
+    const wrongReason = ['given', 'perpendicular', 'squareAngle'].find((x) => !PH.acceptedReasons(right).includes(x));
     assert.equal(answer(g, right, wrongReason).status, 'wrong-reason');
     assert.equal(g.misses, 1);
     g.roles.forEach((role) => answer(g, evOf(p, role), evOf(p, role).reason, role));
@@ -477,7 +477,7 @@ NEW.forEach((p) => {
   test(p.id + '（standard）: 直角の理由の誤りは、直角の行の理由だけが不正解', () => {
     const z = new PH.Puzzle(p, 'build');
     const sol = z.solution();
-    const wrong = z.cards.rreason.find((c) => c.id !== sol.r0);
+    const wrong = z.cards.rreason.find((c) => !PH.acceptedReasons(z.rowEv[0]).includes(c.reason));
     fill(z, Object.assign({}, sol, { r0: wrong.id }));
     const r = z.check();
     assert.equal(r.status, 'wrong');
@@ -502,6 +502,36 @@ NEW.forEach((p) => {
     assert.equal(h.slotId, zf.eqSlotId(zf.rowRoles.indexOf('hypotenuse')));
     assert.match(h.text, /斜辺/);
   });
+});
+
+test('垂直から言える直角は「仮定より」も正解（仮定に BD⊥AC などがあるので）。正方形の角は「正方形の角だから」だけ', () => {
+  ['p27', 'p29', 'p30'].forEach((id) => {
+    const p = P(id);
+    const right = evOf(p, 'right');
+    assert.deepEqual(PH.acceptedReasons(right), ['perpendicular', 'given']);
+    // ハンター
+    const g = new PH.Game(p);
+    toCollect(g);
+    assert.equal(answer(g, right, 'given').status, 'correct', id);
+    assert.equal(g.misses, 0);
+    assert.equal(answer(g, evOf(p, 'hypotenuse'), evOf(p, 'hypotenuse').reason, 'hypotenuse').status, 'correct');
+    // パズル（スタンダード・チャレンジ）
+    ['build', 'challenge'].forEach((type) => {
+      const z = new PH.Puzzle(p, type);
+      const sol = z.solution();
+      fill(z, Object.assign({}, sol, { r0: z.cards.rreason.find((c) => c.reason === 'given').id }));
+      assert.equal(z.check().status, 'clear', id + ' ' + type);
+      assert.equal(z.misses, 0);
+    });
+    // 「正方形の角だから」は誤り
+    assert.equal(val.checkEvidence(p, right.items.map((n) => k(p, n)), 'squareAngle', []).status, 'wrong-reason');
+  });
+  const p28 = P('p28');
+  const r28 = evOf(p28, 'right');
+  assert.deepEqual(PH.acceptedReasons(r28), ['squareAngle']);
+  assert.equal(val.checkEvidence(p28, r28.items.map((n) => k(p28, n)), 'given', []).status, 'wrong-reason');
+  // 仮定に90°と書かれている直角（p25・p26）は従来どおり「仮定より」だけ
+  assert.deepEqual(PH.acceptedReasons(evOf(P('p25'), 'right')), ['given']);
 });
 
 test('完成した証明文：直角の確認・斜辺・他の1辺（鋭角）・直角三角形の合同条件', () => {

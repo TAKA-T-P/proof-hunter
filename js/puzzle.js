@@ -67,7 +67,7 @@
    *   その書き方を使う根拠にだけ当てはまる（平行線が2組ある問題で、どちらの平行線かを区別する）。
    */
   function reasonAccepts(reasonCard, ev) {
-    if (!reasonCard || reasonCard.reason !== ev.reason) return false;
+    if (!reasonCard || PH.acceptedReasons(ev).indexOf(reasonCard.reason) < 0) return false;
     return reasonCard.specific ? reasonCard.text === reasonText(ev) : true;
   }
 

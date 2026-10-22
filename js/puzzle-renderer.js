@@ -217,11 +217,8 @@
     if (!s || !this.trayOpen) return;
     const kp = this.draftFor(s.id);
     let ok = false;
-    if (action.indexOf('kind:') === 0) {
-      const kind = action.slice(5);
-      // 辺⇔角の切りかえは、その空欄の入力をリセットする
-      ok = kp.kind !== kind && kp.setKind(kind);
-    } else if (action.indexOf('key:') === 0) ok = kp.press(action.slice(4));
+    if (action === 'toggle') ok = kp.toggleKind();      // 辺⇔角の切りかえは、その空欄の入力をリセットする
+    else if (action.indexOf('key:') === 0) ok = kp.press(action.slice(4));
     else if (action === 'eq') ok = kp.pressEq();
     else if (action === 'back') ok = kp.backspace();
     else if (action === 'clear') { ok = !kp.isEmpty(); kp.clear(); }
