@@ -20,10 +20,14 @@
     // Ver.0.5：合同を示したあとの「最終結論」専用の理由（根拠を集める段階では使えない）
     correspondingSides:  { label: '合同な図形の対応する辺より', short: '対応する辺', proof: '合同な図形の対応する辺は等しいから', finalOnly: true },
     correspondingAngles: { label: '合同な図形の対応する角より', short: '対応する角', proof: '合同な図形の対応する角は等しいから', finalOnly: true },
+    // Ver.0.7：定理を1ステップで使う理由と、導いた等式（前のステップで証明した事実）を根拠に使う理由
+    isoscelesBaseAngles: { label: '二等辺三角形の底角より', short: '底角', proof: '二等辺三角形の底角は等しいから' },
+    equilateralSides:    { label: '正三角形の辺より',       short: '正三角形', proof: '正三角形の3辺は等しいから' },
+    proved:              { label: '導いた等式より',         short: '導いた等式', proof: '導いた等式より', meta: true },
   };
 
   // 結論の種類（Ver.0.5）。conclusionType がない問題は三角形の合同
-  PH.CONCLUSION_TYPES = ['triangleCongruence', 'equalSide', 'equalAngle'];
+  PH.CONCLUSION_TYPES = ['triangleCongruence', 'equalSide', 'equalAngle', 'isoscelesTriangle'];
   PH.conclusionType = function (p) { return p.conclusionType || 'triangleCongruence'; };
   // 合同を示したあと、対応する辺・角の等しさを導く問題か（三角形選択・最終結論のステップがある）
   PH.hasFinalStep = function (p) { return PH.conclusionType(p) !== 'triangleCongruence' && !!p.finalStep; };
@@ -48,6 +52,7 @@
     { id: 4, title: '合同条件を見極めろ！', theme: '3つの合同条件を使い分けよう！' },
     { id: 5, title: '証明マスターへの道', theme: 'いろいろな根拠を組み合わせよう！' },
     { id: 6, title: '合同から結論を導け！', theme: 'どの三角形を合同にする？ 合同から辺・角の等しさを証明しよう！' },
+    { id: 7, title: '証明をつなげろ！', theme: '新しい根拠を導き、それを使って証明を完成させよう！' },
   ];
 
   // 合同条件を選ぶときのヒント（問題データから呼び出す共通文）
@@ -1368,6 +1373,336 @@
       learningPoints: [
         '結論の角をふくむ2つの三角形と、頂点の対応を見つける。',
         '合同を証明してから、対応する角が等しいことを使う。',
+      ],
+    }
+  );
+
+  // ==================================================================
+  // Ver.0.7 追加問題（STAGE 7）：多段階証明（定理の適用・角の式の比較・導いた事実の再利用）
+  //   教材「証明練習プリント」の 二等辺三角形①③・三角形の合同証明⑦⑧ をもとにした（図の座標は作り直し、
+  //   仮定・結論・証明の流れは原本の模範解答どおり。数値は npm test で検証）。
+  //   proofSteps：stage 'pre' は根拠を集める前、'post' は最終結論のあとに解くステップ（js/proof-engine.js）。
+  //   evidence の fromStep：そのステップで導いた事実を合同の根拠に使う（reason: 'proved'）。
+  // ==================================================================
+  function stepHints(a, b, c, focus) {
+    return [{ text: a }, { text: b, focus: focus || [] }, { text: c, focus: focus || [] }];
+  }
+
+  PH.problems.push(
+    // ------------------------------------------------------------------
+    {
+      id: 'p21',
+      number: '21',
+      title: '二等辺三角形の底角を使おう！',
+      difficulty: 2,
+      stage: 7,
+      statement: '△ABCは AB＝AC の二等辺三角形で、点D、Eは辺BC上の点で、BD＝CE である。このとき、AD＝AE であることを証明しよう。',
+      given: ['AB＝AC', 'BD＝CE'],
+      conclusion: 'AD＝AE',
+      conclusionType: 'equalSide',
+      triangles: [['A', 'B', 'D'], ['A', 'C', 'E']],
+      figure: {
+        viewBox: [0, 0, 400, 360],
+        points: {
+          A: { x: 200, y: 45,  label: [0, -20] },
+          B: { x: 50,  y: 320, label: [-18, 14] },
+          C: { x: 350, y: 320, label: [18, 14] },
+          D: { x: 140, y: 320, label: [0, 24] },
+          E: { x: 260, y: 320, label: [0, 24] },
+        },
+        lines: [['B', 'D', 'E', 'C']],
+        segments: ['AB', 'AC', 'AD', 'AE', 'BD', 'DE', 'EC'],
+        angles: ['ABD', 'ACE', 'BAD', 'CAE', 'DAE', 'ADB', 'AEC', 'ADE', 'AED'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'vertical', 'proved'],
+      proofSteps: [
+        { id: 's1', type: 'theorem', stage: 'pre', rule: 'isoscelesBaseAngles', premise: ['AB', 'AC'], premiseLabel: 'AB＝AC',
+          items: ['∠ABC', '∠ACB'], label: '∠ABC＝∠ACB', short: '底角が等しい', dependsOn: [] },
+      ],
+      evidence: [
+        { id: 'e1', items: ['BD', 'CE'], reason: 'given', label: 'BD＝CE', mark: 1 },
+        { id: 'e2', items: ['AB', 'AC'], reason: 'given', label: 'AB＝AC', mark: 2 },
+        { id: 'e3', items: ['∠ABD', '∠ACE'], reason: 'proved', fromStep: 's1', label: '∠ABD＝∠ACE', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'SAS',
+      finalStep: { relationType: 'side', items: ['AD', 'AE'], reason: 'correspondingSides', label: 'AD＝AE' },
+      proof: { intro: '△ABDと△ACEにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['AD＝AE', 'AB＝AD', 'BD＝DE'],
+          reasons: ['vertical'],
+          triangles: ['ABD/AEC', 'ABD/CAE'],
+          finals: ['∠ADB＝∠AEC', 'AD＝BD'],
+        },
+      },
+      hints: {
+        triangleSelection: [
+          { text: '結論の辺ADと辺AEは、どの三角形にふくまれているかな？' },
+          { text: '辺ADをふくむ三角形と、辺AEをふくむ三角形を見つけよう！', focus: ['AD', 'AE'] },
+          { text: '△ABDと△ACEに注目しよう。対応する頂点は A↔A、B↔C、D↔E だよ。', focus: ['AD', 'AE'] },
+        ],
+        s1: stepHints('どんな図形の性質が使えるかな？', '2辺が等しい三角形には、角についてどんな性質があるかな？',
+          '「二等辺三角形の底角は等しい」という性質を使おう！', ['∠ABD', '∠ACE']),
+        e1: stepHints('仮定から等しい辺を探そう。', '辺BDと辺CEに注目しよう！', 'BD＝CE。仮定より等しいね！', ['BD', 'CE']),
+        e2: stepHints('仮定にはもう1つ、等しい辺があるよ。', '辺ABと辺ACに注目しよう！', 'AB＝AC。仮定より等しいね！', ['AB', 'AC']),
+        e3: stepHints('さっき導いた角の等しさを、根拠に使おう。', '∠ABDと∠ACEに注目しよう！', '∠ABD＝∠ACE。底角が等しいことから導いたね！', ['∠ABD', '∠ACE']),
+        congruence: sasHints('∠ABD', '辺ABと辺BD'),
+        finalStep: [
+          { text: '合同な三角形で、対応する辺や角にはどんな性質があるかな？' },
+          { text: '結論の辺ADと辺AEを、合同な三角形の対応関係で確認しよう！', focus: ['AD', 'AE'] },
+          { text: '「合同な図形の対応する辺は等しい」という性質を使おう！', focus: ['AD', 'AE'] },
+        ],
+      },
+      explanation: 'AB＝ACの二等辺三角形では、底角∠ABC＝∠ACBが等しくなります。DはBC上の点なので∠ABD＝∠ABC、∠ACE＝∠ACBです。導いたこの角の等しさを根拠に使って△ABD≡△ACEを証明し、対応する辺からAD＝AEが言えます。',
+      learningPoints: [
+        'AB＝ACより、二等辺三角形の底角は等しい（定理を1ステップで使う）。',
+        '導いた角の等しさを、合同の根拠に使う。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p22',
+      number: '22',
+      title: '二等辺三角形になることを証明！',
+      difficulty: 3,
+      stage: 7,
+      statement: '△ABCは AB＝AC の二等辺三角形である。辺AB、AC上に BM＝CN となる点M、Nをとり、MCとNBの交点をDとする。このとき、△DBCは二等辺三角形であることを証明しよう。',
+      given: ['AB＝AC', 'BM＝CN'],
+      conclusion: '△DBCは二等辺三角形',
+      conclusionType: 'isoscelesTriangle',
+      triangles: [['M', 'B', 'C'], ['N', 'C', 'B']],
+      figure: {
+        viewBox: [0, 0, 400, 360],
+        points: {
+          A: { x: 200, y: 40,  label: [0, -20] },
+          B: { x: 60,  y: 320, label: [-18, 14] },
+          C: { x: 340, y: 320, label: [18, 14] },
+          M: { x: 116, y: 208, label: [-22, 0] },
+          N: { x: 284, y: 208, label: [22, 0] },
+          D: { x: 200, y: 250, label: [0, -20] },
+        },
+        lines: [['A', 'M', 'B'], ['A', 'N', 'C'], ['M', 'D', 'C'], ['N', 'D', 'B']],
+        segments: ['AM', 'MB', 'AN', 'NC', 'BC', 'MD', 'DC', 'ND', 'DB'],
+        angles: ['MBC', 'NCB', 'DBC', 'DCB', 'BMC', 'CNB', 'BDC'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'vertical', 'proved'],
+      proofSteps: [
+        { id: 's1', type: 'theorem', stage: 'pre', rule: 'isoscelesBaseAngles', premise: ['AB', 'AC'], premiseLabel: 'AB＝AC',
+          items: ['∠ABC', '∠ACB'], label: '∠ABC＝∠ACB', short: '底角が等しい', dependsOn: [] },
+        { id: 's2', type: 'theorem', stage: 'post', rule: 'isoscelesConverse', premise: ['∠DBC', '∠DCB'], premiseLabel: '∠DCB＝∠DBC',
+          triangle: 'DBC', label: '△DBCは二等辺三角形', short: '二等辺三角形になる', dependsOn: ['final'] },
+      ],
+      evidence: [
+        { id: 'e1', items: ['BM', 'CN'], reason: 'given', label: 'BM＝CN', mark: 1 },
+        { id: 'e2', items: ['BC', 'CB'], reason: 'common', label: 'BC＝CB', mark: 'common' },
+        { id: 'e3', items: ['∠MBC', '∠NCB'], reason: 'proved', fromStep: 's1', label: '∠MBC＝∠NCB', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'SAS',
+      finalStep: { relationType: 'angle', items: ['∠DCB', '∠DBC'], reason: 'correspondingAngles', label: '∠DCB＝∠DBC' },
+      proof: { intro: '△MBCと△NCBにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['∠DCB＝∠DBC', 'BM＝BC', '∠MBC＝∠MCB'],
+          reasons: ['vertical'],
+          triangles: ['MBC/NBC', 'MBC/CNB'],
+          finals: ['NB＝MC', '∠DCB＝∠MBC'],
+        },
+      },
+      hints: {
+        triangleSelection: [
+          { text: '△DBCが二等辺三角形になるには、どの2つの角が等しければいいかな？' },
+          { text: '∠DBCと∠DCBをふくむ、2つの三角形を見つけよう！', focus: ['∠DBC', '∠DCB'] },
+          { text: '△MBCと△NCBに注目しよう。対応する頂点は M↔N、B↔C、C↔B だよ。', focus: ['∠DBC', '∠DCB'] },
+        ],
+        s1: stepHints('どんな図形の性質が使えるかな？', '2辺が等しい三角形には、角についてどんな性質があるかな？',
+          '「二等辺三角形の底角は等しい」という性質を使おう！', ['∠MBC', '∠NCB']),
+        e1: stepHints('仮定から等しい辺を探そう。', '辺BMと辺CNに注目しよう！', 'BM＝CN。仮定より等しいね！', ['BM', 'CN']),
+        e2: stepHints('2つの三角形に共通する辺はないかな？', '辺BCに注目！ 同じ辺を2回タップしよう。', 'BC＝CB。共通な辺だから等しいね！', ['BC']),
+        e3: stepHints('さっき導いた角の等しさを、根拠に使おう。', '∠MBCと∠NCBに注目しよう！', '∠MBC＝∠NCB。底角が等しいことから導いたね！', ['∠MBC', '∠NCB']),
+        congruence: sasHints('∠MBC', '辺MBと辺BC'),
+        finalStep: [
+          { text: '合同な三角形で、対応する辺や角にはどんな性質があるかな？' },
+          { text: '∠DCBと∠DBCを、合同な三角形の対応関係で確認しよう！（∠DCB＝∠MCB、∠DBC＝∠NBC）', focus: ['∠DCB', '∠DBC'] },
+          { text: '「合同な図形の対応する角は等しい」という性質を使おう！', focus: ['∠DCB', '∠DBC'] },
+        ],
+        s2: stepHints('∠DCB＝∠DBC が分かったね。△DBCはどんな三角形かな？', '2つの角が等しい三角形には、どんな性質があったかな？',
+          '「2つの角が等しい三角形は二等辺三角形である」を使おう！', ['∠DBC', '∠DCB']),
+      },
+      explanation: 'AB＝ACから底角∠ABC＝∠ACBを導き、それを根拠に△MBC≡△NCBを証明します。合同な図形の対応する角は等しいので∠DCB＝∠DBC。さらに「2つの角が等しい三角形は二等辺三角形」から、△DBCは二等辺三角形だと言えます。',
+      learningPoints: [
+        '導いた角の等しさを合同の根拠に使い、合同から新しい角の等しさを導く。',
+        '2つの角が等しい三角形は二等辺三角形である（二等辺三角形になるための条件）。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p23',
+      number: '23',
+      title: '正三角形の60°を使おう！',
+      difficulty: 3,
+      stage: 7,
+      statement: '△ABCと△DCEはともに正三角形である。このとき、AE＝BD であることを証明しよう。',
+      given: ['△ABCは正三角形', '△DCEは正三角形'],
+      conclusion: 'AE＝BD',
+      conclusionType: 'equalSide',
+      equilateral: ['ABC', 'DCE'],
+      triangles: [['A', 'C', 'E'], ['B', 'C', 'D']],
+      figure: {
+        viewBox: [0, 0, 400, 380],
+        points: {
+          A: { x: 101.5, y: 163.4, label: [-6, -20] },
+          B: { x: 40,    y: 330,   label: [-18, 12] },
+          C: { x: 215,   y: 300,   label: [0, 26] },
+          D: { x: 330.8, y: 199.4, label: [10, -18] },
+          E: { x: 360,   y: 350,   label: [18, 12] },
+        },
+        lines: [],
+        segments: ['AB', 'BC', 'CA', 'CD', 'CE', 'DE', 'AE', 'BD'],
+        angles: ['ACE', 'BCD', 'ACD', 'DCE', 'BCA'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'equilateralSides', 'proved'],
+      proofSteps: [
+        { id: 's1', type: 'expression', rule: 'angleAddition', target: '∠ACE', parts: '∠ACD＋∠DCE', value: '∠ACD＋60°',
+          premiseLabel: '△DCEは正三角形', label: '∠ACE＝∠ACD＋∠DCE＝∠ACD＋60°', short: '∠ACEの式', dependsOn: [] },
+        { id: 's2', type: 'expression', rule: 'angleAddition', target: '∠BCD', parts: '∠BCA＋∠ACD', value: '∠ACD＋60°',
+          premiseLabel: '△ABCは正三角形', label: '∠BCD＝∠BCA＋∠ACD＝∠ACD＋60°', short: '∠BCDの式', dependsOn: [] },
+        { id: 's3', type: 'compare', items: ['∠ACE', '∠BCD'], label: '∠ACE＝∠BCD', short: '式を比べる', dependsOn: ['s1', 's2'],
+          distractors: ['∠ACE＝∠ACD', '∠BCD＝∠DCE'] },
+      ],
+      evidence: [
+        { id: 'e1', items: ['AC', 'BC'], reason: 'equilateralSides', label: 'AC＝BC', mark: 1 },
+        { id: 'e2', items: ['CE', 'CD'], reason: 'equilateralSides', label: 'CE＝CD', mark: 2 },
+        { id: 'e3', items: ['∠ACE', '∠BCD'], reason: 'proved', fromStep: 's3', label: '∠ACE＝∠BCD', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'SAS',
+      finalStep: { relationType: 'side', items: ['AE', 'BD'], reason: 'correspondingSides', label: 'AE＝BD' },
+      proof: { intro: '△ACEと△BCDにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['AE＝BD', 'AC＝CE', '∠ACD＝∠DCE'],
+          reasons: ['given'],
+          triangles: ['ACE/BDC', 'ACE/CBD'],
+          finals: ['∠CAE＝∠CBD', 'AE＝CE'],
+        },
+      },
+      hints: {
+        triangleSelection: [
+          { text: '結論の辺AEと辺BDは、どの三角形にふくまれているかな？' },
+          { text: '辺AEをふくむ三角形と、辺BDをふくむ三角形を見つけよう！', focus: ['AE', 'BD'] },
+          { text: '△ACEと△BCDに注目しよう。対応する頂点は A↔B、C↔C、E↔D だよ。', focus: ['AE', 'BD'] },
+        ],
+        s1: stepHints('∠ACEは、どの2つの角に分けられるかな？', '∠ACE＝∠ACD＋∠DCE。∠DCEは正三角形の角だね。',
+          '2つの角を合わせた角だから「角の和」を使おう！', ['∠ACD', '∠DCE']),
+        s2: stepHints('∠BCDは、どの2つの角に分けられるかな？', '∠BCD＝∠BCA＋∠ACD。∠BCAは正三角形の角だね。',
+          '2つの角を合わせた角だから「角の和」を使おう！', ['∠BCA', '∠ACD']),
+        s3: stepHints('2つの式を見比べてみよう。', '右辺に共通する部分はないかな？', '2つの式の右辺は同じだから、左辺どうしが等しいね！', ['∠ACE', '∠BCD']),
+        e1: stepHints('正三角形の性質を使おう。', '△ABCの辺ACと辺BCに注目しよう！', 'AC＝BC。正三角形の3辺は等しいね！', ['AC', 'BC']),
+        e2: stepHints('もう1つの正三角形にも注目しよう。', '△DCEの辺CEと辺CDに注目しよう！', 'CE＝CD。正三角形の3辺は等しいね！', ['CE', 'CD']),
+        e3: stepHints('式を比べて導いた角の等しさを使おう。', '∠ACEと∠BCDに注目しよう！', '∠ACE＝∠BCD。2つの式を比べて導いたね！', ['∠ACE', '∠BCD']),
+        congruence: sasHints('∠ACE', '辺ACと辺CE'),
+        finalStep: [
+          { text: '合同な三角形で、対応する辺や角にはどんな性質があるかな？' },
+          { text: '結論の辺AEと辺BDを、合同な三角形の対応関係で確認しよう！', focus: ['AE', 'BD'] },
+          { text: '「合同な図形の対応する辺は等しい」という性質を使おう！', focus: ['AE', 'BD'] },
+        ],
+      },
+      explanation: '∠ACE＝∠ACD＋∠DCE＝∠ACD＋60°、∠BCD＝∠BCA＋∠ACD＝∠ACD＋60°。2つの式の右辺が同じなので∠ACE＝∠BCD（三段論法）。正三角形の辺AC＝BC、CE＝CDと合わせて△ACE≡△BCDを証明し、AE＝BDが言えます。',
+      learningPoints: [
+        '角の和を使って、2つの角を同じ式で表す。',
+        '同じ式に等しい2つの角は等しい（三段論法）。導いた角を合同の根拠に使う。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p24',
+      number: '24',
+      title: '三段論法で合同を証明！',
+      difficulty: 3,
+      stage: 7,
+      statement: '△ABCと△ADEは正三角形で、点Dは辺BC上にある。このとき、BD＝CE であることを証明しよう。',
+      given: ['△ABCは正三角形', '△ADEは正三角形'],
+      conclusion: 'BD＝CE',
+      conclusionType: 'equalSide',
+      equilateral: ['ABC', 'ADE'],
+      triangles: [['A', 'B', 'D'], ['A', 'C', 'E']],
+      figure: {
+        viewBox: [0, 0, 460, 370],
+        points: {
+          A: { x: 185, y: 96.2,  label: [-8, -20] },
+          B: { x: 50,  y: 330,   label: [-18, 12] },
+          C: { x: 320, y: 330,   label: [10, 22] },
+          D: { x: 240, y: 330,   label: [0, 24] },
+          E: { x: 415, y: 165.5, label: [18, -6] },
+        },
+        lines: [['B', 'D', 'C']],
+        segments: ['AB', 'AC', 'AD', 'AE', 'DE', 'CE', 'BD', 'DC'],
+        angles: ['BAD', 'CAE', 'DAC', 'BAC', 'DAE', 'ABD', 'ACE', 'ADB', 'AEC'],
+        parallel: [],
+      },
+      reasons: ['given', 'common', 'equilateralSides', 'proved'],
+      proofSteps: [
+        { id: 's1', type: 'expression', rule: 'angleSubtraction', target: '∠BAD', parts: '∠BAC－∠DAC', value: '60°－∠DAC',
+          premiseLabel: '△ABCは正三角形', label: '∠BAD＝∠BAC－∠DAC＝60°－∠DAC', short: '∠BADの式', dependsOn: [] },
+        { id: 's2', type: 'expression', rule: 'angleSubtraction', target: '∠CAE', parts: '∠DAE－∠DAC', value: '60°－∠DAC',
+          premiseLabel: '△ADEは正三角形', label: '∠CAE＝∠DAE－∠DAC＝60°－∠DAC', short: '∠CAEの式', dependsOn: [] },
+        { id: 's3', type: 'compare', items: ['∠BAD', '∠CAE'], label: '∠BAD＝∠CAE', short: '式を比べる', dependsOn: ['s1', 's2'],
+          distractors: ['∠BAD＝∠DAC', '∠CAE＝∠DAC'] },
+      ],
+      evidence: [
+        { id: 'e1', items: ['AB', 'AC'], reason: 'equilateralSides', label: 'AB＝AC', mark: 1 },
+        { id: 'e2', items: ['AD', 'AE'], reason: 'equilateralSides', label: 'AD＝AE', mark: 2 },
+        { id: 'e3', items: ['∠BAD', '∠CAE'], reason: 'proved', fromStep: 's3', label: '∠BAD＝∠CAE', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'SAS',
+      finalStep: { relationType: 'side', items: ['BD', 'CE'], reason: 'correspondingSides', label: 'BD＝CE' },
+      proof: { intro: '△ABDと△ACEにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['BD＝CE', 'AB＝AD', '∠BAD＝∠DAC'],
+          reasons: ['given'],
+          triangles: ['ABD/AEC', 'ABD/CAE'],
+          finals: ['∠ADB＝∠AEC', 'BD＝AD'],
+        },
+      },
+      hints: {
+        triangleSelection: [
+          { text: '結論の辺BDと辺CEは、どの三角形にふくまれているかな？' },
+          { text: '辺BDをふくむ三角形と、辺CEをふくむ三角形を見つけよう！', focus: ['BD', 'CE'] },
+          { text: '△ABDと△ACEに注目しよう。対応する頂点は A↔A、B↔C、D↔E だよ。', focus: ['BD', 'CE'] },
+        ],
+        s1: stepHints('∠BADは、どんな角の差で表せるかな？', '∠BAD＝∠BAC－∠DAC。∠BACは正三角形の角だね。',
+          '大きい角から小さい角を引いた角だから「角の差」を使おう！', ['∠BAC', '∠DAC']),
+        s2: stepHints('∠CAEは、どんな角の差で表せるかな？', '∠CAE＝∠DAE－∠DAC。∠DAEは正三角形の角だね。',
+          '大きい角から小さい角を引いた角だから「角の差」を使おう！', ['∠DAE', '∠DAC']),
+        s3: stepHints('2つの式を見比べてみよう。', '右辺に共通する部分はないかな？', '2つの式の右辺は同じだから、左辺どうしが等しいね！', ['∠BAD', '∠CAE']),
+        e1: stepHints('正三角形の性質を使おう。', '△ABCの辺ABと辺ACに注目しよう！', 'AB＝AC。正三角形の3辺は等しいね！', ['AB', 'AC']),
+        e2: stepHints('もう1つの正三角形にも注目しよう。', '△ADEの辺ADと辺AEに注目しよう！', 'AD＝AE。正三角形の3辺は等しいね！', ['AD', 'AE']),
+        e3: stepHints('式を比べて導いた角の等しさを使おう。', '∠BADと∠CAEに注目しよう！', '∠BAD＝∠CAE。2つの式を比べて導いたね！', ['∠BAD', '∠CAE']),
+        congruence: sasHints('∠BAD', '辺ABと辺AD'),
+        finalStep: [
+          { text: '合同な三角形で、対応する辺や角にはどんな性質があるかな？' },
+          { text: '結論の辺BDと辺CEを、合同な三角形の対応関係で確認しよう！', focus: ['BD', 'CE'] },
+          { text: '「合同な図形の対応する辺は等しい」という性質を使おう！', focus: ['BD', 'CE'] },
+        ],
+      },
+      explanation: '∠BAD＝∠BAC－∠DAC＝60°－∠DAC、∠CAE＝∠DAE－∠DAC＝60°－∠DAC。右辺が同じなので∠BAD＝∠CAE（三段論法）。正三角形の辺AB＝AC、AD＝AEと合わせて△ABD≡△ACEを証明し、BD＝CEが言えます。',
+      learningPoints: [
+        '角の差を使って、2つの角を同じ式で表す。',
+        '2つの式を比べて導いた角の等しさを、合同の根拠に使う。',
       ],
     }
   );

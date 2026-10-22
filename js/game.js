@@ -26,8 +26,15 @@
 
   Game.prototype.reset = function () {
     this.hasFinal = !!(PH.hasFinalStep && PH.hasFinalStep(this.problem));
+    // Ver.0.7：多段階証明（proofSteps）。前半のステップ → 根拠 → 合同条件 → 最終結論 → 後半のステップ
+    this.engine = PH.proofEngine && PH.proofEngine.hasSteps(this.problem) ? new PH.ProofEngine(this.problem) : null;
+    this.stepId = null;          // 解いているステップ
+    this.stepChoice = null;      // 理由を選ぶステップで選んだ選択肢
+    this.cmpPick = {};           // 式の比較：式のステップID → 選んだ部分（'target' 左辺 / 'value' 右辺）
+    this.stepCounted = {};       // ミスに数えたステップの誤答
     this.phase = this.hasFinal ? 'triangle' : 'collect';
     this.mode = this.hasFinal ? 'tri' : 'side';
+    if (!this.hasFinal && this.engine && this.engine.available('pre').length) this.enterSteps('pre');
     this.answerMode = this.mode; // 印つけ等から「解答にもどる」ときの戻り先
     this.triSel = [];            // 選んだ三角形（頂点の配列。1つ目が青、2つ目が黄）
     this.triMap = [];            // 1つ目の三角形の頂点の順に対応する、2つ目の三角形の頂点
@@ -65,6 +72,9 @@
     if (mode === 'answer' || (mode === this.mode && !MODE_KIND[mode] && mode !== 'tri')) mode = this.answerMode;
     // 三角形を選ぶ段階では辺選択・角選択はできない。三角形選択はその段階だけ
     if (this.phase === 'triangle' && MODE_KIND[mode]) return false;
+    // 多段階証明のステップでは、式の比較で共通部分を見つけたあとだけ辺・角を選べる
+    if ((this.phase === 'step' || this.phase === 'post') && MODE_KIND[mode] && !this.commonFound()) return false;
+    if (mode === 'step' && this.phase !== 'step' && this.phase !== 'post') return false;
     if (mode === 'tri' && this.phase !== 'triangle') return false;
     if (MODE_KIND[mode]) {
       // 辺選択⇔角選択：選択中のものと種類が違えば選び直し
@@ -107,7 +117,10 @@
     }
 
     if (this.mode === 'tri') return { type: 'ignored', message: '三角形の内側をタップして選ぼう。' };
-    if (this.phase !== 'collect' && this.phase !== 'final') return { type: 'ignored' };
+    if (this.mode === 'step') return { type: 'ignored', message: this.currentStep() && this.currentStep().type === 'compare'
+      ? '先に、2つの式で同じになっている部分をタップしよう。' : '下の選択肢から、理由を選ぼう。' };
+    const stepPick = (this.phase === 'step' || this.phase === 'post') && this.commonFound();
+    if (this.phase !== 'collect' && this.phase !== 'final' && !stepPick) return { type: 'ignored' };
 
     // 辺選択・角選択（根拠の収集と、最終結論）
     if (el.kind !== MODE_KIND[this.mode]) {
@@ -220,6 +233,7 @@
       this.mode = 'side';
       this.answerMode = 'side';
       this.triangles = [t1.slice(), t2];
+      if (this.engine && this.engine.available('pre').length) this.enterSteps('pre');
     } else if (r.status === 'order' || r.status === 'wrong') {
       const sig = PH.validation.correspondenceKey(t1, t2);
       if (!this.triCounted[sig]) {
@@ -244,9 +258,12 @@
     if (r.miss) this.misses++;
     if (r.status === 'correct') {
       this.clearSelection();
-      this.phase = 'clear';
-      this.mode = 'side';
-      this.stars = calcStars(this.misses, this.hintsUsed);
+      if (this.engine) this.engine.reach('final');
+      // 最終結論のあとに解くステップ（例：2つの角が等しいので二等辺三角形）があれば、その段階へ
+      if (this.engine && this.engine.available('post').length) {
+        this.enterSteps('post');
+        r.post = true;
+      } else this.finish();
     } else if (r.status === 'wrong-reason') {
       this.reason = null;        // 等式は残して理由だけ選び直す
     } else {
@@ -264,7 +281,7 @@
   // 「根拠を確定」
   Game.prototype.confirmEvidence = function () {
     if (!this.canConfirm()) return { status: 'incomplete', miss: false };
-    const r = PH.validation.checkEvidence(this.problem, this.selection, this.reason, this.found);
+    const r = PH.validation.checkEvidence(this.problem, this.selection, this.reason, this.found, this.engine);
     if (r.miss) this.misses++;
     switch (r.status) {
       case 'correct':
@@ -294,6 +311,7 @@
   Game.prototype.confirmCondition = function () {
     if (this.phase !== 'congruence' || !this.condition) return { ok: false, status: 'incomplete' };
     const r = PH.validation.checkCongruence(this.problem, this.found, this.condition);
+    if (r.ok && this.engine) this.engine.reach('congruence');
     if (r.ok && this.hasFinal) {
       // 合同成立。まだクリアではなく、対応する辺・角から結論を導く段階へ
       this.congruent = true;
@@ -309,6 +327,133 @@
     } else {
       this.misses++;
       this.condition = null;
+    }
+    return r;
+  };
+
+  Game.prototype.finish = function () {
+    this.phase = 'clear';
+    this.mode = 'side';
+    this.stars = calcStars(this.misses, this.hintsUsed);
+  };
+
+  // ---- 多段階証明のステップ（Ver.0.7） ------------------------------------------
+
+  // 前半（'pre'）・後半（'post'）のステップの段階に入る。解けるステップのうち最初のものを選ぶ
+  Game.prototype.enterSteps = function (stage) {
+    this.phase = stage === 'post' ? 'post' : 'step';
+    this.mode = 'step';
+    this.answerMode = 'step';
+    this.clearSelection();
+    this.stepId = this.engine.available(stage)[0].id;
+    this.stepChoice = null;
+    this.cmpPick = {};
+  };
+
+  Game.prototype.currentStep = function () {
+    return this.engine && this.stepId ? this.engine.step(this.stepId) : null;
+  };
+
+  Game.prototype.stepStage = function () { return this.phase === 'post' ? 'post' : 'pre'; };
+
+  // 解けるステップのうち、別のものに切りかえる（独立したステップはどの順番でもよい）
+  Game.prototype.selectStep = function (id) {
+    if ((this.phase !== 'step' && this.phase !== 'post') || this.engine.status(id) !== 'available') return false;
+    this.stepId = id;
+    this.stepChoice = null;
+    this.cmpPick = {};
+    this.clearSelection();
+    this.mode = 'step';
+    this.answerMode = 'step';
+    return true;
+  };
+
+  // 理由を選ぶステップの選択肢（正解と、その定理では言えない理由。並びは問題ごとに一定）
+  Game.prototype.stepOptions = function (step) {
+    return stepOptions(this.problem, step || this.currentStep());
+  };
+
+  Game.prototype.chooseStepOption = function (id) {
+    const s = this.currentStep();
+    if (!s || s.type === 'compare' || !this.stepOptions(s).some(function (o) { return o.id === id; })) return false;
+    this.stepChoice = id;
+    return true;
+  };
+
+  // 式の比較：2つの式のどちらの辺（左辺／右辺）を選ぶか（もう一度で解除）
+  Game.prototype.pickPart = function (exprId, part) {
+    const s = this.currentStep();
+    if (!s || s.type !== 'compare' || (s.dependsOn || []).indexOf(exprId) < 0) return false;
+    if (this.cmpPick[exprId] === part) delete this.cmpPick[exprId];
+    else this.cmpPick[exprId] = part;
+    this.clearSelection();
+    this.mode = this.commonFound() ? 'angle' : 'step';
+    this.answerMode = this.mode;
+    return true;
+  };
+
+  // 2つの式の共通部分（右辺どうし）を選べたか
+  Game.prototype.commonFound = function () {
+    const s = this.currentStep();
+    if (!s || s.type !== 'compare') return false;
+    const self = this;
+    return (s.dependsOn || []).every(function (d) { return self.cmpPick[d] === 'value'; });
+  };
+
+  Game.prototype.cmpPickedBoth = function () {
+    const s = this.currentStep();
+    const self = this;
+    return !!s && (s.dependsOn || []).every(function (d) { return !!self.cmpPick[d]; });
+  };
+
+  Game.prototype.canConfirmStep = function () {
+    const s = this.currentStep();
+    if (!s) return false;
+    if (s.type === 'compare') return this.commonFound() && this.selection.length === 2;
+    return !!this.stepChoice;
+  };
+
+  // ステップの答えを確定：正しければ事実として登録し、次のステップ（または根拠の収集・証明完成）へ
+  Game.prototype.confirmStep = function () {
+    if (!this.canConfirmStep()) return { status: 'incomplete', miss: false };
+    const s = this.currentStep();
+    let ok;
+    let sig;
+    if (s.type === 'compare') {
+      const want = s.items.map(function (n) { return PH.geometry.elementKey(this.problem.figure, n); }, this);
+      ok = PH.validation.equationKey(this.selection[0], this.selection[1]) === PH.validation.equationKey(want[0], want[1]);
+      sig = s.id + ':' + PH.validation.equationKey(this.selection[0], this.selection[1]);
+    } else {
+      ok = this.stepChoice === 'a';
+      sig = s.id + ':' + this.stepChoice;
+    }
+    const r = { status: ok ? 'correct' : 'wrong', step: s, miss: false };
+    if (!ok) {
+      if (!this.stepCounted[sig]) { this.stepCounted[sig] = true; this.misses++; r.miss = true; }
+      this.stepChoice = null;
+      if (s.type === 'compare') this.clearSelection();
+      return r;
+    }
+    this.engine.complete(s.id);
+    this.clearSelection();
+    const stage = this.stepStage();
+    const next = this.engine.available(stage);
+    if (next.length) {
+      this.stepId = next[0].id;
+      this.stepChoice = null;
+      this.cmpPick = {};
+      this.mode = 'step';
+    } else if (stage === 'pre') {
+      // 前半のステップがすべて終わった → 3つの根拠を集める
+      this.stepId = null;
+      this.phase = 'collect';
+      this.mode = 'side';
+      this.answerMode = 'side';
+      r.stageDone = 'pre';
+    } else {
+      this.stepId = null;
+      this.finish();
+      r.stageDone = 'post';
     }
     return r;
   };
@@ -355,10 +500,50 @@
     return ev ? ev.items.map(function (n) { return PH.geometry.elementKey(fig, n); }) : [];
   };
 
+  // 文字列から決まる疑似乱数（選択肢の並びを毎回同じにする）
+  function seeded(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return function () {
+      h += 0x6D2B79F5;
+      let t = h;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /*
+   * 理由を選ぶステップ（定理・角の式）の選択肢：正解（id 'a'）と、その定理では言えない理由2つ
+   * 証明文の書き方（「二等辺三角形の底角は等しいから」「角の和より」など）で表示する
+   */
+  function stepOptions(problem, step) {
+    if (!step || step.type === 'compare') return [];
+    const R = PH.proofRules;
+    const opts = [{ id: 'a', text: R.label(step.rule) }].concat((R.RULE_DISTRACTORS[step.rule] || []).slice(0, 2).map(function (t, i) {
+      return { id: 'w' + i, text: t };
+    }));
+    const rnd = seeded(problem.id + ':' + step.id);
+    for (let i = opts.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      const t = opts[i]; opts[i] = opts[j]; opts[j] = t;
+    }
+    return opts;
+  }
+
   // 完成した証明文。生徒が集めた順にかかわらず、問題データの evidence の順（標準的な順序）で並べる
-  const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥'];
+  const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
+  /*
+   * 完成した証明文。
+   *   lines     … 合同の根拠の行（導いた事実を使う根拠は、そのステップの行で書くので入れない）
+   *   stepLines … 多段階証明の前半のステップ（定理・角の式・式の比較）。番号は lines の続き
+   *   summary   … 「①、②、⑤より、」（根拠の順。導いた事実はそのステップの番号）
+   *   final     … 合同から導く結論、post … 最終結論のあとのステップ（例：二等辺三角形である）
+   */
   function buildProof(problem) {
-    const lines = problem.evidence.map(function (ev, i) {
+    const engine = PH.proofEngine;
+    const rows = problem.evidence.filter(function (ev) { return !ev.fromStep; });
+    const lines = rows.map(function (ev, i) {
       return {
         evidenceId: ev.id,
         reason: ev.proofReason || PH.REASONS[ev.reason].proof,
@@ -366,13 +551,27 @@
         no: CIRCLED[i],
       };
     });
+    const stepNo = {};
+    const stepLines = [];
+    const pre = engine && engine.hasSteps(problem) ? engine.stepsOf(problem, 'pre') : [];
+    pre.forEach(function (s, i) {
+      const no = CIRCLED[lines.length + i];
+      stepNo[s.id] = no;
+      stepLines.push({ stepId: s.id, no: no, reason: stepReasonText(s, stepNo), equation: s.label, type: s.type });
+    });
+    const nums = problem.evidence.map(function (ev) {
+      if (ev.fromStep) return stepNo[ev.fromStep];
+      return lines.find(function (l) { return l.evidenceId === ev.id; }).no;
+    });
     const proof = {
       intro: problem.proof.intro,
       lines: lines,
-      summary: lines.map(function (l) { return l.no; }).join('、') + 'より、',
+      stepLines: stepLines,
+      summary: nums.join('、') + 'より、',
       condition: PH.CONDITIONS[problem.congruence].label,
       conclusion: PH.hasFinalStep(problem) ? PH.congruenceText(problem) : problem.conclusion,
       final: null,
+      post: [],
     };
     // 結論が辺・角の等しさの問題：合同のあとに「したがって、合同な図形の対応する〜は等しいから、結論」
     if (PH.hasFinalStep(problem)) {
@@ -383,12 +582,27 @@
         items: problem.finalStep.items,
       };
     }
+    if (engine && engine.hasSteps(problem)) {
+      proof.post = engine.stepsOf(problem, 'post').map(function (s) {
+        return { stepId: s.id, reason: stepReasonText(s, stepNo), conclusion: s.label };
+      });
+    }
     return proof;
+  }
+
+  // ステップの行の理由の書き方
+  function stepReasonText(s, stepNo) {
+    const R = PH.proofRules;
+    if (s.type === 'compare') return (s.dependsOn || []).map(function (d) { return stepNo[d]; }).join('、') + 'より、';
+    if (s.type === 'expression') return R.label(s.rule) + '（' + s.premiseLabel + '）、';
+    return s.premiseLabel + 'より、' + R.label(s.rule) + '、';
   }
 
   PH.Game = Game;
   PH.calcStars = calcStars;
   PH.buildProof = buildProof;
+  PH.stepOptions = stepOptions;
+  PH.stepReasonText = stepReasonText;
 
   if (typeof module !== 'undefined' && module.exports) module.exports = { Game: Game, calcStars: calcStars };
 })(typeof window !== 'undefined' ? window : globalThis);

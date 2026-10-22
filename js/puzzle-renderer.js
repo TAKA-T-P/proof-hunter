@@ -14,8 +14,13 @@
     // Ver.0.5：三角形の選択・最終結論
     tripair: '三角形の組を選ぶ', tri1: '三角形を選ぶ', tri2: '対応する三角形を選ぶ', tri: '三角形を入力',
     freason: '理由を選ぶ', final: '結論を選ぶ', finalInput: '結論の等式を入力',
+    // Ver.0.7：多段階証明のステップ
+    srule: '理由を選ぶ', cmc: '共通な部分を選ぶ', cmp: '比べる式を選ぶ', cmr: '導ける等式を選ぶ', cmrInput: '導ける等式を入力',
   };
-  const KIND_NAME = { eq: '等式', reason: '理由', cond: '合同条件', tripair: '三角形の組', tri1: '三角形', tri2: '三角形', freason: '理由', final: '結論の等式' };
+  const KIND_NAME = { eq: '等式', reason: '理由', cond: '合同条件', tripair: '三角形の組', tri1: '三角形', tri2: '三角形', freason: '理由', final: '結論の等式',
+    srule: '理由', cmc: '共通な部分', cmp: '比べる2つの式', cmr: '導ける等式' };
+  // 空欄の種類（ステップの空欄は 'srule:s1' のように問題のステップIDがつくので、前の部分だけ）
+  function kindOf(s) { return String(s.kind).split(':')[0]; }
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -143,7 +148,7 @@
 
   PuzzleView.prototype.handleClick = function (e) {
     if (this.markOpen && e.target === this.ref('markModal')) return this.setMarks(false);   // 外側をタップで閉じる
-    const t = e.target.closest('[data-key],[data-mark-tool],[data-kp],[data-slot],[data-card],[data-act],[data-ev],[data-proof-reason]');
+    const t = e.target.closest('[data-key],[data-mark-tool],[data-kp],[data-slot],[data-card],[data-act],[data-ev],[data-proof-reason],[data-fact]');
     if (!t || t.disabled) return;
     if (t.hasAttribute('data-kp')) return this.keypadAction(t.getAttribute('data-kp'));
     if (t.hasAttribute('data-key')) return this.tapMarkFromFigure(t, e.clientX, e.clientY);
@@ -151,6 +156,7 @@
     if (t.hasAttribute('data-slot')) return this.selectSlot(t.getAttribute('data-slot'));
     if (t.hasAttribute('data-card')) return this.placeCard(t.getAttribute('data-card'));
     if (t.hasAttribute('data-ev')) return this.showEvidence(t.getAttribute('data-ev'), false);
+    if (t.hasAttribute('data-fact')) return this.showFact(t.getAttribute('data-fact'));
     if (t.hasAttribute('data-proof-reason')) return this.showEvidence(t.getAttribute('data-proof-reason'), true);
     switch (t.getAttribute('data-act')) {
       case 'home': return this.nav.home();
@@ -168,6 +174,14 @@
       case 'change-level': return this.changeLevel();
       case 'final-flash': return this.flashFinal();
     }
+  };
+
+  // 完成した証明のステップの行のタップ：その式・等式の辺・角を光らせる
+  PuzzleView.prototype.showFact = function (id) {
+    const st = (this.problem.proofSteps || []).find(function (x) { return x.id === id; });
+    if (!st) return;
+    PH.sound.play('tap');
+    this.flash(PH.stepKeys(this.problem, st), 1600);
   };
 
   // 完成した証明の最終結論のタップ：結論の辺・角を光らせる
@@ -631,7 +645,8 @@
     if (card) cls.push('is-filled');
     if (status === 'ng') cls.push('is-ng');
     if (status === 'ok') cls.push('is-ok');
-    let text = card ? card.text : PLACEHOLDER[s.input ? (s.inputKind === 'tri' ? 'tri' : s.kind === 'final' ? 'finalInput' : 'input') : s.kind];
+    const k = kindOf(s);
+    let text = card ? card.text : PLACEHOLDER[s.input ? (s.inputKind === 'tri' ? 'tri' : k === 'final' ? 'finalInput' : k === 'cmr' ? 'cmrInput' : 'input') : k];
     const draft = s.input && this.drafts[slotId];
     if (draft && draft.kind && !draft.isEmpty() && draft.value() !== z.inputs[slotId]) {
       cls.push('is-draft');
@@ -648,7 +663,7 @@
     const self = this;
     let rows;
     if (z.buildLike) {
-      rows = p.evidence.map(function (_, i) {
+      rows = z.rowEv.map(function (_, i) {
         return '<li class="pz-row"><span class="pz-row-no">根拠' + proof.lines[i].no + '</span>' +
           '<div class="pz-row-body">' + self.blank('r' + i) +
           '<div class="pz-eqline">' + self.blank('e' + i) + '<span class="pl-no">……' + proof.lines[i].no + '</span></div></div></li>';
@@ -677,19 +692,46 @@
           '<div class="pz-finalline">' + this.blank('fe') + '</div>' +
         '</div>';
     }
+    // Ver.0.7：多段階証明のステップ（根拠の行の続き。後半のステップは最後）
+    const steps = proof.stepLines.map(function (l) { return self.stepRow(z.preSteps.find(function (x) { return x.id === l.stepId; }), l.no, proof); }).join('');
+    const post = z.postSteps.map(function (st) { return self.stepRow(st, '', proof); }).join('');
     this.ref('proof').innerHTML =
       intro +
-      '<ol class="pz-lines">' + rows + '</ol>' +
+      '<ol class="pz-lines">' + rows + steps + '</ol>' +
       '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
       '<div class="pz-condline">' + this.blank('cond') + '<span>ので、</span></div>' +
-      concl;
+      concl + (post ? '<ol class="pz-lines pz-post">' + post + '</ol>' : '');
+  };
+
+  // ステップの行：定理（「AB＝ACより、【理由】 ∠ABC＝∠ACB」）・角の式（「【理由】（△DCEは正三角形）、∠ACE＝…」）・式の比較
+  PuzzleView.prototype.stepRow = function (st, no, proof) {
+    const z = this.puzzle;
+    const self = this;
+    const numOf = function (id) { const l = proof.stepLines.find(function (x) { return x.stepId === id; }); return l ? l.no : ''; };
+    const tail = no ? '<span class="pl-no">……' + no + '</span>' : '';
+    let body;
+    if (st.type === 'theorem') {
+      body = '<p class="pz-step-lead">' + esc(st.premiseLabel) + 'より、</p>' + this.blank('st:' + st.id) +
+        '<div class="pz-eqline"><span class="pz-step-eq">' + esc(st.label) + '</span>' + tail + '</div>';
+    } else if (st.type === 'expression') {
+      body = '<div class="pz-finalline">' + this.blank('st:' + st.id) + '<span>（' + esc(st.premiseLabel) + '）、</span></div>' +
+        '<div class="pz-eqline"><span class="pz-step-eq">' + esc(st.label) + '</span>' + tail + '</div>';
+    } else if (z.type === 'fill') {
+      // おてがる：2つの式の共通部分を選ぶ。結論は自動で表示
+      body = '<div class="pz-finalline"><span>' + st.dependsOn.map(numOf).join('と') + 'で同じ部分：</span>' + this.blank('cc:' + st.id) + '</div>' +
+        '<div class="pz-eqline"><span class="pz-step-eq">' + st.dependsOn.map(numOf).join('、') + 'より、' + esc(st.label) + '</span>' + tail + '</div>';
+    } else {
+      body = '<div class="pz-finalline">' + this.blank('cp:' + st.id) + '<span>より、</span></div>' +
+        '<div class="pz-eqline">' + this.blank('cr:' + st.id) + tail + '</div>';
+    }
+    return '<li class="pz-row pz-steprow"><span class="pz-row-no">' + (no || '結論') + '</span><div class="pz-row-body">' + body + '</div></li>';
   };
 
   PuzzleView.prototype.renderTray = function () {
     const z = this.puzzle;
     const s = z.slot(z.active);
     const current = z.placed[z.active];
-    const kindName = KIND_NAME[s.kind];
+    const kindName = KIND_NAME[kindOf(s)];
     this.ref('tray').hidden = !this.trayOpen;
     this.root.classList.toggle('tray-open', this.trayOpen);
     const box = this.ref('cards');
@@ -708,7 +750,7 @@
           ? esc(t1.text) + ' の頂点 ' + esc(t1.tri.join('・')) + ' に対応する順に並んだ三角形をタップ'
           : 'に入れる' + kindName + 'をタップ') + '</span>';
       const cards = z.cardsForActive();
-      box.className = 'pz-cards kind-' + s.kind;
+      box.className = 'pz-cards kind-' + kindOf(s);
       box.innerHTML = cards.map(function (c) {
         return '<button class="pz-card' + (c.id === current ? ' is-current' : '') + '" data-card="' + c.id + '">' + esc(c.text) + '</button>';
       }).join('');
@@ -810,11 +852,11 @@
             '<h2 class="proof-title">完成した証明</h2>' +
             '<p class="small-note">式や理由をタップすると、図の場所が光るよ</p>' +
             '<p class="proof-intro">' + esc(intro) + '</p>' +
-            '<ol class="proof-lines">' + lines + '</ol>' +
+            '<ol class="proof-lines">' + lines + PH.stepLinesHtml(proof) + '</ol>' +
             '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
             '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +
             '<p class="proof-concl' + (f ? ' is-mid' : '') + '">' + esc(congruence) + '</p>' +
-            finalHtml +
+            finalHtml + PH.postProofHtml(proof) +
           '</div>' +
           '<div class="card points explain">' +
             '<h3>💡 今回のポイント</h3>' +

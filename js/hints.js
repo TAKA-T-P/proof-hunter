@@ -13,6 +13,7 @@
 
   function targetId(problem, game) {
     if (game.phase === 'triangle') return 'triangleSelection';   // Ver.0.5：証明する三角形を選ぶ
+    if ((game.phase === 'step' || game.phase === 'post') && game.stepId) return game.stepId;   // Ver.0.7：多段階証明のステップ
     if (game.phase === 'final') return 'finalStep';              // Ver.0.5：合同から結論を導く
     if (game.phase === 'congruence') return 'congruence';
     if (game.phase !== 'collect') return null;

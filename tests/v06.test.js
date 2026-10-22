@@ -7,6 +7,9 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/angle-expression.js');
+require('../js/proof-rules.js');
+require('../js/proof-engine.js');
 require('../js/hints.js');
 require('../js/storage.js');
 require('../js/game.js');
@@ -104,7 +107,7 @@ test('問題の種類が偏りすぎない。解答箇所はどれも1つで、�
   assert.ok(ALL.some((q) => q.type === 'triangle'));
   const input = ALL.filter((q) => q.input);
   assert.ok(input.length >= 50, String(input.length));
-  assert.deepEqual([...new Set(input.map((q) => q.category))].sort(), ['corr', 'eq', 'final']);
+  assert.deepEqual([...new Set(input.map((q) => q.category))].sort(), ['corr', 'eq', 'final', 'theorem']);
 });
 
 test('「〇〇より、＿＿」の問題は、選択肢がなくても答えが1つに決まるものだけ', () => {
@@ -188,6 +191,26 @@ function isCorrectChoice(q, blankIndex, text) {
     }
     case 'finalReason':
       return text === PH.REASONS[PH.finalReasonFor(p)].proof;
+    // Ver.0.7：定理・三段論法
+    case 'isoscelesAngles': case 'compare': {
+      const st = p.proofSteps.find((x) => x.id === q.id.split('-').pop());
+      const it = text.split('＝');
+      return val.equationKey(k(p, it[0]), k(p, it[1])) === val.equationKey(k(p, st.items[0]), k(p, st.items[1]));
+    }
+    case 'theoremReason': {
+      const st = p.proofSteps.find((x) => x.id === q.id.split('-').pop());
+      return text === PH.proofRules.label(st.rule);
+    }
+    case 'isoscelesConverse':
+      return text === '二等辺三角形';
+    case 'expression': {
+      const st = p.proofSteps.find((x) => x.id === q.id.split('-').pop());
+      return PH.angleExpr.equal(PH.angleExpr.parse(p.figure, text), PH.angleExpr.parse(p.figure, st.value));
+    }
+    case 'equilateral60':
+      return text === '60°';
+    case 'syllogism':
+      return text === '∠A＝∠B';
   }
   throw new Error('unknown type ' + q.type);
 }
@@ -315,7 +338,10 @@ test('同じ問題を短時間に出さない・同じ元問題が続かない�
     for (let i = 1; i < out.length; i++) if (out[i].q.sourceId === out[i - 1].q.sourceId) same++;
     assert.ok(same <= 2, 'seed ' + seed + ' 同じ元問題の連続 ' + same);
     // 最初の10問で、等しい辺・角／理由／合同条件／合同からの結論 がすべて出る（証明する三角形は難しいので11問目から）
-    assert.deepEqual([...new Set(out.slice(0, 10).map((c) => c.q.category))].sort(), ['cond', 'eq', 'final', 'reason'], 'seed ' + seed);
+    // Ver.0.7 の「定理・三段論法」は重み 0.5 で、出ることも出ないこともある
+    const first = [...new Set(out.slice(0, 10).map((c) => c.q.category))].filter((c) => c !== 'theorem').sort();
+    assert.deepEqual(first, ['cond', 'eq', 'final', 'reason'], 'seed ' + seed);
+    assert.ok(!out.slice(0, 10).some((c) => c.q.category === 'corr'), 'seed ' + seed);
     assert.ok(out.slice(10).some((c) => c.q.category === 'corr'), 'seed ' + seed);
   }
 });

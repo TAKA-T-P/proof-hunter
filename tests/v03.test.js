@@ -7,6 +7,9 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/angle-expression.js');
+require('../js/proof-rules.js');
+require('../js/proof-engine.js');
 require('../js/hints.js');
 require('../js/storage.js');
 require('../js/game.js');
@@ -39,9 +42,11 @@ test('全問題のデータ検証（パズルのダミーカードを含む）�
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
 });
 
+// 多段階証明（STAGE 7。proofSteps あり）は根拠の行の数がちがうので、v07.test.js で同じ内容を確かめる
+const SINGLE = PH.problems.filter((p) => !p.proofSteps);
 test('全問題でパズルを作れ、正解カード・合同条件カードがそろっている', () => {
-  assert.equal(PH.problems.length, 20);
-  PH.problems.forEach((p) => {
+  assert.equal(PH.problems.length, 24);
+  SINGLE.forEach((p) => {
     const z = new PH.Puzzle(p);
     assert.equal(z.type, p.puzzle.type);
     p.evidence.forEach((ev) => {
@@ -79,7 +84,7 @@ test('ダミーの等式は、どの理由と組み合わせても正解にな�
 
 // ---- タイプA（穴埋め） -----------------------------------------------------------
 
-PH.problems.filter((p) => p.puzzle.type === 'fill').forEach((p) => {
+SINGLE.filter((p) => p.puzzle.type === 'fill').forEach((p) => {
   test(p.id + '（穴埋め）: 正しい配置でクリア・同じ理由の行どうしの入れかえもクリア', () => {
     // 表示済みの理由が同じ行どうしの並べかえをすべて試す
     const reasons = p.evidence.map((ev) => PH.puzzleUtil.reasonText(ev));
@@ -129,7 +134,7 @@ test('穴埋め：理由と合わない等式は不正解（p01 の「仮定よ�
 
 // ---- タイプB（組み立て） ---------------------------------------------------------
 
-PH.problems.filter((p) => p.puzzle.type === 'build').forEach((p) => {
+SINGLE.filter((p) => p.puzzle.type === 'build').forEach((p) => {
   test(p.id + '（組み立て）: 根拠の順番を入れかえてもクリア（6通りすべて）', () => {
     permutations([0, 1, 2]).forEach((order) => {
       const z = new PH.Puzzle(p);
@@ -387,12 +392,17 @@ test('ふくむ角とふくまれる角：∠ABD の中のタップは ∠ABC �
   assert.deepEqual(geo.angleCandidates(fig, { x: 200, y: 290 }, true), []);
 });
 
-test('重ならない角は候補が1つ（現在の15問）', () => {
+test('角の内側をタップすると、その角が候補になり、ほかの候補は同じ頂点で重なる角だけ', () => {
+  // STAGE 7 の図（p22 の ∠MBC と ∠DBC、p23 の ∠ACE と ∠ACD など）は、同じ頂点で角が重なる。そのときは「どちらを選びますか？」で選ぶ
   PH.problems.forEach((p) => {
     geo.getElements(p.figure).angles.forEach((a) => {
       const R = geo.angleHitRadius(p.figure, a, true);
       const q = geo.vec.add(a.vertex, geo.vec.mul(geo.bisector(a.vertex, a.from, a.to), R * 0.6));
-      assert.deepEqual(geo.angleCandidates(p.figure, q, true), [a.key], p.id + ' ∠' + a.name);
+      const c = geo.angleCandidates(p.figure, q, true);
+      assert.ok(c.includes(a.key), p.id + ' ∠' + a.name);
+      const els = geo.getElements(p.figure).byKey;
+      c.forEach((k) => assert.equal(els[k].vertex, a.vertex, p.id + ' ∠' + a.name + ' / ' + k));
+      if (!p.proofSteps) assert.deepEqual(c, [a.key], p.id + ' ∠' + a.name);   // STAGE 1〜6 は重ならない
     });
   });
 });

@@ -24,6 +24,8 @@
     // 序盤は易しい問題から（n 問目までの難易度の上限）
     difficultyCaps: [{ upTo: 3, max: 1 }, { upTo: 10, max: 2 }],
     recentAvoid: 12,             // 直近この問数に出た問題は、なるべく出さない
+    // カテゴリごとの出題の重み（Ver.0.7 で追加した「定理・三段論法」は、既存のバランスを崩さないよう半分）
+    categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 0.5 },
     feedbackMs: 300,             // 正解・不正解の表示時間
     // 誤答（パスをふくむ）のペナルティ：n 回目の誤答で制限時間を 4×n 秒へらす（4秒、8秒、12秒…とだんだん重くなる）
     penaltyStepMs: 4000,

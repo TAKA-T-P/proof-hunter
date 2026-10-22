@@ -133,6 +133,7 @@
           '<div class="play-side">' +
             '<div class="card panel" data-ref="panel"></div>' +
             '<div class="slots-wrap"><div class="slots" data-ref="slots"></div><p class="slots-note">見つけた根拠をタップすると、図の場所が光るよ</p></div>' +
+            '<div class="facts-wrap" data-ref="facts"></div>' +
             '<div class="stats" data-ref="stats"></div>' +
           '</div>' +
         '</div>' +
@@ -170,8 +171,12 @@
   };
 
   PlayController.prototype.handleClick = function (e) {
-    const t = e.target.closest('[data-key],[data-tri],[data-vx],[data-act],[data-mode],[data-reason],[data-cond],[data-tool],[data-ev],[data-proof-reason]');
+    const t = e.target.closest('[data-key],[data-tri],[data-vx],[data-step-opt],[data-cmp],[data-step-go],[data-fact],[data-act],[data-mode],[data-reason],[data-cond],[data-tool],[data-ev],[data-proof-reason]');
     if (!t || t.disabled) return;
+    if (t.hasAttribute('data-step-opt')) return this.chooseStepOption(t.getAttribute('data-step-opt'));
+    if (t.hasAttribute('data-cmp')) { const v = t.getAttribute('data-cmp').split(':'); return this.pickPart(v[0], v[1]); }
+    if (t.hasAttribute('data-step-go')) return this.selectStep(t.getAttribute('data-step-go'));
+    if (t.hasAttribute('data-fact')) return this.flashStep(t.getAttribute('data-fact'));
     if (t.hasAttribute('data-key')) return this.tapFromFigure(t, e.clientX, e.clientY);
     if (t.hasAttribute('data-tri')) return this.tapTriangleFromFigure(t, e.clientX, e.clientY);
     if (t.hasAttribute('data-vx')) return this.pressVertex(t.getAttribute('data-vx'));
@@ -198,6 +203,7 @@
       case 'tri-clear': return this.triAction('clear');
       case 'confirm-tri': return this.confirmTriangles();
       case 'confirm-final': return this.confirmFinal();
+      case 'confirm-step': return this.confirmStep();
       case 'final-flash': return this.flashFinal();
     }
   };
@@ -261,7 +267,8 @@
       PH.hints.hide(doc.getElementById('hint-popup'));
       this.setTriCheck(false);
       this.popMessage('三角形が決まった！');
-      this.say(triName(g.triangles[0]) + 'と' + triName(g.triangles[1]) + 'で証明しよう！ 次は3つの根拠を見つけよう。', 'ok');
+      this.say(triName(g.triangles[0]) + 'と' + triName(g.triangles[1]) + 'で証明しよう！ ' +
+        (g.phase === 'step' ? 'まず、根拠に使う新しい関係を導こう。' : '次は3つの根拠を見つけよう。'), 'ok');
     } else {
       const text = {
         order: '三角形は見つけられたね！ 頂点の対応順を確認しよう！',
@@ -280,6 +287,15 @@
     const g = this.game;
     const r = g.confirmFinal();
     if (r.status === 'incomplete') return;
+    if (r.status === 'correct' && r.post) {
+      // 最終結論から、さらに結論を導く（例：2つの角が等しいので二等辺三角形）
+      PH.sound.play('get');
+      this.popMessage('新しい根拠を発見！');
+      this.say(this.problem.finalStep.label + ' を導けた！ これを使って、結論を証明しよう！', 'ok');
+      this.focusPanel = true;
+      this.render();
+      return;
+    }
     if (r.status === 'correct') return this.cleared();
     const what = this.problem.finalStep.relationType === 'angle' ? '角' : '辺';
     const text = {
@@ -290,6 +306,83 @@
     this.say(text, r.miss ? 'ng' : 'info');
     PH.sound.play(r.miss ? 'wrong' : 'soft');
     if (r.miss) this.shake = true;
+    this.render();
+  };
+
+  // ---- 多段階証明のステップ（Ver.0.7） -----------------------------------------
+
+  // ステップで扱う辺・角の要素キー（図で光らせる）
+  function stepKeys(problem, step) {
+    const fig = problem.figure;
+    const k = function (n) { try { return PH.geometry.elementKey(fig, n); } catch (e) { return null; } };
+    let names = [];
+    if (step.type === 'expression') {
+      names = [step.target].concat((String(step.parts).match(/∠[A-Z]{3}/g) || []));
+    } else if (step.items) names = step.items;
+    else if (step.premise) names = step.premise;
+    return names.map(k).filter(Boolean);
+  }
+  PH.stepKeys = stepKeys;
+
+  PlayController.prototype.flashStep = function (id) {
+    const s = this.game.engine && this.game.engine.step(id);
+    if (!s) return;
+    PH.sound.play('tap');
+    this.flash(stepKeys(this.problem, s), 1600);
+  };
+
+  PlayController.prototype.chooseStepOption = function (id) {
+    if (this.game.chooseStepOption(id)) {
+      PH.sound.play('tap');
+      this.say(null);
+      this.render();
+    }
+  };
+
+  PlayController.prototype.selectStep = function (id) {
+    if (this.game.selectStep(id)) {
+      PH.sound.play('tap');
+      this.say(null);
+      this.render();
+    }
+  };
+
+  // 式の比較：左辺・右辺をタップ
+  PlayController.prototype.pickPart = function (exprId, part) {
+    const g = this.game;
+    if (!g.pickPart(exprId, part)) return;
+    PH.sound.play('tap');
+    if (g.commonFound()) {
+      this.say('2つの式の右辺が同じだね！ 図で、等しくなる2つの角をタップしよう。', 'ok');
+    } else if (g.cmpPickedBoth()) {
+      this.say('その2つは同じ式かな？ 2つの式で、まったく同じになっている部分を探そう。', 'info');
+    } else this.say(null);
+    this.render();
+  };
+
+  PlayController.prototype.confirmStep = function () {
+    const g = this.game;
+    const r = g.confirmStep();
+    if (r.status === 'incomplete') return;
+    const s = r.step;
+    if (r.status === 'correct') {
+      PH.sound.play('get');
+      this.popMessage(s.type === 'compare' ? '新しい根拠を発見！' : '証明できた！');
+      this.flash(stepKeys(this.problem, s), 1200);
+      if (r.stageDone === 'post') return this.cleared();
+      if (r.stageDone === 'pre') {
+        this.say(s.label + ' を導けた！ 次は、合同を示す3つの根拠を集めよう。導いた等式も根拠に使えるよ。', 'ok');
+      } else {
+        this.say(s.label + ' を導けた！ 次のステップへ進もう。', 'ok');
+      }
+      this.focusPanel = true;
+    } else {
+      this.say(s.type === 'compare'
+        ? '2つの式の右辺が同じなら、左辺どうしが等しいね。等しくなる2つの角をもう一度選ぼう。'
+        : 'その理由で言えるかな？ どんな図形の性質・角の関係を使ったか、もう一度考えよう。', 'ng');
+      PH.sound.play(r.miss ? 'wrong' : 'soft');
+      this.shake = true;
+    }
     this.render();
   };
 
@@ -746,8 +839,9 @@
       hit: g.mode === 'erase' ? { seg: true, ang: true }
         : g.mode === 'mark' ? { seg: g.markTool.kind === 'seg', ang: g.markTool.kind === 'ang' }
         : g.mode === 'tri' ? { tri: true }
+        : g.mode === 'step' ? {}
         : { seg: g.mode === 'side', ang: g.mode === 'angle' },
-      angleGuide: g.mode === 'angle' && (g.phase === 'collect' || g.phase === 'final'),
+      angleGuide: g.mode === 'angle' && (g.phase === 'collect' || g.phase === 'final' || g.phase === 'step'),
     });
   };
 
@@ -763,12 +857,94 @@
   // STEP の表示（結論が辺・角の等しさの問題だけ）：三角形 → 根拠 → 合同条件 → 結論
   PlayController.prototype.stepBar = function () {
     const g = this.game;
-    if (!g.hasFinal) return '';
-    const steps = [['triangle', '三角形'], ['collect', '根拠'], ['congruence', '合同条件'], ['final', '結論']];
-    const cur = steps.findIndex(function (s) { return s[0] === g.phase; });
+    if (!g.hasFinal && !g.engine) return '';
+    let steps = [['triangle', '三角形'], ['collect', '根拠'], ['congruence', '合同条件'], ['final', '結論']];
+    if (!g.hasFinal) steps = steps.filter(function (s) { return s[0] !== 'triangle' && s[0] !== 'final'; });
+    let cur = steps.findIndex(function (s) { return s[0] === g.phase; });
+    if (g.engine) {
+      // 前半のステップ（同じ種類が続くものは1つにまとめる）と、後半のステップを加える
+      const NAME = { theorem: '定理を使う', expression: '角の式', compare: '式を比べる' };
+      const groups = [];
+      PH.proofEngine.stepsOf(this.problem, 'pre').forEach(function (s) {
+        const last = groups[groups.length - 1];
+        if (last && last.type === s.type) last.ids.push(s.id);
+        else groups.push({ type: s.type, ids: [s.id] });
+      });
+      const pre = groups.map(function (gr) { return ['pre:' + gr.ids.join(','), NAME[gr.type], gr.ids]; });
+      const post = PH.proofEngine.stepsOf(this.problem, 'post').map(function (s) { return ['post:' + s.id, s.short, [s.id]]; });
+      const at = g.hasFinal ? 1 : 0;
+      steps = steps.slice(0, at).concat(pre, steps.slice(at), post);
+      if (g.phase === 'step' || g.phase === 'post') {
+        cur = steps.findIndex(function (st) { return st[2] && st[2].indexOf(g.stepId) >= 0; });
+      } else if (g.phase !== 'clear') {
+        cur = steps.findIndex(function (st) { return st[0] === g.phase; });
+      }
+    }
     return '<ol class="step-bar" aria-label="証明の手順">' + steps.map(function (s, i) {
       return '<li class="' + (i < cur ? 'is-done' : i === cur ? 'is-now' : '') + '"><b>' + (i + 1) + '</b>' + s[1] + '</li>';
     }).join('') + '</ol>';
+  };
+
+  // 多段階証明のステップ（定理・角の式・式の比較）のパネル
+  PlayController.prototype.stepPanel = function () {
+    const g = this.game;
+    const s = g.currentStep();
+    const proof = PH.buildProof(this.problem);
+    const no = {};
+    proof.stepLines.forEach(function (l) { no[l.stepId] = l.no; });
+    const avail = g.engine.available(g.stepStage());
+    let html = '<div class="panel-head">🔗 ' + (s.type === 'compare' ? '2つの式を比べよう' : s.type === 'expression' ? '角の関係を見つけよう' : '定理を使おう') + '</div>' + this.stepBar();
+    // 解けるステップが2つ以上なら、どれから解いてもよい
+    if (avail.length > 1) {
+      html += '<div class="step-tabs" role="group" aria-label="解けるステップ">' + avail.map(function (a) {
+        return '<button class="step-tab" data-step-go="' + a.id + '" aria-pressed="' + (a.id === s.id) + '">' + esc(a.short) + '</button>';
+      }).join('') + '</div>';
+    }
+    if (s.type === 'compare') {
+      const deps = s.dependsOn.map(function (d) { return g.engine.step(d); });
+      html += '<p class="panel-note">2つの式で、まったく同じになっている部分をタップしよう。</p>' +
+        '<div class="cmp-exprs">' + deps.map(function (d) {
+          const pick = g.cmpPick[d.id];
+          const btn = function (part, text) {
+            const on = pick === part;
+            const common = g.commonFound() && part === 'value';
+            return '<button class="cmp-part' + (on ? ' is-on' : '') + (common ? ' is-common' : '') + '" data-cmp="' + d.id + ':' + part + '" aria-pressed="' + on + '">' + esc(text) + '</button>';
+          };
+          return '<div class="cmp-row"><span class="cmp-no">' + no[d.id] + '</span>' + btn('target', d.target) + '<span class="eq-sign">＝</span>' + btn('value', d.value) + '</div>';
+        }).join('') + '</div>';
+      if (g.commonFound()) {
+        const cand = g.candidate();
+        html += '<p class="panel-note">' + deps.map(function (d) { return no[d.id]; }).join('、') + 'より、等しくなる2つの角を図でタップしよう。</p>' +
+          '<div class="equation' + (g.selection.length === 2 ? ' is-ready' : '') + '">' +
+            '<span class="eq-part' + (cand[0] ? ' filled' : '') + '">' + esc(cand[0] || '？') + '</span><span class="eq-sign">＝</span>' +
+            '<span class="eq-part' + (cand[1] ? ' filled' : '') + '">' + esc(cand[1] || '？') + '</span></div>';
+      }
+    } else {
+      const lead = s.type === 'expression'
+        ? '<p class="step-premise">' + esc(s.premiseLabel) + 'だから、正三角形の1つの角は60°</p><p class="step-expr">' + esc(s.label) + '</p><p class="panel-note">この式は、何を使って導いたかな？</p>'
+        : '<p class="step-premise">' + esc(s.premiseLabel) + 'より、</p><p class="panel-note">理由を選ぼう</p>';
+      html += lead + '<div class="choices reasons step-opts" role="group" aria-label="理由">' + g.stepOptions(s).map(function (o) {
+        return '<button class="choice" data-step-opt="' + o.id + '" aria-pressed="' + (g.stepChoice === o.id) + '">' + esc(o.text) + '</button>';
+      }).join('') + '</div>' +
+        (s.type === 'theorem' ? '<p class="step-concl">' + esc(s.label) + '</p>' : '');
+    }
+    html += '<div class="panel-actions">' +
+      '<button class="btn btn-confirm btn-wide" data-act="confirm-step"' + (g.canConfirmStep() ? '' : ' disabled') + '>決定</button>' +
+      '</div>' + this.feedbackHtml();
+    return html;
+  };
+
+  // 証明済みの事実の一覧（多段階証明。タップすると図が光る）
+  PlayController.prototype.factsHtml = function () {
+    const g = this.game;
+    if (!g.engine) return '';
+    const proof = PH.buildProof(this.problem);
+    const done = proof.stepLines.concat(proof.post.map(function (l) { return { stepId: l.stepId, no: '', equation: l.conclusion }; }))
+      .filter(function (l) { return g.engine.done[l.stepId]; });
+    return '<details class="facts"' + (done.length ? ' open' : '') + '><summary>証明済みの事実（' + done.length + '）</summary>' +
+      (done.length ? '<ul>' + done.map(function (l) {
+        return '<li><button class="fact" data-fact="' + l.stepId + '">' + esc(l.no + ' ' + l.equation) + '</button></li>';
+      }).join('') + '</ul>' : '<p class="small-note">ステップを証明すると、ここに増えていくよ。</p>') + '</details>';
   };
 
   // STEP 1：証明する三角形と頂点の対応を選ぶパネル
@@ -844,6 +1020,11 @@
 
     if (g.phase === 'triangle') {
       panel.innerHTML = this.trianglePanel();
+      return;
+    }
+
+    if (g.phase === 'step' || g.phase === 'post') {
+      panel.innerHTML = this.stepPanel();
       return;
     }
 
@@ -926,6 +1107,8 @@
     }
     const slots = this.ref('slots');
     slots.innerHTML = html;
+    const facts = this.ref('facts');
+    if (facts) facts.innerHTML = this.factsHtml();
     slots.classList.toggle('complete', g.found.length === total);
     this.newSlot = null;
   };
@@ -981,11 +1164,11 @@
             '<h2 class="proof-title">完成した証明</h2>' +
             '<p class="small-note">式や理由をタップすると、図の場所が光るよ</p>' +
             '<p class="proof-intro">' + esc(proof.intro) + '</p>' +
-            '<ol class="proof-lines">' + lines + '</ol>' +
+            '<ol class="proof-lines">' + lines + stepLinesHtml(proof) + '</ol>' +
             '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
             '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +
             '<p class="proof-concl' + (proof.final ? ' is-mid' : '') + '">' + esc(proof.conclusion) + '</p>' +
-            finalProofHtml(proof) +
+            finalProofHtml(proof) + postProofHtml(proof) +
           '</div>' +
           '<div class="card points explain">' +
             '<h3>💡 今回のポイント</h3>' +
@@ -1009,8 +1192,29 @@
     return '<div class="proof-final">' +
       '<p class="proof-final-lead">' + esc(proof.final.lead) + '</p>' +
       '<p class="proof-final-reason"><button class="pl-reason" data-act="final-flash">' + esc(reasonText || proof.final.reason) + '、</button></p>' +
-      '<p class="proof-concl proof-goal"><button class="pl-eq" data-act="final-flash">' + esc(conclusionText || proof.final.conclusion) + '</button></p>' +
+      // 後半のステップがあるとき（二等辺三角形である、など）は、ここは途中の結果
+      '<p class="proof-concl ' + (proof.post && proof.post.length ? 'is-mid' : 'proof-goal') + '"><button class="pl-eq" data-act="final-flash">' + esc(conclusionText || proof.final.conclusion) + '</button></p>' +
       '</div>';
+  }
+
+  // 多段階証明の前半のステップの行（「③、④より、∠ACE＝∠BCD ……⑤」など。タップすると図が光る）
+  function stepLinesHtml(proof) {
+    return (proof.stepLines || []).map(function (l) {
+      return '<li class="proof-line is-step">' +
+        '<button class="pl-reason" data-fact="' + l.stepId + '">' + esc(l.reason) + '</button>' +
+        '<button class="pl-eq" data-fact="' + l.stepId + '">' + esc(l.equation) + '<span class="pl-no">……' + l.no + '</span></button>' +
+        '</li>';
+    }).join('');
+  }
+
+  // 後半のステップ（「∠DCB＝∠DBCより、2つの角が等しい三角形は二等辺三角形だから、△DBCは二等辺三角形」）
+  function postProofHtml(proof) {
+    return (proof.post || []).map(function (l) {
+      return '<div class="proof-final proof-post">' +
+        '<p class="proof-final-reason"><button class="pl-reason" data-fact="' + l.stepId + '">' + esc(l.reason) + '</button></p>' +
+        '<p class="proof-concl proof-goal"><button class="pl-eq" data-fact="' + l.stepId + '">' + esc(l.conclusion) + '</button></p>' +
+        '</div>';
+    }).join('');
   }
 
   // ---------------------------------------------------------------------
@@ -1018,6 +1222,8 @@
   let current = null;
 
   PH.finalProofHtml = finalProofHtml;
+  PH.stepLinesHtml = stepLinesHtml;
+  PH.postProofHtml = postProofHtml;
 
   // 印のアイコン（証明パズルの「図に印をつける」でも使う）
   PH.markToolIcon = toolIcon;

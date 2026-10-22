@@ -7,6 +7,9 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/angle-expression.js');
+require('../js/proof-rules.js');
+require('../js/proof-engine.js');
 require('../js/hints.js');
 require('../js/storage.js');
 require('../js/game.js');
@@ -18,7 +21,8 @@ const val = PH.validation;
 const geo = PH.geometry;
 const KP = PH.mathKeypad;
 const k = (p, n) => geo.elementKey(p.figure, n);
-const NEW = PH.problems.filter((p) => PH.hasFinalStep(p));
+// STAGE 6（Ver.0.5）の5問。STAGE 7（多段階証明）は v07.test.js で確かめる
+const NEW = PH.problems.filter((p) => PH.hasFinalStep(p) && p.stage === 6);
 const LEGACY = PH.problems.filter((p) => !PH.hasFinalStep(p));
 const TYPES = ['fill', 'build', 'challenge'];
 
@@ -99,8 +103,8 @@ function withFakeStorage(initial, fn) {
 
 // ---- 問題データ ---------------------------------------------------------------
 
-test('20問・6ステージ。STAGE 6 は p16〜p20 で、結論が辺・角の等しさ', () => {
-  assert.equal(PH.problems.length, 20);
+test('STAGE 6 は p16〜p20 で、結論が辺・角の等しさ', () => {
+  assert.equal(PH.problems.length, 24);
   const st6 = PH.getStage(6);
   assert.equal(st6.title, '合同から結論を導け！');
   assert.deepEqual(PH.stageProblems(6).map((p) => p.id), ['p16', 'p17', 'p18', 'p19', 'p20']);

@@ -243,6 +243,11 @@
         art: '<svg viewBox="0 0 200 120"><polygon points="20,100 60,20 95,100" class="h-tri1"/><polygon points="105,100 140,20 180,100" class="h-tri2"/><text x="60" y="80" class="h-btxt">1</text><text x="140" y="80" class="h-btxt">2</text><text x="100" y="114" class="h-btxt">A↔D・B↔E・C↔F</text></svg>',
       },
       {
+        title: '新しい根拠を導こう！（STAGE 7）',
+        text: '「AB＝ACより、二等辺三角形の底角は等しいから」のように定理の理由を選んだり、∠ACE＝∠ACD＋60°、∠BCD＝∠ACD＋60° の右辺（同じ部分）をタップして ∠ACE＝∠BCD を導いたりするよ。導いた等式は、合同の根拠に使えるよ。',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="28" class="h-btxt">∠ACE</text><rect x="110" y="10" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="28" class="h-btxt">∠ACD＋60°</text><rect x="10" y="46" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="64" class="h-btxt">∠BCD</text><rect x="110" y="46" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="64" class="h-btxt">∠ACD＋60°</text><text x="100" y="104" class="h-btxt">→ ∠ACE＝∠BCD</text></svg>',
+      },
+      {
         title: '証明成功！',
         text: '完成した証明文を確認しよう！ ミスやヒントが少ないほど、★が増えるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="30" y="8" width="140" height="104" rx="8" class="h-paper"/><line x1="45" y1="30" x2="150" y2="30" class="h-rule"/><line x1="45" y1="48" x2="135" y2="48" class="h-rule"/><line x1="45" y1="66" x2="145" y2="66" class="h-rule"/><text x="100" y="98" class="h-star">★★★</text></svg>',
@@ -278,6 +283,11 @@
         title: '合同から結論を導く問題（STAGE 6）',
         text: '最初に「△＿と△＿において」の三角形を、頂点の対応がそろうように答えよう（チャレンジは △ABC と △DEF のようにキーパッドで入力）。最後に「合同な図形の対応する辺（角）は等しいから」で結論を答えるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="14" width="80" height="26" rx="8" class="h-btn h-on"/><text x="50" y="32" class="h-btxt">△ABC</text><text x="100" y="32" class="h-btxt">と</text><rect x="110" y="14" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="32" class="h-btxt">△DEF</text><rect x="15" y="56" width="170" height="24" rx="8" class="h-btn"/><text x="100" y="73" class="h-btxt">対応する辺は等しいから</text><rect x="55" y="88" width="90" height="24" rx="8" class="h-btn h-on"/><text x="100" y="105" class="h-btxt">AC＝DF</text></svg>',
+      },
+      {
+        title: '証明をつなげる問題（STAGE 7）',
+        text: '定理の理由（二等辺三角形の底角・角の和・角の差）をカードで選び、2つの式を比べて新しい等式を導くよ。おてがるは2つの式の共通部分を選ぶだけ、スタンダードは比べる式と導ける等式を選び、チャレンジは導ける等式をキーパッドで入力しよう。',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="180" height="24" rx="8" class="h-btn h-on"/><text x="100" y="27" class="h-btxt">二等辺三角形の底角は等しいから</text><rect x="10" y="44" width="80" height="24" rx="8" class="h-btn"/><text x="50" y="61" class="h-btxt">③と④</text><text x="105" y="61" class="h-btxt">より、</text><rect x="40" y="78" width="120" height="24" rx="8" class="h-btn h-on"/><text x="100" y="95" class="h-btxt">∠ACE＝∠BCD</text></svg>',
       },
       {
         title: '証明を完成させよう！',

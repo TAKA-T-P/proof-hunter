@@ -7,6 +7,9 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/angle-expression.js');
+require('../js/proof-rules.js');
+require('../js/proof-engine.js');
 require('../js/hints.js');
 require('../js/storage.js');
 require('../js/game.js');
@@ -33,10 +36,11 @@ test('全問題のデータ検証（図の数値チェック・ID重複・ステ
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
 });
 
-test('20問・6ステージ（STAGE 1〜5は各3問、Ver.0.5 の STAGE 6 は5問）', () => {
-  assert.equal(PH.problems.length, 20);
-  assert.equal(PH.STAGES.length, 6);
-  PH.STAGES.forEach((st) => assert.equal(PH.stageProblems(st.id).length, st.id === 6 ? 5 : 3, 'STAGE ' + st.id));
+test('24問・7ステージ（STAGE 1〜5は各3問、STAGE 6 は5問、Ver.0.7 の STAGE 7 は4問）', () => {
+  assert.equal(PH.problems.length, 24);
+  assert.equal(PH.STAGES.length, 7);
+  const size = { 6: 5, 7: 4 };
+  PH.STAGES.forEach((st) => assert.equal(PH.stageProblems(st.id).length, size[st.id] || 3, 'STAGE ' + st.id));
   ['p01', 'p02', 'p03'].forEach((id) => assert.ok(PH.getProblem(id), id + ' が残っている'));
 });
 

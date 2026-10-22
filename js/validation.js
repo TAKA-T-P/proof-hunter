@@ -82,8 +82,9 @@
    *   foundIds : 登録済みの根拠ID
    * 戻り値 status:
    *   correct / duplicate / wrong-reason / irrelevant / from-conclusion / not-common / wrong-equation / incomplete
+   *   / not-proved（Ver.0.7：まだ証明していない事実を根拠に使った。engine を渡したときだけ）
    */
-  function checkEvidence(problem, keys, reasonId, foundIds) {
+  function checkEvidence(problem, keys, reasonId, foundIds, engine) {
     if (!keys || keys.length !== 2 || !keys[0] || !keys[1] || !reasonId) {
       return { status: 'incomplete', miss: false };
     }
@@ -95,6 +96,8 @@
     const hit = c.evidence.find(function (e) { return e.eq === eq; });
     if (hit) {
       if (found.indexOf(hit.ev.id) >= 0) return { status: 'duplicate', miss: false, evidence: hit.ev, kind: kind };
+      // Ver.0.7：前のステップで導く事実は、そのステップを証明してから（未証明の事実は根拠に使えない）
+      if (hit.ev.fromStep && engine && !engine.canUse(hit.ev)) return { status: 'not-proved', miss: true, evidence: hit.ev, kind: kind };
       if (hit.ev.reason === reasonId) return { status: 'correct', miss: false, evidence: hit.ev, kind: kind };
       return { status: 'wrong-reason', miss: true, evidence: hit.ev, kind: kind };
     }
@@ -440,6 +443,18 @@
         });
       });
 
+      // Ver.0.7：定理を使う根拠・導いた事実を使う根拠、多段階証明のステップ（js/proof-engine.js）
+      problem.evidence.forEach(function (ev) {
+        if (ev.reason === 'equilateralSides' && PH.proofRules) {
+          const err = PH.proofRules.checkEquilateralSides(problem, ev.items);
+          if (err) errors.push(ev.id + ': ' + err);
+        }
+        if ((ev.reason === 'proved') !== !!ev.fromStep) errors.push(ev.id + ': 導いた事実の根拠は reason: proved と fromStep の両方が必要');
+      });
+      if (PH.proofEngine && PH.proofEngine.hasSteps(problem)) {
+        PH.proofEngine.verify(problem).forEach(function (e) { errors.push(e); });
+      }
+
       const derived = deriveCondition(problem, problem.evidence);
       if (derived !== problem.congruence) errors.push('合同条件が根拠と一致しない: ' + derived + ' / ' + problem.congruence);
 
@@ -472,11 +487,16 @@
     const fig = problem.figure;
     const fs = problem.finalStep;
     if (!fs || !Array.isArray(fs.items) || fs.items.length !== 2) { errors.push('finalStep がない・不正'); return; }
-    const kind = PH.conclusionType(problem) === 'equalAngle' ? 'angle' : 'side';
+    // 結論が「二等辺三角形である」（Ver.0.7）の問題は、合同から導いた等式（finalStep）をもとに、後半のステップで結論を導く
+    const ctype = PH.conclusionType(problem);
+    const viaPost = ctype === 'isoscelesTriangle';
+    const kind = ctype === 'equalAngle' ? 'angle' : ctype === 'equalSide' ? 'side' : fs.relationType;
     if (fs.relationType !== kind) errors.push('finalStep.relationType が conclusionType と合わない');
     if (fs.items.some(function (n) { return geo().isAngleName(n) !== (kind === 'angle'); })) errors.push('finalStep.items の種類が合わない');
     if (fs.reason !== PH.finalReasonFor(problem)) errors.push('finalStep.reason が不正: ' + fs.reason);
-    if (fs.label !== problem.conclusion) errors.push('finalStep.label と結論が一致しない');
+    if (viaPost) {
+      if (!PH.proofEngine || !PH.proofEngine.stepsOf(problem, 'post').length) errors.push('結論を導く後半のステップがない');
+    } else if (fs.label !== problem.conclusion) errors.push('finalStep.label と結論が一致しない');
     if (fs.label.replace(/＝/g, '=') !== fs.items.join('=')) errors.push('finalStep の label と items が一致しない');
     const els = geo().getElements(fig);
     const keys = keysOf(fig, fs.items);

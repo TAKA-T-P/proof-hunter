@@ -118,6 +118,50 @@
     });
   }
 
+  // ---- Ver.0.7：多段階証明のステップのカード ------------------------------------------
+
+  /*
+   * 定理・角の式：理由のカード（正解＋その定理では言えない理由。並びは問題ごとに一定）
+   * 式の比較：おてがるは共通部分（2つの式の左辺・右辺）、スタンダード・チャレンジは比べる2つの式の組（①と②／①と①…）、
+   *           スタンダードは導ける等式（正解＋ダミー）
+   */
+  function makeStepCards(z) {
+    const p = z.problem;
+    const proof = PH.buildProof(p);
+    const no = {};
+    proof.stepLines.forEach(function (l) { no[l.stepId] = l.no; });
+    z.preSteps.concat(z.postSteps).forEach(function (st) {
+      if (st.type !== 'compare') {
+        z.cards['srule:' + st.id] = PH.stepOptions(p, st).map(function (o) {
+          return { id: 'sr:' + st.id + ':' + o.id, kind: 'srule:' + st.id, text: o.text, correct: o.id === 'a' };
+        });
+        return;
+      }
+      const deps = st.dependsOn.map(function (d) { return PH.proofEngine.stepsOf(p, 'pre').find(function (x) { return x.id === d; }); });
+      if (z.type === 'fill') {
+        const texts = [];
+        deps.forEach(function (d) { [d.target, d.value].forEach(function (t) { if (texts.indexOf(t) < 0) texts.push(t); }); });
+        z.cards['cmc:' + st.id] = shuffle(texts.map(function (t) {
+          return { kind: 'cmc:' + st.id, text: t, correct: t === deps[0].value };
+        }), p.id + ':cmc').map(function (c, i) { c.id = 'cc:' + st.id + ':' + i; return c; });
+        return;
+      }
+      const a = no[deps[0].id], b = no[deps[1].id];
+      z.cards['cmp:' + st.id] = [
+        { id: 'cp:' + st.id + ':0', kind: 'cmp:' + st.id, text: a + 'と' + b, correct: true },
+        { id: 'cp:' + st.id + ':1', kind: 'cmp:' + st.id, text: a + 'と' + a, correct: false, same: true },
+        { id: 'cp:' + st.id + ':2', kind: 'cmp:' + st.id, text: b + 'と' + b, correct: false, same: true },
+      ];
+      if (z.type === 'build') {
+        z.cards['cmr:' + st.id] = shuffle([st.label].concat(st.distractors || []).map(function (label) {
+          const items = splitEquation(label);
+          const keys = items.map(function (n) { return G().elementKey(p.figure, n); });
+          return { kind: 'cmr:' + st.id, text: label, items: items, keys: keys, correct: label === st.label };
+        }), p.id + ':cmr').map(function (c, i) { c.id = 'cr:' + st.id + ':' + i; return c; });
+      }
+    });
+  }
+
   // ---- Ver.0.5：三角形の選択・最終結論のカード ------------------------------------------
 
   function triText(t1, t2) { return '△' + t1.join('') + 'と△' + t2.join(''); }
@@ -219,6 +263,11 @@
     this.letters = PH.mathKeypad ? PH.mathKeypad.lettersOf(problem.figure) : [];
     // 結論が辺・角の等しさの問題（Ver.0.5）：最初に三角形を選び、最後に合同から結論を導く
     this.hasFinal = !!(PH.hasFinalStep && PH.hasFinalStep(problem));
+    // Ver.0.7：多段階証明。根拠の行は、前のステップで導いた事実を使わない根拠だけ（導いた事実はステップの行で書く）
+    this.multi = !!(PH.proofEngine && PH.proofEngine.hasSteps(problem));
+    this.rowEv = problem.evidence.filter(function (ev) { return !ev.fromStep; });
+    this.preSteps = this.multi ? PH.proofEngine.stepsOf(problem, 'pre') : [];
+    this.postSteps = this.multi ? PH.proofEngine.stepsOf(problem, 'post') : [];
     const triCards = this.hasFinal && this.type === 'build' ? makeTriCards(problem) : { tri1: [], tri2: [] };
     this.cards = {
       eq: this.type === 'challenge' ? [] : makeEquationCards(problem),   // チャレンジでは等式カードを出さない
@@ -230,6 +279,7 @@
       freason: this.hasFinal && this.buildLike ? makeFinalReasonCards(problem) : [],
       final: this.hasFinal && this.type !== 'challenge' ? makeFinalCards(problem) : [],
     };
+    if (this.multi) makeStepCards(this);
     this.cardById = {};
     const self = this;
     Object.keys(this.cards).forEach(function (k) {
@@ -260,7 +310,8 @@
         slots.push({ id: 't2', kind: 'tri2', label: '2つ目の三角形（頂点の対応）' });
       } else slots.push({ id: 'tri', kind: 'tri', label: '証明する三角形', input: true, inputKind: 'tri' });
     }
-    p.evidence.forEach(function (ev, i) {
+    this.preSteps.forEach(function (st) { this.stepSlots(st).forEach(function (x) { slots.push(x); }); }, this);
+    this.rowEv.forEach(function (ev, i) {
       if (this.buildLike) {
         slots.push({ id: 'r' + i, kind: 'reason', row: i, label: '根拠' + CIRCLED[i] + 'の理由' });
         slots.push({ id: 'e' + i, kind: 'eq', row: i, label: '根拠' + CIRCLED[i] + 'の等式', input: this.type === 'challenge' });
@@ -280,7 +331,24 @@
         slots.push({ id: 'fe', kind: 'final', label: '結論の等式', input: this.type === 'challenge' });
       }
     }
+    this.postSteps.forEach(function (st) { this.stepSlots(st).forEach(function (x) { slots.push(x); }); }, this);
     return slots;
+  };
+
+  /*
+   * 多段階証明のステップの空欄（Ver.0.7）
+   *   定理・角の式：{ id: 'st:<id>', kind: 'srule:<id>' }（理由のカードを選ぶ。3レベル共通）
+   *   式の比較：おてがる     { id: 'cc:<id>', kind: 'cmc:<id>' }（2つの式の共通部分。結論は自動で表示）
+   *             スタンダード { id: 'cp:<id>', kind: 'cmp:<id>' }（比べる2つの式）＋ { id: 'cr:<id>', kind: 'cmr:<id>' }（導ける等式の3択）
+   *             チャレンジ   cp ＋ { id: 'cr:<id>', input: true }（導ける等式をキーパッドで入力）
+   */
+  Puzzle.prototype.stepSlots = function (st) {
+    if (st.type !== 'compare') return [{ id: 'st:' + st.id, kind: 'srule:' + st.id, step: st.id, label: st.short + '（理由）' }];
+    if (this.type === 'fill') return [{ id: 'cc:' + st.id, kind: 'cmc:' + st.id, step: st.id, label: '2つの式の共通部分' }];
+    return [
+      { id: 'cp:' + st.id, kind: 'cmp:' + st.id, step: st.id, label: '比べる2つの式' },
+      { id: 'cr:' + st.id, kind: 'cmr:' + st.id, step: st.id, label: '導ける等式', input: this.type === 'challenge' },
+    ];
   };
 
   // 空欄が数学キーパッドで入力する欄か、そのとき入力できる種類
@@ -469,7 +537,7 @@
     const p = this.problem;
     const used = {};
     const rows = [];
-    for (let i = 0; i < p.evidence.length; i++) {
+    for (let i = 0; i < this.rowEv.length; i++) {
       const eqCard = this.cardIn(this.eqSlotId(i));
       const reason = this.rowReason(i);
       const row = { row: i, status: 'ok', evidence: null, eqCard: eqCard, reason: reason, orderOk: true };
@@ -483,6 +551,7 @@
         // チャレンジで入力した等式は、頂点の対応順（例：AB＝CB を AB＝BC と書いていないか）も確かめる
         if (ev && eqCard.input) row.orderOk = V().correspondenceOrder(p, eqCard.items) !== 'order';
         if (!ev) row.status = V().equationStatus(p, eqCard.keys);
+        else if (ev.fromStep) row.status = 'derived';     // 前のステップで導いた等式（ステップの行で書くので、ここには入れない）
         else if (!reason) row.status = 'empty';
         else if (!reasonAccepts(reason, ev)) row.status = 'wrong-reason';
         else if (used[ev.id]) row.status = 'duplicate';
@@ -494,6 +563,61 @@
       rows.push(row);
     }
     return rows;
+  };
+
+  // ステップの式の番号（証明文の ③④⑤ など）
+  Puzzle.prototype.stepNo = function (id) {
+    const l = PH.buildProof(this.problem).stepLines.find(function (x) { return x.stepId === id; });
+    return l ? l.no : '';
+  };
+
+  /*
+   * ステップの判定（Ver.0.7）。ステップごとに { ok, slots, okSlots, ngSlot, message, label, sig, empty }
+   *   定理・角の式：理由のカードが正しいか
+   *   式の比較：共通部分（おてがる）／比べる2つの式と導ける等式（スタンダード・チャレンジ）
+   */
+  Puzzle.prototype.evaluateSteps = function () {
+    if (!this.multi) return [];
+    const p = this.problem;
+    const self = this;
+    return this.preSteps.concat(this.postSteps).map(function (st) {
+      const ids = self.stepSlots(st).map(function (x) { return x.id; });
+      const r = { step: st, slots: ids, okSlots: [], ok: false, label: st.short, empty: ids.some(function (id) { return !self.placed[id]; }) };
+      if (st.type !== 'compare') {
+        const c = self.cardIn(ids[0]);
+        r.ok = !!c && c.correct;
+        r.ngSlot = ids[0];
+        r.sig = c ? c.id : '';
+        r.message = st.type === 'expression' ? 'この式は、どんな角の関係を使って導いたかな？ 理由をもう一度考えよう。'
+          : 'その理由で言えるかな？ どんな図形の性質を使うか、もう一度考えよう。';
+        return r;
+      }
+      if (self.type === 'fill') {
+        const c = self.cardIn(ids[0]);
+        r.ok = !!c && c.correct;
+        r.ngSlot = ids[0];
+        r.sig = c ? c.id : '';
+        r.message = '2つの式で、まったく同じになっている部分はどれかな？';
+        return r;
+      }
+      const pair = self.cardIn(ids[0]);
+      const res = self.cardIn(ids[1]);
+      const want = st.items.map(function (n) { return G().elementKey(p.figure, n); });
+      const resOk = !!res && !!res.keys && V().equationKey(res.keys[0], res.keys[1]) === V().equationKey(want[0], want[1]);
+      if (!pair || !pair.correct) {
+        r.ngSlot = ids[0];
+        r.sig = pair ? pair.id : '';
+        r.message = pair && pair.same ? '同じ式を2回選んでも、新しい等式は導けないよ。2つの式を比べよう！' : '比べる2つの式を確認しよう。';
+        if (resOk) r.okSlots.push(ids[1]);
+        return r;
+      }
+      r.okSlots.push(ids[0]);
+      r.ok = resOk;
+      r.ngSlot = ids[1];
+      r.sig = res ? res.id : '';
+      r.message = '2つの式の右辺が同じだから、左辺どうしが等しいね。導ける等式をもう一度考えよう。';
+      return r;
+    });
   };
 
   // 答え合わせ
@@ -557,6 +681,13 @@
       }
     }
 
+    // 多段階証明のステップ（Ver.0.7）
+    this.evaluateSteps().forEach(function (r) {
+      if (r.ok) { r.slots.forEach(function (id) { slotStatus[id] = 'ok'; }); return; }
+      r.okSlots.forEach(function (id) { slotStatus[id] = 'ok'; });
+      fail(r.ngSlot, 'step:' + r.ngSlot + ':' + r.sig, r.message, r.label);
+    });
+
     rows.forEach(function (r) {
       const eqId = self.eqSlotId(r.row);
       const rsId = self.buildLike ? 'r' + r.row : null;
@@ -590,6 +721,9 @@
         case 'irrelevant':
           fail(eqId, sig, 'たしかに等しいけれど、今回の証明では使わない関係だよ。', label);
           break;
+        case 'derived':
+          fail(eqId, sig, 'その等式は、ステップで導いた等式（' + self.stepNo(r.evidence.fromStep) + '）だよ。ここには、ほかの根拠を入れよう。', label);
+          break;
         case 'not-common':
           fail(eqId, sig, 'その辺（角）は、2つの三角形の両方にふくまれているかな？', label);
           break;
@@ -601,7 +735,8 @@
     // 合同条件：根拠がすべて正しければ、その3つから導いた条件と比べる
     const condCard = this.cardIn('cond');
     const allRowsOk = rows.every(function (r) { return r.status === 'ok'; });
-    const expected = allRowsOk ? V().deriveCondition(p, rows.map(function (r) { return r.evidence; })) : p.congruence;
+    const fixedEv = p.evidence.filter(function (ev) { return ev.fromStep; });
+    const expected = allRowsOk ? V().deriveCondition(p, rows.map(function (r) { return r.evidence; }).concat(fixedEv)) : p.congruence;
     if (condCard.cond === expected) slotStatus.cond = 'ok';
     else fail('cond', 'cond:' + condCard.id + ':' + rows.map(function (r) { return r.eqCard.id; }).join(','),
       MSG.cond, '合同条件');
@@ -654,19 +789,24 @@
     if (this.hasFinal && !this.evaluateTriangles().ok) {
       return { id: 'triangleSelection', ev: null, slotId: this.triangleSlotIds()[0] };
     }
+    // Ver.0.7：前半のステップ（まだ正しくないもの）
+    const steps = this.evaluateSteps();
+    const preNg = steps.find(function (r) { return !r.ok && (r.step.stage || 'pre') === 'pre'; });
+    if (preNg) return { id: preNg.step.id, ev: null, step: preNg.step, slotId: preNg.empty ? preNg.slots.find(function (id) { return !this.placed[id]; }, this) : preNg.ngSlot };
     const rows = this.evaluateRows();
     const done = {};
     rows.forEach(function (r) { if (r.status === 'ok') done[r.evidence.id] = true; });
+    const rowEv = this.rowEv;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       if (r.status === 'ok') continue;
       if (this.type === 'fill') {
         // 表示済みの理由で言える根拠のうち、まだ使っていないもの（同じ理由の行どうしは入れかえ可）
         const fixed = this.slot('s' + i).fixed;
-        const ev = p.evidence.find(function (e) { return !done[e.id] && reasonAccepts(fixed, e); });
+        const ev = rowEv.find(function (e) { return !done[e.id] && reasonAccepts(fixed, e); });
         if (ev) return { id: ev.id, ev: ev, slotId: 's' + i };
       } else {
-        const ev = p.evidence.find(function (e) { return !done[e.id]; });
+        const ev = rowEv.find(function (e) { return !done[e.id]; });
         if (ev) return { id: ev.id, ev: ev, slotId: 'e' + i };
       }
     }
@@ -678,13 +818,16 @@
       if (cond && cond.cond === p.congruence && !finalOk) {
         return { id: 'finalStep', ev: null, slotId: this.type === 'fill' || f.reasonOk ? 'fe' : 'fr' };
       }
+      // 最後は後半のステップ（二等辺三角形である、など）
+      const postNg = steps.find(function (r) { return !r.ok && r.step.stage === 'post'; });
+      if (cond && cond.cond === p.congruence && finalOk && postNg) return { id: postNg.step.id, ev: null, step: postNg.step, slotId: postNg.ngSlot };
     }
     return { id: 'congruence', ev: null, slotId: 'cond' };
   };
 
   Puzzle.prototype.hintList = function (target) {
     const p = this.problem;
-    if (target.id === 'triangleSelection' || target.id === 'finalStep') {
+    if (target.id === 'triangleSelection' || target.id === 'finalStep' || target.step) {
       // 問題データのヒント（最終段階でも答えは自動で入れない）
       return (p.hints[target.id] || []).map(function (h) {
         return { text: h.text, focus: (h.focus || []).map(function (n) { return G().elementKey(p.figure, n); }) };
@@ -735,7 +878,7 @@
   Puzzle.prototype.solution = function (rowsOrder) {
     const p = this.problem;
     const self = this;
-    const order = rowsOrder || p.evidence.map(function (_, i) { return i; });
+    const order = rowsOrder || this.rowEv.map(function (_, i) { return i; });
     const out = {};
     const findEq = function (ev) {
       const keys = ev.items.map(function (n) { return G().elementKey(p.figure, n); });
@@ -743,7 +886,7 @@
       return self.cards.eq.find(function (c) { return c.eq === eq; });
     };
     order.forEach(function (evIndex, row) {
-      const ev = p.evidence[evIndex];
+      const ev = self.rowEv[evIndex];
       out[self.eqSlotId(row)] = self.type === 'challenge' ? ev.items.join('=') : findEq(ev).id;
       if (self.buildLike) {
         out['r' + row] = self.cards.reason.find(function (c) { return reasonAccepts(c, ev); }).id;
@@ -767,6 +910,13 @@
       out.fe = this.type === 'challenge' ? p.finalStep.items.join('=')
         : this.cards.final.find(function (c) { return c.text === p.finalStep.label; }).id;
     }
+    // Ver.0.7：多段階証明のステップ
+    this.preSteps.concat(this.postSteps).forEach(function (st) {
+      self.stepSlots(st).forEach(function (x) {
+        if (x.input) { out[x.id] = st.items.join('='); return; }
+        out[x.id] = self.cards[x.kind].find(function (c) { return c.correct; }).id;
+      });
+    });
     return out;
   };
 

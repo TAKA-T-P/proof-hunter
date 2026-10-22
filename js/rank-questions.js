@@ -19,8 +19,8 @@
   function V() { return PH.validation; }
   function G() { return PH.geometry; }
 
-  const CATEGORIES = ['eq', 'reason', 'cond', 'corr', 'final'];
-  const CATEGORY_LABEL = { eq: '等しい辺・角', reason: '等しい理由', cond: '合同条件', corr: '三角形の対応', final: '合同からの結論' };
+  const CATEGORIES = ['eq', 'reason', 'cond', 'corr', 'final', 'theorem'];
+  const CATEGORY_LABEL = { eq: '等しい辺・角', reason: '等しい理由', cond: '合同条件', corr: '三角形の対応', final: '合同からの結論', theorem: '定理・三段論法' };
 
   // 理由ごとの解説（振り返り用）
   const REASON_EXPLAIN = {
@@ -104,6 +104,7 @@
    *   三角形の外の角どうし（例 p05 の ∠AOC＝∠BOD）は、「△ABOと△DCOにおいて」の答えにならないので数えない）
    */
   function equationQuestion(p, ev) {
+    if (ev.fromStep) return null;          // 前のステップで導いた等式（理由は「③、④より」など）は、ここでは問わない
     const shown = { reason: ev.reason, text: reasonText(ev), specific: !!ev.proofReason };
     const accepted = p.evidence.filter(function (e) { return PH.puzzleUtil.reasonAccepts(shown, e); });
     const parts = triangleParts(p);
@@ -148,7 +149,7 @@
     const pref = p.reasons.concat(((p.puzzle && p.puzzle.distractors) || {}).reasons || [], REASON_POOL);
     const out = [];
     pref.forEach(function (r) {
-      if (out.indexOf(r) >= 0 || r === ev.reason || !PH.REASONS[r] || PH.REASONS[r].finalOnly) return;
+      if (out.indexOf(r) >= 0 || r === ev.reason || !PH.REASONS[r] || PH.REASONS[r].finalOnly || PH.REASONS[r].meta) return;
       const st = V().checkEvidence(p, keys, r, []).status;
       if (st === 'correct' || st === 'irrelevant') return;
       out.push(r);
@@ -158,6 +159,7 @@
 
   // タイプB：等しい理由を答える
   function reasonQuestion(p, ev) {
+    if (ev.fromStep) return null;
     const wrong = wrongReasons(p, ev, 2);
     return {
       id: p.id + '-rs-' + ev.id, sourceId: p.id, category: 'reason', type: 'reason', typeLabel: '等しい理由',
@@ -276,12 +278,110 @@
       id: p.id + '-fr', sourceId: p.id, category: 'final', type: 'finalReason', typeLabel: '結論を導く理由',
       difficulty: 2, blanks: 1, figure: null, highlight: [],
       lines: [PH.congruenceText(p) + ' が証明できた。'],
-      ask: 'したがって ' + p.conclusion + ' と言える理由は？',
+      ask: 'したがって ' + p.finalStep.label + ' と言える理由は？',
       choice: { blanks: [choiceBlank('理由', PH.REASONS[answer].proof, wrong)] }, input: null,
       answerText: PH.REASONS[answer].proof,
       explain: REASON_EXPLAIN[answer],
       signature: 'fr|' + p.id,
     };
+  }
+
+  // ---- Ver.0.7：定理・三段論法（多段階証明のステップから作る短い問題） ----------------------------
+
+  function theoremQuestions(p) {
+    const out = [];
+    if (!PH.proofEngine || !PH.proofEngine.hasSteps(p)) return out;
+    const fig = p.figure;
+    const R = PH.proofRules;
+    const near = function (a, b) { return Math.abs(V().measure(fig, a).value - V().measure(fig, b).value) < 0.5; };
+    const eqCheck = function (items) {
+      const want = items.map(function (n) { return key(p, n); });
+      return function (value) {
+        const ks = inputKeys(p, value);
+        return !!ks && V().equationKey(ks[0], ks[1]) === V().equationKey(want[0], want[1]);
+      };
+    };
+    PH.proofEngine.stepsOf(p, 'pre').concat(PH.proofEngine.stepsOf(p, 'post')).forEach(function (st) {
+      if (st.type === 'theorem' && st.rule === 'isoscelesBaseAngles') {
+        // 「AB＝ACのとき、等しい角は？」（二等辺三角形の底角）
+        const apex = st.premise[0].split('').find(function (c) { return st.premise[1].indexOf(c) >= 0; });
+        const b = st.premise[0].replace(apex, ''), c = st.premise[1].replace(apex, '');
+        const A = '∠' + b + apex + c, B = '∠' + apex + b + c, C = '∠' + apex + c + b;
+        const wrong = [A + '＝' + B, A + '＝' + C].filter(function (w) { const it = w.split('＝'); return !near(it[0], it[1]); });
+        out.push({
+          id: p.id + '-th-' + st.id, sourceId: p.id, category: 'theorem', type: 'isoscelesAngles', typeLabel: '二等辺三角形の底角',
+          difficulty: 2, blanks: 1, figure: p.id, highlight: st.premise.map(function (n) { return key(p, n); }),
+          lines: ['△' + apex + b + c + 'で、' + st.premiseLabel], ask: st.premiseLabel + ' のとき、等しい角は？',
+          choice: wrong.length === 2 ? { blanks: [choiceBlank('等しい角', st.label, wrong)] } : null,
+          input: { keypad: { kinds: ['ang'] }, check: eqCheck(st.items), answerText: st.label },
+          answerText: st.label, explain: '二等辺三角形の底角は等しくなります。' + st.premiseLabel + ' の二等辺三角形の底角は ' + st.label.replace('＝', 'と') + ' です。',
+          signature: 'th|' + p.id + '|' + st.label,
+        });
+        out.push({
+          id: p.id + '-thr-' + st.id, sourceId: p.id, category: 'theorem', type: 'theoremReason', typeLabel: '定理の理由',
+          difficulty: 1, blanks: 1, figure: p.id, highlight: st.items.map(function (n) { return key(p, n); }),
+          lines: [st.premiseLabel + ' より、' + st.label], ask: 'その理由は？',
+          choice: { blanks: [choiceBlank('理由', R.label(st.rule), R.RULE_DISTRACTORS[st.rule].slice(0, 2))] }, input: null,
+          answerText: R.label(st.rule), explain: '2辺が等しい三角形（二等辺三角形）の底角は等しくなります。',
+          signature: 'thr|' + p.id + '|' + st.label,
+        });
+      } else if (st.type === 'theorem' && st.rule === 'isoscelesConverse') {
+        // 「∠DBC＝∠DCBのとき、△DBCはどんな三角形？」
+        const t = st.triangle.split('');
+        const apexAngle = '∠' + t[1] + t[0] + t[2];
+        const deg = V().measure(fig, apexAngle).value;
+        const wrong = ['正三角形', '直角三角形'].filter(function (w) { return w === '正三角形' ? Math.abs(deg - 60) > 1 : Math.abs(deg - 90) > 1; });
+        if (wrong.length === 2) {
+          out.push({
+            id: p.id + '-thc-' + st.id, sourceId: p.id, category: 'theorem', type: 'isoscelesConverse', typeLabel: '二等辺三角形になる条件',
+            difficulty: 2, blanks: 1, figure: p.id, highlight: st.premise.map(function (n) { return key(p, n); }),
+            lines: [st.premiseLabel], ask: st.premiseLabel + ' のとき、△' + st.triangle + 'はどんな三角形？',
+            choice: { blanks: [choiceBlank('三角形', '二等辺三角形', wrong)] }, input: null,
+            answerText: '二等辺三角形', explain: '2つの角が等しい三角形は二等辺三角形です。',
+            signature: 'thc|' + p.id,
+          });
+        }
+      } else if (st.type === 'expression') {
+        // 「△DCEは正三角形。∠ACE＝∠ACD＋∠DCE を、正三角形の角を使って表すと？」
+        const value = st.value;
+        const wrong = [value.replace('60°', '90°'), /＋/.test(value) ? value.replace('＋', '－') : value.replace('－', '＋')];
+        out.push({
+          id: p.id + '-ex-' + st.id, sourceId: p.id, category: 'theorem', type: 'expression', typeLabel: '角の和・差',
+          difficulty: 2, blanks: 1, figure: p.id, highlight: [],
+          lines: [st.premiseLabel], ask: st.target + '＝' + st.parts + ' を、正三角形の角の大きさを使って表すと？',
+          choice: { blanks: [choiceBlank(st.target + '＝', value, wrong)] }, input: null,
+          answerText: st.target + '＝' + value, explain: '正三角形の1つの角は60°なので、' + st.target + '＝' + st.parts + '＝' + value + ' です。',
+          signature: 'ex|' + p.id + '|' + st.id,
+        });
+      } else if (st.type === 'compare') {
+        // 「③ ∠ACE＝∠ACD＋60°、④ ∠BCD＝∠ACD＋60° のとき、等しい2つの角は？」
+        const deps = st.dependsOn.map(function (d) { return p.proofSteps.find(function (x) { return x.id === d; }); });
+        out.push({
+          id: p.id + '-cmp-' + st.id, sourceId: p.id, category: 'theorem', type: 'compare', typeLabel: '式を比べる（三段論法）',
+          difficulty: 2, blanks: 1, figure: null, highlight: [],
+          lines: deps.map(function (d) { return d.target + '＝' + d.value; }), ask: 'この2つの式から、等しいと言える2つの角は？',
+          choice: (st.distractors || []).length >= 2 ? { blanks: [choiceBlank('等しい角', st.label, st.distractors.slice(0, 2))] } : null,
+          input: { keypad: { kinds: ['ang'] }, check: eqCheck(st.items), answerText: st.label },
+          answerText: st.label, explain: '2つの式の右辺が同じ（' + deps[0].value + '）なので、左辺どうしが等しくなります（三段論法）。',
+          signature: 'cmp|' + p.id + '|' + st.id,
+        });
+      }
+    });
+    if (out.some(function (q) { return q.type === 'expression'; })) {
+      out.push({
+        id: 'rule-eq60', sourceId: p.id, category: 'theorem', type: 'equilateral60', typeLabel: '正三角形の角',
+        difficulty: 1, blanks: 1, figure: null, highlight: [], lines: [], ask: '正三角形の1つの角は何度？',
+        choice: { blanks: [choiceBlank('角度', '60°', ['90°', '45°'])] }, input: null,
+        answerText: '60°', explain: '正三角形の3つの角はすべて等しく、180°÷3＝60°です。', signature: 'rule|eq60',
+      });
+      out.push({
+        id: 'rule-syllogism', sourceId: p.id, category: 'theorem', type: 'syllogism', typeLabel: '三段論法',
+        difficulty: 1, blanks: 1, figure: null, highlight: [], lines: ['∠A＝∠C＋60°', '∠B＝∠C＋60°'], ask: '2つの式の右辺が同じとき、何が言える？',
+        choice: { blanks: [choiceBlank('言えること', '∠A＝∠B', ['∠A＝∠C', '∠B＝60°'])] }, input: null,
+        answerText: '∠A＝∠B', explain: '同じ式に等しい2つの角は等しくなります（三段論法）。', signature: 'rule|syllogism',
+      });
+    }
+    return out;
   }
 
   // ---- 生成 ------------------------------------------------------------------
@@ -310,6 +410,7 @@
         add(triangleQuestion(p));
         add(finalReasonQuestion(p));
       }
+      theoremQuestions(p).forEach(add);
     });
     return list;
   }

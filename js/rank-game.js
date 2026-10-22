@@ -98,8 +98,11 @@
     let cats = allCats.filter(function (c) { return has(c, function (q) { return !self.used[q.id] && q.difficulty <= cap; }); });
     if (!cats.length) cats = allCats.filter(function (c) { return has(c, function (q) { return !self.used[q.id]; }); });
     if (!cats.length) cats = allCats;
-    const minCount = Math.min.apply(null, cats.map(function (c) { return self.catCount[c] || 0; }));
-    const lows = cats.filter(function (c) { return (self.catCount[c] || 0) === minCount; });
+    // 出題数を重み（categoryWeights）で割った値が最も小さいカテゴリ
+    const weights = cfg.categoryWeights || {};
+    const load = function (c) { return (self.catCount[c] || 0) / (weights[c] || 1); };
+    const minCount = Math.min.apply(null, cats.map(load));
+    const lows = cats.filter(function (c) { return load(c) === minCount; });
     const cat = lows[Math.floor(rnd() * lows.length)];
     const inCat = cands.filter(function (q) { return q.category === cat; });
     const recent = this.recent.slice(-cfg.recentAvoid);

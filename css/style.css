@@ -968,8 +968,8 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .tri-sel-1 { fill: rgba(245, 179, 1, .32); stroke: #d97706; }
 
 /* 手順（三角形 → 根拠 → 合同条件 → 結論） */
-.step-bar { display: flex; gap: 4px; margin: 4px 0 2px; padding: 0; list-style: none; font-size: .72rem; font-weight: 800; color: var(--muted); }
-.step-bar li { flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 2px 2px; border-radius: 99px; background: #f1f5f9; white-space: nowrap; }
+.step-bar { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 2px; padding: 0; list-style: none; font-size: .72rem; font-weight: 800; color: var(--muted); }
+.step-bar li { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 2px 2px; border-radius: 99px; background: #f1f5f9; white-space: nowrap; }
 .step-bar b { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #cbd5e1; color: #fff; font-size: .68rem; }
 .step-bar li.is-done { color: var(--green); background: var(--green-soft); }
 .step-bar li.is-done b { background: var(--green); }
@@ -1002,6 +1002,35 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .pz-cards.kind-freason .pz-card { text-align: left; font-size: .9rem; }
 .pz-cards.kind-tri2 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .kp-warn { margin: 0; padding: 2px 8px; border-radius: 8px; background: var(--red-soft); color: #991b1b; font-size: .82rem; font-weight: 700; text-align: center; }
+
+/* ==== Ver.0.7：多段階証明（定理・角の式・式の比較・証明済みの事実） ========================= */
+.step-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+.step-tab { padding: 2px 12px; min-height: 32px; border-radius: 99px; border: 2px solid var(--line); background: #fff; font-weight: 800; font-size: .85rem; }
+.step-tab[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-50); color: var(--navy); }
+.step-premise { margin: 4px 0 0; font-weight: 800; }
+.step-expr { margin: 2px 0; padding: 4px 10px; border-radius: 10px; background: #fffbeb; border: 2px solid #fde68a; font-size: 1.1rem; font-weight: 900; text-align: center; }
+.step-concl { margin: 6px 0 0; font-size: 1.25rem; font-weight: 900; text-align: center; color: var(--navy); }
+.step-opts .choice { text-align: left; }
+.cmp-exprs { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
+.cmp-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cmp-no { font-weight: 900; color: var(--muted); }
+.cmp-part { min-height: 42px; padding: 2px 12px; border-radius: 12px; border: 2px solid var(--line); background: #fff; font-size: 1.05rem; font-weight: 900; }
+.cmp-part.is-on { border-color: var(--blue); background: var(--blue-50); }
+.cmp-part.is-common { border-color: var(--green); background: var(--green-soft); color: #065f46; box-shadow: 0 0 0 3px rgba(5, 150, 105, .2); }
+.facts-wrap { margin-top: 6px; }
+.facts { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 4px 10px; }
+.facts summary { font-weight: 800; color: var(--navy); cursor: pointer; }
+.facts ul { margin: 4px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.fact { width: 100%; text-align: left; padding: 2px 8px; border-radius: 8px; border: 1px solid #bbf7d0; background: var(--green-soft); font-weight: 800; }
+.proof-line.is-step .pl-reason { color: #92400e; }
+.pz-steprow .pz-row-no { color: #92400e; }
+.pz-step-lead { margin: 0 0 2px; font-weight: 800; }
+.pz-step-eq { font-weight: 900; font-size: 1.02rem; }
+.pz-blank.kind-srule, .pz-blank.kind-cmp { flex: 1 1 12em; font-size: .92rem; }
+.pz-cards.kind-srule, .pz-cards.kind-cmc, .pz-cards.kind-cmp, .pz-cards.kind-cmr { grid-template-columns: minmax(0, 1fr); }
+.pz-cards.kind-srule .pz-card { text-align: left; font-size: .9rem; }
+.pz-post { margin-top: 6px; }
+.proof-post { margin-top: 6px; }
 
 /* ==== Ver.0.6：段位認定モード ======================================================= */
 :root { --gold-deep: #b45309; --gold-soft: #fffbeb; }

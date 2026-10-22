@@ -7,6 +7,9 @@ const assert = require('node:assert/strict');
 require('../js/problems.js');
 require('../js/geometry.js');
 require('../js/validation.js');
+require('../js/angle-expression.js');
+require('../js/proof-rules.js');
+require('../js/proof-engine.js');
 require('../js/hints.js');
 require('../js/storage.js');
 require('../js/game.js');
@@ -44,8 +47,10 @@ test('3つの解答レベルが定義され、表示名・説明・形式が正�
   assert.equal(PH.getPuzzleLevel('???').id, 'easy');
 });
 
-// 全15問 × 3レベル：正しい証明でクリア・根拠の順番の入れかえ・合同条件の誤り
-PH.problems.forEach((p) => {
+// 多段階証明（STAGE 7。proofSteps あり）は根拠の行の数がちがうので、v07.test.js で同じ内容を確かめる
+const SINGLE = PH.problems.filter((p) => !p.proofSteps);
+// 全問題（多段階証明をのぞく）× 3レベル：正しい証明でクリア・根拠の順番の入れかえ・合同条件の誤り
+SINGLE.forEach((p) => {
   Object.keys(TYPES).forEach((level) => {
     test(p.id + '（' + level + '）: 正しい証明でクリアでき、根拠の順番を入れかえても正解・合同条件の誤りでクリアできない', () => {
       const type = TYPES[level];
