@@ -817,6 +817,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 /* 選択肢が3つ以上でもはみ出さないよう、ボタンは縮められるようにする（左右の余白を小さく） */
 .chooser-option { flex: 1 1 0; min-width: 0; min-height: 48px; padding: 3px 4px; font-size: 1.3rem; font-weight: 900; border-color: var(--blue-600); color: var(--blue); white-space: nowrap; }
 .chooser.is-text .chooser-option { font-size: 1rem; white-space: nowrap; padding-left: 4px; padding-right: 4px; }
+.chooser.is-many .chooser-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .chooser-cancel { min-height: 36px; font-size: .85rem; color: var(--muted); }
 
 /* =====================================================================

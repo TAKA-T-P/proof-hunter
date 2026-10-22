@@ -52,6 +52,8 @@
     el.querySelector('.chooser-title').textContent = opts.title;
     // 文字の長い選択肢（解答レベル名など）は、改行しないよう小さめの文字にする
     el.classList.toggle('is-text', !!opts.textOptions);
+    // 選択肢が4つ以上なら2列に並べる（1列に並べると、△BDM のような文字がボタンからはみ出す）
+    el.classList.toggle('is-many', opts.options.length > 3);
     const msg = el.querySelector('.chooser-message');
     msg.textContent = opts.message || '';
     msg.hidden = !opts.message;
