@@ -11,7 +11,8 @@
  *   #/puzzle/stage/<n>       証明パズル：ステージの問題一覧
  *   #/puzzle/review          証明パズル：苦手な問題
  *   #/puzzle/play/<id>       証明パズル：プレイ
- *   #/howto  #/howto/puzzle  #/howto/rank  あそびかた（ハンター／パズル／段位認定）
+ *   #/howto                  あそびかた：メニュー（Ver.1.0）
+ *   #/howto/<hunter|puzzle|advanced|rank>  あそびかたの説明（ハンター／パズル／STAGE 6以降について／段位認定）
  *   #/rank                   段位認定：トップ（Ver.0.6。Ver.0.8 から2つのコースを選ぶ）
  *   #/rank/<コース>/play     段位認定：プレイ（「このコースに挑戦！」から来たときだけ始まる）。コースは basic / comprehensive
  *   #/rank/<コース>/result  #/rank/<コース>/review  #/rank/<コース>/grades   結果・間違えた問題・段位一覧（コース別）
@@ -244,7 +245,7 @@
       {
         title: '新しい根拠を導こう！（STAGE 7）',
         text: '理由を1つ選ぶだけでは言えない根拠（∠ACE＝∠BCD など）は、2つの角を選んで「詳しい理由を説明する」！ 定理の理由を選んだり、∠ACE＝∠ACD＋60°、∠BCD＝∠ACD＋60° の右辺（同じ部分）をタップして ∠ACE＝∠BCD を導いたりすると、根拠に登録されるよ。',
-        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="28" class="h-btxt">∠ACE</text><rect x="110" y="10" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="28" class="h-btxt">∠ACD＋60°</text><rect x="10" y="46" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="64" class="h-btxt">∠BCD</text><rect x="110" y="46" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="64" class="h-btxt">∠ACD＋60°</text><text x="100" y="104" class="h-btxt">→ ∠ACE＝∠BCD</text></svg>',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="28" class="h-btxt">∠ACE</text><rect x="110" y="10" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="28" class="h-btxt" style="font-size:11px">∠ACD＋60°</text><rect x="10" y="46" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="64" class="h-btxt">∠BCD</text><rect x="110" y="46" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="64" class="h-btxt" style="font-size:11px">∠ACD＋60°</text><text x="100" y="104" class="h-btxt">→ ∠ACE＝∠BCD</text></svg>',
       },
       {
         title: '直角三角形の証明（STAGE 8）',
@@ -276,7 +277,7 @@
       {
         title: '解答レベルをえらぼう！',
         text: '「おてがる」は正しい等式を選んで穴埋め、「スタンダード」は等式と理由を組み立て、「チャレンジ」は選択肢なしで等式を自分で入力！',
-        art: '<svg viewBox="0 0 200 120"><rect x="6" y="30" width="58" height="56" rx="8" class="h-btn h-on"/><text x="35" y="63" class="h-btxt">おてがる</text><rect x="71" y="30" width="58" height="56" rx="8" class="h-btn"/><text x="100" y="63" class="h-btxt">スタンダード</text><rect x="136" y="30" width="58" height="56" rx="8" class="h-btn"/><text x="165" y="63" class="h-btxt">チャレンジ</text></svg>',
+        art: '<svg viewBox="0 0 200 120"><rect x="6" y="30" width="58" height="56" rx="8" class="h-btn h-on"/><text x="35" y="63" class="h-btxt" style="font-size:9px">おてがる</text><rect x="71" y="30" width="58" height="56" rx="8" class="h-btn"/><text x="100" y="63" class="h-btxt" style="font-size:9px">スタンダード</text><rect x="136" y="30" width="58" height="56" rx="8" class="h-btn"/><text x="165" y="63" class="h-btxt" style="font-size:9px">チャレンジ</text></svg>',
       },
       {
         title: '空欄をタップして、カードを入れよう！',
@@ -301,17 +302,17 @@
       {
         title: '証明をつなげる問題（STAGE 7）',
         text: '定理の理由（二等辺三角形の底角・角の和・角の差）をカードで選び、2つの式を比べて新しい等式を導くよ。おてがるは2つの式の共通部分を選ぶだけ、スタンダードは比べる式と導ける等式を選び、チャレンジは導ける等式をキーパッドで入力しよう。',
-        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="180" height="24" rx="8" class="h-btn h-on"/><text x="100" y="27" class="h-btxt">二等辺三角形の底角は等しいから</text><rect x="10" y="44" width="80" height="24" rx="8" class="h-btn"/><text x="50" y="61" class="h-btxt">③と④</text><text x="105" y="61" class="h-btxt">より、</text><rect x="40" y="78" width="120" height="24" rx="8" class="h-btn h-on"/><text x="100" y="95" class="h-btxt">∠ACE＝∠BCD</text></svg>',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="180" height="24" rx="8" class="h-btn h-on"/><text x="100" y="27" class="h-btxt" style="font-size:11px">二等辺三角形の底角は等しいから</text><rect x="10" y="44" width="80" height="24" rx="8" class="h-btn"/><text x="50" y="61" class="h-btxt">③と④</text><text x="105" y="61" class="h-btxt">より、</text><rect x="40" y="78" width="120" height="24" rx="8" class="h-btn h-on"/><text x="100" y="95" class="h-btxt">∠ACE＝∠BCD</text></svg>',
       },
       {
         title: '直角三角形の証明（STAGE 8）',
         text: '直角の行（∠ABC＝∠DEF＝90°）は最初から表示されているよ。スタンダード・チャレンジでは、90°と言える理由を選ぼう。「斜辺」の行には直角に向かい合う辺の等式を、「他の1辺」「鋭角」の行にはそれ以外の等式を入れて、5つの合同条件から選ぼう。',
-        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="40" height="24" rx="6" class="h-btn h-on"/><text x="30" y="27" class="h-btxt">直角</text><text x="120" y="27" class="h-btxt">∠ABC＝∠DEF＝90°</text><rect x="10" y="46" width="40" height="24" rx="6" class="h-btn"/><text x="30" y="63" class="h-btxt">斜辺</text><rect x="70" y="46" width="110" height="24" rx="8" class="h-btn h-on"/><text x="125" y="63" class="h-btxt">AC＝DF</text><rect x="10" y="82" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="99" class="h-btxt">斜辺と他の1辺がそれぞれ等しい</text></svg>',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="40" height="24" rx="6" class="h-btn h-on"/><text x="30" y="27" class="h-btxt">直角</text><text x="120" y="27" class="h-btxt">∠ABC＝∠DEF＝90°</text><rect x="10" y="46" width="40" height="24" rx="6" class="h-btn"/><text x="30" y="63" class="h-btxt">斜辺</text><rect x="70" y="46" width="110" height="24" rx="8" class="h-btn h-on"/><text x="125" y="63" class="h-btxt">AC＝DF</text><rect x="10" y="82" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="99" class="h-btxt" style="font-size:11px">斜辺と他の1辺がそれぞれ等しい</text></svg>',
       },
       {
         title: '平行四辺形の証明（STAGE 10）',
         text: '平行四辺形の根拠の行には、等しい辺・角や平行な辺（AD∥BC）を入れ、最後に「平行四辺形になるための条件」のカードを選ぼう。チャレンジでは、キーパッドの「辺⇔角⇔∥」で平行も入力できるよ（入力の種類は、その行に合わせて最初から設定されているよ）。',
-        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="80" height="24" rx="8" class="h-btn"/><text x="50" y="27" class="h-btxt">仮定より</text><rect x="100" y="10" width="90" height="24" rx="8" class="h-btn h-on"/><text x="145" y="27" class="h-btxt">AD∥BC</text><rect x="100" y="44" width="90" height="24" rx="8" class="h-btn h-on"/><text x="145" y="61" class="h-btxt">AD＝BC</text><rect x="10" y="82" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="99" class="h-btxt">1組の対辺が平行で、その長さが等しい</text></svg>',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="80" height="24" rx="8" class="h-btn"/><text x="50" y="27" class="h-btxt">仮定より</text><rect x="100" y="10" width="90" height="24" rx="8" class="h-btn h-on"/><text x="145" y="27" class="h-btxt">AD∥BC</text><rect x="100" y="44" width="90" height="24" rx="8" class="h-btn h-on"/><text x="145" y="61" class="h-btxt">AD＝BC</text><rect x="10" y="82" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="99" class="h-btxt" style="font-size:10px">1組の対辺が平行で、その長さが等しい</text></svg>',
       },
       {
         title: 'ひし形・長方形の証明（STAGE 11）',
@@ -352,22 +353,50 @@
       },
     ],
   };
-  let howtoMode = 'hunter';
+  // Ver.1.0：STAGE 6 以降の内容（ハンター・パズル）は「STAGE 6以降について」に分ける
+  (function () {
+    const adv = function (p) { return /STAGE (6|7|8|9|1\d)/.test(p.title); };
+    HOWTO.advanced = HOWTO.hunter.filter(adv).map(function (p) { return Object.assign({}, p, { title: 'ハンター：' + p.title }); })
+      .concat(HOWTO.puzzle.filter(adv).map(function (p) { return Object.assign({}, p, { title: 'パズル：' + p.title }); }));
+    HOWTO.hunter = HOWTO.hunter.filter(function (p) { return !adv(p); });
+    HOWTO.puzzle = HOWTO.puzzle.filter(function (p) { return !adv(p); });
+  })();
+  // あそびかたのメニュー（表示順）。start … 最後の「はじめる！」で開く画面
+  const HOWTO_MENU = [
+    { id: 'hunter', ico: '🔍', name: 'ハンターモード', desc: '図をタップして、根拠を見つける遊び方', start: '#/select' },
+    { id: 'puzzle', ico: '🧩', name: '証明パズル', desc: 'カードで証明文を完成させる遊び方・3つのレベル', start: '#/puzzle' },
+    { id: 'advanced', ico: '🏆', name: 'STAGE 6以降について', desc: '合同から結論・多段階証明・直角三角形・平行四辺形・ひし形と長方形', start: '#/select' },
+    { id: 'rank', ico: '⏱️', name: '段位認定', desc: '120秒のミニ問題・2つのコース・段位', start: '#/rank' },
+  ];
+  const LAB_URL = 'https://taka-t-p.github.io/math-app-portal/';   // KEC数学科ラボ
+  let howtoMode = null;
   let howtoPage = 0;
 
+  function renderHowtoMenu() {
+    $('#howto-menu-cards').innerHTML = HOWTO_MENU.map(function (m) {
+      return '<button class="mode-card howto-item howto-' + m.id + '" data-go="#/howto/' + m.id + '">' +
+        '<span class="mode-ico" aria-hidden="true">' + m.ico + '</span>' +
+        '<span class="mode-text"><span class="mode-name">' + m.name + '</span><span class="mode-desc">' + m.desc + '</span></span></button>';
+    }).join('');
+  }
+
   function renderHowto() {
+    const menu = !howtoMode;
+    $('#howto-menu').hidden = !menu;
+    $('#lab-modal').hidden = true;
+    $('#howto-slides').hidden = menu;
+    if (menu) { renderHowtoMenu(); return; }
     const pages = HOWTO[howtoMode];
     const page = pages[howtoPage];
-    doc.querySelectorAll('[data-howto-tab]').forEach(function (b) {
-      b.setAttribute('aria-pressed', String(b.getAttribute('data-howto-tab') === howtoMode));
-    });
+    const item = HOWTO_MENU.find(function (m) { return m.id === howtoMode; });
+    $('#howto-mode').textContent = item.ico + ' ' + item.name;
     $('#howto-art').innerHTML = page.art;
     $('#howto-title').textContent = (howtoPage + 1) + '. ' + page.title;
     $('#howto-text').textContent = page.text;
     $('#howto-dots').innerHTML = pages.map(function (_, i) {
       return '<span class="dot' + (i === howtoPage ? ' on' : '') + '"></span>';
     }).join('');
-    $('#howto-prev').disabled = howtoPage === 0;
+    $('#howto-prev').textContent = howtoPage === 0 ? '◀ メニュー' : '◀ もどる';
     const last = howtoPage === pages.length - 1;
     $('#howto-next').textContent = last ? 'はじめる！' : 'つぎへ ▶';
   }
@@ -419,7 +448,7 @@
     } else if (name === 'rank' && mode === 'hunter') {
       routeRank(parts[1], parts[2]);
     } else if (name === 'howto' && mode === 'hunter') {
-      howtoMode = parts[1] === 'puzzle' || parts[1] === 'rank' ? parts[1] : 'hunter';
+      howtoMode = HOWTO[parts[1]] ? parts[1] : null;      // なければメニュー
       howtoPage = 0;
       renderHowto();
       show('howto');
@@ -473,8 +502,19 @@
     PH.sound.setEnabled(PH.storage.getSound());
 
     doc.addEventListener('click', function (e) {
-      const t = e.target.closest('[data-go],[data-level],[data-sound-toggle],[data-act="rank-start"],#btn-continue,#howto-prev,#howto-next,#hint-close,#tri-close');
+      const t = e.target.closest('[data-go],[data-level],[data-sound-toggle],[data-act="rank-start"],#btn-continue,#howto-prev,#howto-next,#hint-close,#tri-close,#howto-lab,#lab-yes,#lab-no');
       if (!t) return;
+      // あそびかたのメニュー：KEC数学科ラボへ（確認してから移動）
+      if (t.id === 'howto-lab' || t.id === 'lab-no') {
+        PH.sound.play('tap');
+        $('#lab-modal').hidden = t.id === 'lab-no';
+        if (t.id === 'howto-lab') $('#lab-no').focus();
+        return;
+      }
+      if (t.id === 'lab-yes') {
+        location.href = LAB_URL;
+        return;
+      }
       if (t.getAttribute('data-act') === 'rank-start') {
         const track = PH.rankTracks.isTrack(t.getAttribute('data-track')) ? t.getAttribute('data-track') : 'basic';
         PH.sound.play('tap');
@@ -505,9 +545,10 @@
         go(MODES[last.mode].play(last.id));
       } else if (t.id === 'howto-prev') {
         if (howtoPage > 0) { howtoPage--; renderHowto(); }
+        else go('#/howto');
       } else if (t.id === 'howto-next') {
         if (howtoPage < HOWTO[howtoMode].length - 1) { howtoPage++; renderHowto(); }
-        else go(howtoMode === 'rank' ? '#/rank' : MODES[howtoMode].select);
+        else go(HOWTO_MENU.find(function (m) { return m.id === howtoMode; }).start);
       } else if (t.id === 'hint-close') {
         PH.hints.hide(doc.getElementById('hint-popup'));
       } else if (t.id === 'tri-close') {

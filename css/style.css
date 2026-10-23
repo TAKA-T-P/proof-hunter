@@ -695,10 +695,26 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .cont-sub { display: block; font-size: .72rem; font-weight: 700; }
 #btn-continue { flex-direction: column; gap: 0; line-height: 1.2; }
 
-/* あそびかた：モードのタブ */
-.howto-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
-.howto-tab { flex: 1; min-height: 38px; border: 2px solid var(--line); border-radius: 10px; background: #fff; font-weight: 800; }
-.howto-tab[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+/* あそびかた：メニュー（Ver.1.0）と説明の見出し */
+.howto-menu { max-width: 520px; margin: 0 auto; padding: 4px 16px 16px; }
+.howto-lead { margin: 6px 0 12px; text-align: center; font-weight: 800; color: var(--navy); }
+.howto-menu-cards .mode-card { border-color: var(--line); box-shadow: 0 3px 10px rgba(15, 23, 42, .12); }
+.howto-item.howto-puzzle { color: var(--purple); }
+.howto-item.howto-puzzle .mode-ico { background: var(--purple-soft); }
+.howto-item.howto-advanced { color: #047857; }
+.howto-item.howto-advanced .mode-ico { background: #d1fae5; }
+.howto-item.howto-rank { color: var(--gold-deep); }
+.howto-item.howto-rank .mode-ico { background: #fde68a; }
+.howto-lab { width: 100%; margin-top: 18px; min-height: 48px; border: 2px solid var(--line); background: #fff; color: var(--navy); font-weight: 900; }
+.lab-modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .55); }
+.lab-modal-box { width: 100%; max-width: 360px; padding: 20px 16px 16px; text-align: center; }
+.lab-modal-text { margin: 0 0 16px; font-weight: 900; color: var(--navy); font-size: 1.05rem; }
+.lab-modal-actions { display: flex; gap: 10px; }
+.lab-modal-actions .btn { flex: 1; min-height: 46px; }
+.howto-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; text-align: left; }
+.howto-back { flex: none; min-height: 38px; padding: 4px 12px; font-size: .9rem; }
+.howto-mode { flex: 1; min-width: 0; font-weight: 900; color: var(--navy); overflow-wrap: anywhere; }
+.howto-text, .howto-title { overflow-wrap: anywhere; }
 .h-blank { fill: #fef9c3; stroke: var(--gold); stroke-width: 2.5; stroke-dasharray: 5 3; }
 .h-blank2 { fill: #fff; stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 5 3; }
 
