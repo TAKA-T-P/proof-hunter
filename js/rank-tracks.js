@@ -85,6 +85,8 @@
     parallelogramOppositeSidesParallel: ['parallelogramProperties'], parallelogramOppositeSidesEqual: ['parallelogramProperties'],
     parallelogramOppositeAnglesEqual: ['parallelogramProperties'], parallelogramDiagonalsBisect: ['parallelogramProperties', 'diagonalBisector'],
     halfSegments: ['parallelogramProperties'],
+    parallelTransitive: ['parallelogramProperties'], equalTransitive: ['parallelogramProperties'], segmentSubtraction: ['parallelogramProperties'],
+    alternateAnglesParallel: ['parallelConverse'],
   };
   // 合同条件 → 学習テーマ
   const CONDITION_TOPIC = {

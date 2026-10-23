@@ -410,6 +410,10 @@
         if (!PH.parallelogram) errors.push('平行四辺形の判定（parallelogram-rules.js）がない');
         else PH.parallelogram.verify(problem).forEach(function (e) { errors.push(e); });
       }
+      // 仮定の平行四辺形と、その性質を使う合同の根拠（STAGE 9 の p37〜p39 など）
+      if (PH.parallelogram && ((problem.knownParallelograms || []).length || (problem.evidence || []).some(function (ev) { return PH.parallelogram.isPropertyReason(ev.reason); }))) {
+        PH.parallelogram.verifyKnown(problem).forEach(function (e) { errors.push(e); });
+      }
 
       // 一直線上の点（figure.lines）が本当に一直線上に、書いた順で並んでいるか
       (fig.lines || []).forEach(function (L) {
@@ -541,7 +545,7 @@
     // 結論が「二等辺三角形である」（Ver.0.7）の問題は、合同から導いた等式（finalStep）をもとに、後半のステップで結論を導く
     // 結論が「平行四辺形」（Ver.0.9）の問題は、合同から導いた等式（finalStep）を、平行四辺形の根拠（平行を導く角など）に使う
     const ctype = PH.conclusionType(problem);
-    const viaPost = ctype === 'isoscelesTriangle';
+    const viaPost = ctype === 'isoscelesTriangle' || ctype === 'parallelLines';   // 後半のステップで結論を導く（二等辺三角形・平行）
     const viaQuad = ctype === 'parallelogram';
     const kind = ctype === 'equalAngle' ? 'angle' : ctype === 'equalSide' ? 'side' : fs.relationType;
     if (fs.relationType !== kind) errors.push('finalStep.relationType が conclusionType と合わない');
@@ -552,6 +556,7 @@
     } else if (viaQuad) {
       const fk = keysOf(fig, fs.items);
       const used = ((problem.parallelogram && problem.parallelogram.evidence) || []).some(function (ev) {
+        if (ev.fromFinal) return true;                  // 合同から導いた結論そのものを根拠に使う（p42）
         if (!ev.via) return false;
         const vk = keysOf(fig, ev.via);
         return equationKey(vk[0], vk[1]) === equationKey(fk[0], fk[1]);

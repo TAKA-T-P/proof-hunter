@@ -766,7 +766,9 @@
         break;
       }
       case 'wrong-role':
+        // 根拠は正しく欄の順番だけがちがうときはミスにしない（メッセージは同じ）
         this.say(wrongRoleText(p, r), 'ng');
+        if (!r.miss) PH.sound.play('soft');
         break;
       case 'duplicate':
         this.say('この根拠はもう見つけているよ！', 'info');

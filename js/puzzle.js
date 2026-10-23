@@ -345,7 +345,8 @@
     // Ver.0.9：平行四辺形の部分。tri … 三角形の合同の部分があるか（平行四辺形だけの問題は false）
     this.quad = !!(PH.isQuadProblem && PH.isQuadProblem(problem));
     this.tri = !this.quad || PH.hasLemma(problem);
-    this.qrowEv = quadEvidence(problem).filter(function (ev) { return !ev.fromStep; });
+    // 平行四辺形の根拠の行：ステップで導く根拠と、合同から導いた結論そのもの（fromFinal。証明文では結論の番号を使う）は行にしない
+    this.qrowEv = quadEvidence(problem).filter(function (ev) { return !ev.fromStep && !ev.fromFinal; });
     this.postSteps = this.multi ? PH.proofEngine.stepsOf(problem, 'post') : [];
     const triCards = this.hasFinal && this.type === 'build' ? makeTriCards(problem) : { tri1: [], tri2: [] };
     this.cards = {
@@ -755,7 +756,7 @@
     if (!rows.every(function (r) { return r.status === 'ok'; })) {
       return { status: card.cond === p.parallelogram.condition ? 'ok' : 'wrong-condition', card: card, rows: rows };
     }
-    const ids = rows.map(function (r) { return r.evidence.id; }).concat(quadEvidence(p).filter(function (ev) { return ev.fromStep; }).map(function (ev) { return ev.id; }));
+    const ids = rows.map(function (r) { return r.evidence.id; }).concat(quadEvidence(p).filter(function (ev) { return ev.fromStep || ev.fromFinal; }).map(function (ev) { return ev.id; }));
     const r = PH.parallelogram.checkCondition(p, ids, card.cond);
     return { status: r.ok ? 'ok' : r.status, card: card, rows: rows };
   };

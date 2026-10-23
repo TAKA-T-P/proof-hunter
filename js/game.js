@@ -11,6 +11,7 @@
  *         解きおえるとその根拠が登録されて根拠の収集にもどる。
  * Ver.0.8：直角三角形の合同条件の問題（PH.isRightProblem）は、根拠の欄が「直角・斜辺・他の1辺（鋭角）」になる。
  *         role（今集めている欄）に合わない根拠は 'wrong-role'（例：他の1辺を斜辺の欄に入れた）。欄はタップで切りかえられる。
+ *         根拠そのもの（等式と理由）が正しく、欄の順番だけがちがうときはミスに数えない（理由もまちがっていればミス）。
  * Ver.0.9：結論が平行四辺形の問題（PH.isQuadProblem）は、'qcollect'（平行四辺形の根拠を集める。数は問題ごと）→ 'qcondition'
  *         （5つの成立条件から選ぶ）→ 'clear'。三角形の合同を示す部分がある問題（PH.hasLemma。p35）は、
  *         'triangle' → 'collect' → 'congruence' → 'final'（合同から角の等しさを導く）のあとで 'qcollect' に進む。
@@ -428,7 +429,8 @@
     // Ver.0.8：今の欄（直角・斜辺・他の1辺・鋭角）に合わない根拠（例：他の1辺を斜辺の欄に入れた）
     if (this.isRight() && r.evidence && r.status !== 'duplicate') {
       const got = this.roleOf(r.evidence);
-      if (got !== this.role) r = { status: 'wrong-role', miss: true, evidence: r.evidence, kind: r.kind, role: got, want: this.role };
+      // 根拠は正しく、答える欄の順番だけがちがう（例：斜辺の欄で他の1辺を先に答えた）ときはミスにしない
+      if (got !== this.role) r = { status: 'wrong-role', miss: r.status !== 'correct', evidence: r.evidence, kind: r.kind, role: got, want: this.role };
     }
     if (r.miss) this.misses++;
     switch (r.status) {
@@ -563,7 +565,7 @@
     } else if (this.partFound().indexOf(ev.id) >= 0) {
       r = { status: 'duplicate', miss: false, evidence: ev, kind: kind };
     } else if (this.isRight() && this.roleOf(ev) !== this.role) {
-      r = { status: 'wrong-role', miss: true, evidence: ev, kind: kind, role: this.roleOf(ev), want: this.role };
+      r = { status: 'wrong-role', miss: false, evidence: ev, kind: kind, role: this.roleOf(ev), want: this.role };   // 欄の順番だけのちがいはミスにしない
     } else if (!ev.fromStep) {
       r = { status: 'not-explain', miss: true, evidence: ev, kind: kind };
     } else {
@@ -735,6 +737,7 @@
         list.push(ev.id);
         this.establish(ev);
         r.registered = ev;
+        this.relation = 'eq';            // 次の根拠は「＝」から（平行四辺形の根拠）
         if (list.length === this.total()) {
           this.phase = quad ? 'qcondition' : 'congruence';
           r.complete = true;
@@ -937,7 +940,8 @@
       const b = problem.finalStep.items.map(function (x) { return PH.geometry.elementKey(fig, x); });
       return PH.validation.equationKey(a[0], a[1]) === PH.validation.equationKey(b[0], b[1]) ? final.no + 'より、' : '';
     };
-    const lines = pz.evidence.filter(function (ev) { return !ev.fromStep; }).map(function (ev) {
+    // 合同から導いた結論そのもの（fromFinal）は、その番号を使う（行にはしない）
+    const lines = pz.evidence.filter(function (ev) { return !ev.fromStep && !(ev.fromFinal && final); }).map(function (ev) {
       return { evidenceId: ev.id, reason: viaText(ev) + (ev.proofReason || PH.REASONS[ev.reason].proof), equation: ev.label, no: CIRCLED[n++], rel: ev.rel || 'eq' };
     });
     const stepNo = {};
@@ -951,6 +955,7 @@
     }
     const nums = pz.evidence.map(function (ev) {
       if (ev.fromStep) return stepNo[ev.fromStep];
+      if (ev.fromFinal && final) return final.no;
       return lines.find(function (l) { return l.evidenceId === ev.id; }).no;
     });
     return {

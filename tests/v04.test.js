@@ -20,8 +20,8 @@ require('../js/math-keypad.js');
 require('../js/puzzle.js');
 
 const PH = globalThis.PH;
-// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
-const TRI = PH.problems.filter((p) => p.stage <= 8);
+// Ver.0.8 までの30問（p01〜p30）。Ver.0.9 の問題（p31〜p42。p35 は STAGE 6）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => Number(p.id.slice(1)) <= 30);
 const val = PH.validation;
 const geo = PH.geometry;
 const KP = PH.mathKeypad;

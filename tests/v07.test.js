@@ -24,8 +24,8 @@ require('../js/rank-questions.js');
 require('../js/rank-game.js');
 
 const PH = globalThis.PH;
-// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
-const TRI = PH.problems.filter((p) => p.stage <= 8);
+// Ver.0.8 までの30問（p01〜p30）。Ver.0.9 の問題（p31〜p42。p35 は STAGE 6）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => Number(p.id.slice(1)) <= 30);
 const val = PH.validation;
 const geo = PH.geometry;
 const E = PH.angleExpr;
@@ -109,7 +109,7 @@ function solveHunter(p) {
 // ---- 問題データ ---------------------------------------------------------------------
 
 test('STAGE 7「証明をつなげろ！」は p21〜p24 の多段階証明', () => {
-  assert.equal(PH.problems.length, 36);
+  assert.equal(PH.problems.length, 42);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6
   assert.equal(PH.getStage(7).title, '証明をつなげろ！');
   assert.deepEqual(PH.stageProblems(7).map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
   assert.deepEqual(MULTI.map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);

@@ -184,7 +184,6 @@
             '<span class="sc-theme">' + esc(st.theme) + '</span>' +
           '</span>' +
           '<span class="sc-status">' +
-            (stat.complete ? '<span class="sc-badge">STAGE CLEAR</span>' : '') +
             '<span class="sc-clear">クリア <b>' + stat.cleared + '</b>/' + stat.total + '問</span>' +
             '<span class="sc-total">★ ' + stat.stars + '/' + stat.maxStars + '</span>' +
           '</span>' +
@@ -253,8 +252,8 @@
         art: '<svg viewBox="0 0 200 120"><polygon points="20,100 20,30 90,100" class="h-tri1"/><polyline points="20,88 32,88 32,100" class="h-rule"/><line x1="20" y1="30" x2="90" y2="100" class="h-sel"/><text x="70" y="58" class="h-txt">斜辺</text><rect x="110" y="16" width="80" height="24" rx="8" class="h-btn h-on"/><text x="150" y="33" class="h-btxt">直角</text><rect x="110" y="48" width="80" height="24" rx="8" class="h-btn"/><text x="150" y="65" class="h-btxt">斜辺</text><rect x="110" y="80" width="80" height="24" rx="8" class="h-btn"/><text x="150" y="97" class="h-btxt">他の1辺</text></svg>',
       },
       {
-        title: '平行四辺形の証明（STAGE 9）',
-        text: '結論が「四角形ABCDは平行四辺形」の問題では、平行四辺形になるための根拠（2つ）を集めて、5つの成立条件から選ぶよ。平行を示すときは、2つの辺を選んでから「＝⇔∥」で ∥ に切りかえよう。「平行四辺形の対辺は等しい」などの性質は、平行四辺形だと分かっている四角形にしか使えないよ。図の右の「四角形確認」で、対辺・対角・対角線を確認できるよ。',
+        title: '平行四辺形（STAGE 9・10）',
+        text: 'STAGE 9 では、平行四辺形の性質（対辺は等しい・対辺は平行・対角線はそれぞれの中点で交わる）を三角形の合同の根拠に使うよ。STAGE 10 の、結論が「四角形ABCDは平行四辺形」の問題では、平行四辺形になるための根拠（2つ）を集めて、5つの成立条件から選ぶよ。平行を示すときは、2つの辺を選んでから「＝⇔∥」で ∥ に切りかえよう。「平行四辺形の対辺は等しい」などの性質は、平行四辺形だと分かっている四角形にしか使えないよ。図の右の「四角形確認」で、対辺・対角・対角線を確認できるよ。',
         art: '<svg viewBox="0 0 200 120"><polygon points="50,20 20,100 150,100 180,20" class="h-tri1"/><line x1="50" y1="20" x2="180" y2="20" class="h-sel"/><line x1="20" y1="100" x2="150" y2="100" class="h-sel"/><text x="115" y="14" class="h-btxt">∥</text><text x="85" y="115" class="h-btxt">∥</text><rect x="62" y="44" width="76" height="26" rx="8" class="h-btn h-on"/><text x="100" y="62" class="h-btxt">＝⇔∥</text></svg>',
       },
       {
@@ -305,7 +304,7 @@
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="40" height="24" rx="6" class="h-btn h-on"/><text x="30" y="27" class="h-btxt">直角</text><text x="120" y="27" class="h-btxt">∠ABC＝∠DEF＝90°</text><rect x="10" y="46" width="40" height="24" rx="6" class="h-btn"/><text x="30" y="63" class="h-btxt">斜辺</text><rect x="70" y="46" width="110" height="24" rx="8" class="h-btn h-on"/><text x="125" y="63" class="h-btxt">AC＝DF</text><rect x="10" y="82" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="99" class="h-btxt">斜辺と他の1辺がそれぞれ等しい</text></svg>',
       },
       {
-        title: '平行四辺形の証明（STAGE 9）',
+        title: '平行四辺形の証明（STAGE 10）',
         text: '平行四辺形の根拠の行には、等しい辺・角や平行な辺（AD∥BC）を入れ、最後に「平行四辺形になるための条件」のカードを選ぼう。チャレンジでは、キーパッドの「辺⇔角⇔∥」で平行も入力できるよ（入力の種類は、その行に合わせて最初から設定されているよ）。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="80" height="24" rx="8" class="h-btn"/><text x="50" y="27" class="h-btxt">仮定より</text><rect x="100" y="10" width="90" height="24" rx="8" class="h-btn h-on"/><text x="145" y="27" class="h-btxt">AD∥BC</text><rect x="100" y="44" width="90" height="24" rx="8" class="h-btn h-on"/><text x="145" y="61" class="h-btxt">AD＝BC</text><rect x="10" y="82" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="99" class="h-btxt">1組の対辺が平行で、その長さが等しい</text></svg>',
       },

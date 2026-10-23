@@ -311,7 +311,7 @@
       if (ev.fromStep && c.engine && !c.engine.canUse(ev)) return out('not-proved', true, { evidence: ev });
       if (PH.acceptedReasons(ev).indexOf(reasonId) >= 0) {
         // 錯角・同位角から平行を導くときは、その角の等しさが証明済みであること
-        if (ev.via && c.isEstablished && !c.isEstablished(viaKey(p, ev))) return out('via-unproved', true, { evidence: ev });
+        if (ev.via && !rightVia(p, ev) && c.isEstablished && !c.isEstablished(viaKey(p, ev))) return out('via-unproved', true, { evidence: ev });
         return out('correct', false, { evidence: ev });
       }
       if (isPropertyReason(reasonId) && targetProperties(p).some(function (f) { return f.key === key; })) return out('property-unproved', true, { evidence: ev });
@@ -321,6 +321,36 @@
     if (st.status === 'target-property') return out(isPropertyReason(reasonId) ? 'property-unproved' : 'wrong-equation', true);
     if (st.status === 'known') return st.reasons.indexOf(reasonId) >= 0 ? out('irrelevant', false) : out('wrong-reason', true);
     return out('wrong-equation', true);
+  }
+
+  /*
+   * 平行を導く2つの角が、どちらも仮定の垂線がつくる直角か（p42 の ∠BEF＝∠DFE＝90°。BE⊥AC、DF⊥AC）。
+   * そのときは、角の等しさを別に証明しなくても「錯角が等しいから平行」が使える
+   */
+  function rightVia(p, ev) {
+    const RT = PH.rightTriangle;
+    if (!ev.via || !RT) return false;
+    return ev.via.every(function (n) {
+      const pp = RT.perpendicularFor(p, n);
+      return !!pp && (p.given || []).indexOf(pp.label) >= 0;
+    });
+  }
+
+  // 平行四辺形の性質を使う根拠・仮定の平行四辺形のデータの確認（三角形の合同の問題もふくむ。p37〜p39）
+  function verifyKnown(p) {
+    const errors = [];
+    const fig = p.figure;
+    (p.knownParallelograms || []).forEach(function (q) {
+      if (!Q().isConvex(fig, q)) errors.push('仮定の平行四辺形が凸四角形ではない: ' + q.join(''));
+      if ((p.given || []).indexOf(Q().name(q) + 'は平行四辺形') < 0) errors.push('仮定に平行四辺形が書かれていない: ' + q.join(''));
+      propertyFacts(fig, q).forEach(function (f) { if (!holdsInFigure(fig, f.items, f.rel)) errors.push('仮定の平行四辺形の図が正しくない: ' + relText(f.items, f.rel)); });
+    });
+    (p.evidence || []).forEach(function (ev) {
+      if (!isPropertyReason(ev.reason)) return;
+      const key = factKey(fig, ev.items, 'eq');
+      if (!knownProperties(p).some(function (f) { return f.key === key && f.reason === ev.reason; })) errors.push(ev.id + ': 仮定の平行四辺形の性質になっていない');
+    });
+    return errors;
   }
 
   // 平行を導く角の等しさの等式キー
@@ -371,11 +401,6 @@
     else if (!Q().isConvex(fig, quad)) errors.push('証明する四角形が凸四角形ではない');
     if (p.conclusion !== Q().name(quad) + 'は平行四辺形') errors.push('結論の表記が targetQuadrilateral と一致しない');
     if (!PH.PARALLELOGRAM_CONDITIONS[pz.condition]) errors.push('成立条件が無効: ' + pz.condition);
-    (p.knownParallelograms || []).forEach(function (q) {
-      if (!Q().isConvex(fig, q)) errors.push('仮定の平行四辺形が凸四角形ではない: ' + q.join(''));
-      if (p.given.indexOf(Q().name(q) + 'は平行四辺形') < 0) errors.push('仮定に平行四辺形が書かれていない: ' + q.join(''));
-      propertyFacts(fig, q).forEach(function (f) { if (!holdsInFigure(fig, f.items, f.rel)) errors.push('仮定の平行四辺形の図が正しくない: ' + relText(f.items, f.rel)); });
-    });
     const els = G().getElements(fig);
     const ids = {};
     const steps = {};
@@ -398,8 +423,13 @@
       if (ev.fromStep) {
         const s = steps[ev.fromStep];
         if (!s) errors.push(ev.id + ': fromStep のステップがない');
-        else if (factKey(fig, s.items || [], 'eq') !== key) errors.push(ev.id + ': 導いた事実と根拠の等式が一致しない');
+        else if (factKey(fig, s.items || [], s.rel) !== key) errors.push(ev.id + ': 導いた事実と根拠の等式が一致しない');
       } else if (pz.reasons.indexOf(ev.reason) < 0) errors.push(ev.id + ': 理由が選択肢にない');
+      if (ev.fromFinal) {
+        // 三角形の合同から導いた結論（finalStep）そのもの
+        if (!p.finalStep || factKey(fig, p.finalStep.items, 'eq') !== key) errors.push(ev.id + ': fromFinal なのに合同から導いた結論と一致しない');
+        if (ev.reason !== PH.finalReasonFor(p)) errors.push(ev.id + ': fromFinal の理由は合同な図形の対応する辺（角）');
+      }
       if (ev.reason === 'given' && p.given.indexOf(ev.given || ev.label) < 0) errors.push(ev.id + ': 仮定に書かれていない ' + ev.label);
       if (isPropertyReason(ev.reason)) {
         // 性質は、仮定の平行四辺形のものだけ（証明する四角形の性質を先に使わない）
@@ -418,12 +448,12 @@
           const fs = p.finalStep ? keysOf(fig, p.finalStep.items) : null;
           const fromFinal = fs && V().equationKey(fs[0], fs[1]) === vk;
           const fromStep = (p.proofSteps || []).some(function (s) { return s.items && factKey(fig, s.items, 'eq') === 'eq:' + vk; });
-          if (!fromFinal && !fromStep) errors.push(ev.id + ': 平行を導く角の等しさが証明されていない');
+          if (!fromFinal && !fromStep && !rightVia(p, ev)) errors.push(ev.id + ': 平行を導く角の等しさが証明されていない');
         }
       }
       if (!(p.hints && p.hints[ev.id] && p.hints[ev.id].length === 3)) errors.push(ev.id + ': ヒントが3段階ない');
       // 証明する四角形の性質を「仮定より」などで使っていないか（仮定に書かれた関係はよい）
-      if (!ev.fromStep && !isPropertyReason(ev.reason) && ev.reason !== 'given' && !CONVERSE_REASONS[ev.reason] && ev.reason !== 'correspondingSides' && ev.reason !== 'correspondingAngles') {
+      if (!ev.fromStep && !isPropertyReason(ev.reason) && ev.reason !== 'given' && !CONVERSE_REASONS[ev.reason] && !ev.fromFinal) {
         errors.push(ev.id + ': 平行四辺形の根拠に使えない理由 ' + ev.reason);
       }
     });
@@ -477,6 +507,8 @@
     checkEvidence: checkEvidence,
     equationStatus: equationStatus,
     viaKey: viaKey,
+    rightVia: rightVia,
+    verifyKnown: verifyKnown,
     holdsInFigure: holdsInFigure,
     verify: verify,
   };

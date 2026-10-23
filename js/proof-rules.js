@@ -19,6 +19,10 @@
  *                        平行四辺形の性質（平行四辺形だと分かっている四角形にだけ使う）
  *   alternateAnglesParallel / correspondingAnglesParallel  錯角・同位角が等しいならば2直線は平行
  *   halfSegments         等しい線分の半分（中点までの長さ）は等しい（OB＝OD、E・F が中点 → OE＝OF）
+ *   parallelTransitive   同じ直線に平行な2直線は平行（AD∥BC、BC∥EF → AD∥EF）
+ *   equalTransitive      同じ辺に等しい2つの辺は等しい（AD＝BC、BC＝EF → AD＝EF）
+ *   segmentSubtraction   等しい線分から等しい線分をひいた残りは等しい（AB＝DC、AE＝FC → EB＝DF）
+ *   alternateAnglesParallel（後半のステップ）… 合同から導いた錯角の等しさから「錯角が等しいから平行」（p35 の AD∥BC）
  *   PP_PARALLEL_PAIRS ほか5つ … 平行四辺形になるための条件（PH.PARALLELOGRAM_CONDITIONS）
  * 合同（三角形の合同・対応する辺・角）は既存の validation.js のしくみを使う（名前が重ならないよう、ここでは
  * 'triangleCongruence' は合同条件の判定、'correspondingSides'・'correspondingAngles' は PH.REASONS の既存の理由を指す）。
@@ -57,6 +61,9 @@
     alternateAnglesParallel: { label: '錯角が等しいから', short: '錯角が等しい → 平行', reason: 'alternateConverse' },
     correspondingAnglesParallel: { label: '同位角が等しいから', short: '同位角が等しい → 平行', reason: 'correspondingConverse' },
     halfSegments: { label: '等しい線分の半分の長さは等しいから', short: '線分の半分' },
+    parallelTransitive: { label: '同じ直線に平行な2直線は平行だから', short: '平行をつなぐ' },
+    equalTransitive: { label: '同じ辺に等しい2つの辺は等しいから', short: '長さをつなぐ' },
+    segmentSubtraction: { label: '等しい線分から等しい線分をひいた残りは等しいから', short: '長さの差' },
     // 平行四辺形になるための条件（「… → 平行四辺形である」。性質とは逆向きの推論）
     PP_PARALLEL_PAIRS: { label: '2組の対辺がそれぞれ平行', short: '成立条件①', condition: 'PP_PARALLEL_PAIRS' },
     PP_EQUAL_SIDES: { label: '2組の対辺がそれぞれ等しい', short: '成立条件②', condition: 'PP_EQUAL_SIDES' },
@@ -77,6 +84,11 @@
     parallelogramOppositeAnglesEqual: ['平行四辺形の対辺は等しいから', '対頂角は等しいから'],
     parallelogramOppositeSidesParallel: ['平行四辺形の対辺は等しいから', '錯角が等しいから'],
     halfSegments: ['平行四辺形の対角線はそれぞれの中点で交わるから', '平行四辺形の対辺は等しいから'],
+    parallelTransitive: ['平行線の錯角は等しいから', '平行四辺形の対角線はそれぞれの中点で交わるから'],
+    equalTransitive: ['共通な辺だから', '平行四辺形の対角は等しいから'],
+    segmentSubtraction: ['平行四辺形の対辺は等しいから', '共通な辺だから'],
+    // 「錯角が等しいから平行」の誤答は、逆の推論（平行線の錯角は等しい）と、関係のない理由
+    alternateAnglesParallel: ['平行線の錯角は等しいから', '対頂角は等しいから'],
   };
 
   // ---- データの確認（図と仮定から、そのルールで本当に言えるか） ---------------------------
@@ -227,6 +239,47 @@
     return bad ? '仮定の中点が図の上で中点になっていない' : null;
   }
 
+  /*
+   * Ver.0.9：同じものにつなぐ推論（parallelTransitive・equalTransitive）。依存する2つのステップの結論が
+   *   共通な辺（直線）をもち、items がそれ以外の2つであること。図の上で成り立つことも確かめる
+   */
+  function checkTransitive(problem, step, deps) {
+    const PG = PH.parallelogram;
+    const fig = problem.figure;
+    if (deps.length !== 2) return '前提のステップが2つない';
+    const par = step.rule === 'parallelTransitive';
+    if (par !== (step.rel === 'parallel')) return '平行の推論と関係の種類が合わない';
+    const unit = function (n) { return par ? PH.quadrilateral.lineKey(fig, n) : G().segKey(n); };
+    const a = deps[0].items.map(unit), b = deps[1].items.map(unit);
+    if (deps.some(function (d) { return (d.rel === 'parallel') !== par; })) return '前提の関係の種類が合わない';
+    const shared = a.filter(function (x) { return b.indexOf(x) >= 0; });
+    if (shared.length !== 1) return '2つの前提に共通な辺（直線）がない';
+    const rest = a.concat(b).filter(function (x) { return x !== shared[0]; }).sort().join('|');
+    if (rest !== step.items.map(unit).sort().join('|')) return '結論が、共通な辺（直線）以外の2つの関係になっていない';
+    return PG.holdsInFigure(fig, step.items, step.rel) ? null : '結論が図の上で成り立たない';
+  }
+
+  /*
+   * Ver.0.9：等しい線分から等しい線分をひいた残り（segmentSubtraction）。premise の2本の線分（等しいことは依存するステップの結論）から、
+   *   subtract の2本（仮定で等しい）をひいた残りが items。それぞれ、ひく線分は全体の線分と端点を共有し、その中の点で区切られること
+   */
+  function checkSegmentSubtraction(problem, step) {
+    const fig = problem.figure;
+    const whole = (step.premise || []).map(clean), part = (step.subtract || []).map(clean), rest = step.items.map(clean);
+    if (whole.length !== 2 || part.length !== 2) return '全体とひく線分が2本ずつない';
+    if ((problem.given || []).indexOf(part[0] + '＝' + part[1]) < 0) return 'ひく線分の等しさが仮定にない';
+    for (let i = 0; i < 2; i++) {
+      const W = whole[i], Pp = part[i], R = rest[i];
+      const end = Pp.split('').find(function (c) { return W.indexOf(c) >= 0; });
+      const inner = Pp.replace(end, '');
+      const other = W.replace(end, '');
+      if (!end || W.indexOf(inner) >= 0) return Pp + ' が ' + W + ' の一部になっていない';
+      if (!PH.quadrilateral.isBetween(fig, end, inner, other)) return inner + ' が ' + W + ' の内側の点ではない';
+      if ([inner, other].sort().join('') !== R.split('').sort().join('')) return R + ' が ' + W + '－' + Pp + ' になっていない';
+    }
+    return PH.parallelogram.holdsInFigure(fig, step.items, 'eq') ? null : '結論が図の上で成り立たない';
+  }
+
   // 正三角形の2辺（equilateralSides の根拠）か
   function checkEquilateralSides(problem, items) {
     const sides = items.map(clean);
@@ -247,6 +300,8 @@
     checkEquilateralSides: checkEquilateralSides,
     checkParallelogramProperty: checkParallelogramProperty,
     checkHalfSegments: checkHalfSegments,
+    checkTransitive: checkTransitive,
+    checkSegmentSubtraction: checkSegmentSubtraction,
     knownAngles: knownAngles,
   };
 

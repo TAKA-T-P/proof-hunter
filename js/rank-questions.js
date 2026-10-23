@@ -396,6 +396,36 @@
             signature: 'thc|' + p.id,
           });
         }
+      } else if (st.type === 'theorem' && st.rule === 'alternateAnglesParallel') {
+        // 「∠ADB＝∠CBD（錯角）が証明できた。言える平行な2辺は？」（記号入力は AD∥BC）。カテゴリは平行四辺形（平行の推論）
+        const PG = PH.parallelogram;
+        const want = PG.factKey(fig, st.lines, 'parallel');
+        out.push({
+          id: p.id + '-ppv-' + st.id, sourceId: p.id, category: 'para', type: 'ppConverse', typeLabel: '平行を導く',
+          difficulty: 2, blanks: 1, figure: p.id, highlight: st.premise.map(function (n) { return key(p, n); }),
+          lines: [st.premiseLabel + '（錯角）が証明できた。'], ask: 'このことから言える、平行な2つの辺は？',
+          choice: { blanks: [choiceBlank('平行な辺', st.label, [st.lines[0] + '∥' + otherLine(p, st.lines), st.lines[0] + '＝' + st.lines[1]])] },
+          input: {
+            keypad: { kinds: ['par'] },
+            check: function (value) {
+              const v = PH.mathKeypad.parse(value);
+              return !!v && v.kind === 'par' && PG.factKey(fig, [v.left, v.right], 'parallel') === want;
+            },
+            answerText: st.label,
+          },
+          answerText: st.label, explain: '錯角が等しいならば、2直線は平行です（平行線の錯角は等しい、の逆）。' + st.premise.join('と') + ' は直線' + st.lines.join('と直線') + 'がつくる錯角です。',
+          signature: 'ppv|' + p.id + '|' + st.id,
+          requiredTopics: ['parallelConverse'],
+        });
+        out.push({
+          id: p.id + '-ppvr-' + st.id, sourceId: p.id, category: 'para', type: 'ppReason', typeLabel: '平行といえる理由',
+          difficulty: 2, blanks: 1, figure: p.id, highlight: st.premise.map(function (n) { return key(p, n); }),
+          lines: [st.premiseLabel + ' が証明できた。'], ask: st.label + ' と言える理由は？',
+          choice: { blanks: [choiceBlank('理由', R.label(st.rule), R.RULE_DISTRACTORS[st.rule].slice(0, 2))] }, input: null,
+          answerText: R.label(st.rule), explain: '錯角が等しいならば、2直線は平行です。「平行線の錯角は等しい」は、平行だと分かってから使う逆の向きの推論です。',
+          signature: 'ppvr|' + p.id + '|' + st.id,
+          requiredTopics: ['parallelConverse'],
+        });
       } else if (st.type === 'expression') {
         // 「△DCEは正三角形。∠ACE＝∠ACD＋∠DCE を、角の大きさを使って表すと？」
         //  誤答：定数角を取りちがえた式（60°⇔90°）と、符号を取りちがえた式
@@ -620,16 +650,21 @@
       const rr = PH.REASONS[ev.reason];
       const wrongs = PG.CONVERSE_REASONS[ev.reason]
         ? ['平行線の錯角は等しいから', '平行四辺形の対辺は平行だから']
+        : ev.fromFinal ? ['平行四辺形の対辺は等しいから', '仮定より']
+        : ev.reason === 'parallelogramParallel' ? ['平行四辺形の対辺は等しいから', '錯角が等しいから']
         : ['平行四辺形の対辺は等しいから', '仮定より'];
       out.push({
         id: p.id + '-ppr-' + ev.id, sourceId: p.id, category: 'para', type: 'ppReason', typeLabel: ev.rel === 'parallel' ? '平行といえる理由' : '等しい理由',
         difficulty: 2, blanks: 1, figure: p.id, highlight: ev.items.map(function (n) { return key(p, n); }),
-        lines: ['仮定：' + p.given.join('、')].concat(ev.via && p.finalStep ? [p.finalStep.label + ' が証明できた。'] : []),
+        lines: ['仮定：' + p.given.join('、')].concat(
+          ev.via && PG.rightVia(p, ev) ? [ev.via.join('＝') + '＝90°'] : ev.via && p.finalStep ? [p.finalStep.label + ' が証明できた。'] : [],
+          ev.fromFinal ? [PH.congruenceText(p) + ' が証明できた。'] : []),
         ask: ev.label + ' と言える理由は？',
         choice: { blanks: [choiceBlank('理由', rr.proof, wrongs)] }, input: null,
         answerText: rr.proof,
         explain: PG.CONVERSE_REASONS[ev.reason]
           ? ev.via.join('と') + ' は、直線' + ev.items.join('と直線') + 'がつくる' + (ev.reason === 'alternateConverse' ? '錯角' : '同位角') + 'です。それが等しいので、2直線は平行です（平行線の性質の逆）。'
+          : ev.fromFinal ? '合同な図形の対応する辺は等しくなります（' + PH.congruenceText(p) + '）。'
           : '仮定で平行四辺形と分かっている四角形の性質です。',
         signature: 'ppr|' + p.id + '|' + ev.id,
       });
@@ -639,7 +674,8 @@
         out.push({
           id: p.id + '-ppv-' + ev.id, sourceId: p.id, category: 'para', type: 'ppConverse', typeLabel: '平行を導く',
           difficulty: 2, blanks: 1, figure: p.id, highlight: ev.via.map(function (n) { return key(p, n); }),
-          lines: [ev.via.join('＝') + '（' + (ev.reason === 'alternateConverse' ? '錯角' : '同位角') + '）が証明できた。'], ask: 'このことから言える、平行な2つの辺は？',
+          lines: [ev.via.join('＝') + (PG.rightVia(p, ev) ? '＝90°' : '') + '（' + (ev.reason === 'alternateConverse' ? '錯角' : '同位角') + '）' +
+            (PG.rightVia(p, ev) ? 'である。' : 'が証明できた。')], ask: 'このことから言える、平行な2つの辺は？',
           choice: { blanks: [choiceBlank('平行な辺', ev.label, [ev.items[0] + '∥' + otherSide(p, ev.items), ev.items[0] + '＝' + ev.items[1]])] },
           input: {
             keypad: { kinds: ['par'] },
@@ -656,6 +692,13 @@
       }
     });
     return out;
+  }
+
+  // 平行の誤答（四角形がない問題）：図の辺のうち、items[0] と端点を共有するほかの辺（AD∥BC → AD∥AB）
+  function otherLine(p, items) {
+    const segs = G().getElements(p.figure).segments.map(function (s) { return s.name; });
+    const norm = function (s) { return s.split('').sort().join(''); };
+    return segs.find(function (s) { return norm(s) !== norm(items[0]) && norm(s) !== norm(items[1]) && s.indexOf(items[0][0]) >= 0; }) || segs[0];
   }
 
   // 平行の誤答：同じ四角形の、もう1組の対辺のうち items[1] でない方（AD∥BC → AD∥AB のような隣の辺）

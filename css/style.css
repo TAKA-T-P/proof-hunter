@@ -498,9 +498,9 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
   .screen-play .play-header { position: static; margin: 0; flex: none; }
   .play-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0; }
   /*
-   * 図の領域の高さは Ver.0.9 で以前の約85%（下の問題文・解答欄のスクロール領域を広げる）。
-   * 図は幅で大きさが決まる（縦横比を保つ）ので、図の幅を85%にして高さを85%にし、あいた幅をボタンの列に回す。
-   *   以前の図の幅 ＝ 100vw − 158px → 0.85 倍になるよう、ボタンの列の幅を 15vw ＋ 94px にする（枠・余白は少し細く）
+   * 図の領域の高さは Ver.0.9 で Ver.0.8 の約93%（いったん85%にしてから、その約110%に拡大）。
+   * 図は幅で大きさが決まる（縦横比を保つ）ので、図の幅を変えて高さを変え、あいた幅をボタンの列に回す。
+   *   Ver.0.8 の図の幅 ＝ 100vw − 158px → 約0.95 倍になるよう、ボタンの列の幅を 5.2vw ＋ 110px にする（枠・余白は少し細く）
    */
   .play-stage {
     flex: none; flex-direction: row; align-items: stretch; gap: 8px;
@@ -508,10 +508,10 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
     background: var(--bg); box-shadow: 0 3px 8px rgba(30, 58, 138, .08); position: relative; z-index: 1;
   }
   .play-stage .figure-card { flex: 1; min-width: 0; padding: 2px; border-width: 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .play-stage .figure { max-height: 32vh; max-height: 32dvh; }
+  .play-stage .figure { max-height: 35vh; max-height: 35dvh; }
   .play-stage .pt-label { font-size: 30px; }
   .play-stage .toolbar {
-    flex: none; width: calc(15vw + 94px);
+    flex: none; width: calc(5.2vw + 110px);
     grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); gap: 4px;
   }
   /* ボタンは低くなるぶん横に広げ、アイコンと文字を少し小さくする */

@@ -19,8 +19,8 @@ require('../js/game.js');
 require('../js/puzzle.js');
 
 const PH = globalThis.PH;
-// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
-const TRI = PH.problems.filter((p) => p.stage <= 8);
+// Ver.0.8 までの30問（p01〜p30）。Ver.0.9 の問題（p31〜p42。p35 は STAGE 6）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => Number(p.id.slice(1)) <= 30);
 const val = PH.validation;
 const geo = PH.geometry;
 
@@ -51,7 +51,7 @@ test('全問題のデータ検証（パズルのダミーカードを含む）�
 // 直角三角形の問題（STAGE 8）は根拠の行の役割が決まっているので、v08.test.js で確かめる
 const SINGLE = TRI.filter((p) => !p.proofSteps && !PH.isRightProblem(p));
 test('全問題でパズルを作れ、正解カード・合同条件カードがそろっている', () => {
-  assert.equal(PH.problems.length, 36);
+  assert.equal(PH.problems.length, 42);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6
   SINGLE.forEach((p) => {
     const z = new PH.Puzzle(p);
     assert.equal(z.type, p.puzzle.type);

@@ -18,8 +18,8 @@ require('../js/storage.js');
 require('../js/game.js');
 
 const PH = globalThis.PH;
-// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
-const TRI = PH.problems.filter((p) => p.stage <= 8);
+// Ver.0.8 までの30問（p01〜p30）。Ver.0.9 の問題（p31〜p42。p35 は STAGE 6）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => Number(p.id.slice(1)) <= 30);
 const geo = PH.geometry;
 const val = PH.validation;
 const k = (p, name) => geo.elementKey(p.figure, name);
@@ -41,10 +41,10 @@ test('全問題のデータ検証（図の数値チェック・ID重複・ステ
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
 });
 
-test('36問・9ステージ（STAGE 1〜5は各3問、STAGE 6 は5問、STAGE 7 は4問、STAGE 8・Ver.0.9 の STAGE 9 は6問）', () => {
-  assert.equal(PH.problems.length, 36);
-  assert.equal(PH.STAGES.length, 9);
-  const size = { 6: 5, 7: 4, 8: 6, 9: 6 };
+test('42問・10ステージ（STAGE 1〜5は各3問、STAGE 6 は6問（p35 をふくむ）、STAGE 7 は4問、STAGE 8 は6問、STAGE 9 は3問、STAGE 10 は8問）', () => {
+  assert.equal(PH.problems.length, 42);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6
+  assert.equal(PH.STAGES.length, 10);
+  const size = { 6: 6, 7: 4, 8: 6, 9: 3, 10: 8 };
   PH.STAGES.forEach((st) => assert.equal(PH.stageProblems(st.id).length, size[st.id] || 3, 'STAGE ' + st.id));
   ['p01', 'p02', 'p03'].forEach((id) => assert.ok(PH.getProblem(id), id + ' が残っている'));
 });

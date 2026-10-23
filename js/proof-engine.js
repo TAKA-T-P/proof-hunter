@@ -37,11 +37,12 @@
     return (problem.proofSteps || []).filter(function (s) { return (s.stage || 'pre') === stage; });
   }
 
-  // ステップの結論の等式キー（等式でないもの（二等辺三角形）は null）
+  // ステップの結論の等式キー（等式でないもの（二等辺三角形）は null。平行の関係（rel: 'parallel'）は平行のキー）
   function factKey(problem, step) {
     const fig = problem.figure;
     if (step.type === 'expression') return null;       // 角の式は「式」として扱う（等式キーにしない）
     if (!step.items) return null;
+    if (step.rel === 'parallel') return PH.parallelogram ? PH.parallelogram.factKey(fig, step.items, 'parallel') : null;
     const k = step.items.map(function (n) { return G().elementKey(fig, n); });
     return V().equationKey(k[0], k[1]);
   }
@@ -155,7 +156,22 @@
           if (s.rule === 'isoscelesBaseAngles') err = R.checkIsoscelesBaseAngles(problem, s.premise, s.items);
           else if (s.rule === 'isoscelesConverse') err = R.checkIsoscelesConverse(problem, s.premise, s.triangle);
           else if (PARALLELOGRAM_RULES.indexOf(s.rule) >= 0) err = R.checkParallelogramProperty(problem, s);
-          else if (s.rule === 'halfSegments') {
+          else if (s.rule === 'parallelTransitive' || s.rule === 'equalTransitive') {
+            err = R.checkTransitive(problem, s, (s.dependsOn || []).map(function (d) { return ids[d]; }).filter(Boolean));
+          } else if (s.rule === 'segmentSubtraction') {
+            err = R.checkSegmentSubtraction(problem, s);
+            const pk = s.premise.map(function (n) { return G().elementKey(problem.figure, n); });
+            const dep = (s.dependsOn || []).map(function (d) { return ids[d]; }).filter(Boolean);
+            if (!dep.some(function (d) { return factKey(problem, d) === V().equationKey(pk[0], pk[1]); })) errors.push(s.id + ': 前提の等式を導くステップに依存していない');
+          } else if (s.rule === 'alternateAnglesParallel') {
+            // 後半のステップ：合同から導いた錯角の等しさ（最終結論）から、2直線は平行（p35）
+            err = PH.parallelogram ? PH.parallelogram.checkConverse(problem.figure, s.lines || [], s.premise, 'alternate') : '平行の判定がない';
+            const fk = problem.finalStep && problem.finalStep.items.map(function (n) { return G().elementKey(problem.figure, n); });
+            const pk = s.premise.map(function (n) { return G().elementKey(problem.figure, n); });
+            if (!fk || V().equationKey(fk[0], fk[1]) !== V().equationKey(pk[0], pk[1])) errors.push(s.id + ': 前提が最終結論と一致しない');
+            if ((s.dependsOn || []).indexOf('final') < 0) errors.push(s.id + ': 最終結論のあとに解くステップなのに dependsOn に final がない');
+            if (s.label !== (s.lines || []).join('∥')) errors.push(s.id + ': label が平行の関係と一致しない');
+          } else if (s.rule === 'halfSegments') {
             err = R.checkHalfSegments(problem, s);
             // 前提（等しい2つの線分）は、依存するステップの結論であること
             const pk = s.premise.map(function (n) { return G().elementKey(problem.figure, n); });

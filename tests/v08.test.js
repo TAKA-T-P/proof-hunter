@@ -24,8 +24,8 @@ require('../js/rank-questions.js');
 require('../js/rank-game.js');
 
 const PH = globalThis.PH;
-// Ver.0.8 までの三角形の合同の問題（STAGE 1〜8）。平行四辺形の STAGE 9（p31〜p36）は v09.test.js で確かめる
-const TRI = PH.problems.filter((p) => p.stage <= 8);
+// Ver.0.8 までの30問（p01〜p30）。Ver.0.9 の問題（p31〜p42。p35 は STAGE 6）は v09.test.js で確かめる
+const TRI = PH.problems.filter((p) => Number(p.id.slice(1)) <= 30);
 const val = PH.validation;
 const geo = PH.geometry;
 const RT = PH.rightTriangle;
@@ -144,8 +144,8 @@ function result(over) {
 // =====================================================================================
 
 test('30問・8ステージ。STAGE 8「直角三角形を攻略せよ！」は p25〜p30', () => {
-  assert.equal(PH.problems.length, 36);
-  assert.equal(PH.STAGES.length, 9);
+  assert.equal(PH.problems.length, 42);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6
+  assert.equal(PH.STAGES.length, 10);
   assert.equal(PH.getStage(8).title, '直角三角形を攻略せよ！');
   assert.deepEqual(PH.stageProblems(8).map((p) => p.id), ['p25', 'p26', 'p27', 'p28', 'p29', 'p30']);
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
@@ -367,7 +367,7 @@ NEW.forEach((p) => {
     assert.equal(g.misses, 0);
   });
 
-  test(p.id + ': 欄に合わない根拠（他の1辺・鋭角を斜辺の欄に入れる など）はミス', () => {
+  test(p.id + ': 欄に合わない根拠（他の1辺・鋭角を斜辺の欄に入れる など）は正解にしないが、根拠が正しければミスにしない', () => {
     const g = new PH.Game(p);
     toCollect(g);
     const third = g.roles[2];
@@ -377,17 +377,25 @@ NEW.forEach((p) => {
     assert.equal(r.status, 'wrong-role');
     assert.equal(r.role, third);
     assert.equal(r.want, 'hypotenuse');
-    assert.equal(g.misses, 1);
+    assert.equal(r.miss, false);
+    assert.equal(g.misses, 0);
     assert.equal(g.found.length, 0);
-    // 直角を斜辺の欄に入れてもミス（直角専用の理由（垂直・正方形の角）は、直角の欄でしか選べない）
+    // 直角を斜辺の欄に入れても、順番のちがいだけならミスにしない（直角専用の理由（垂直・正方形の角）は、直角の欄でしか選べない）
     const right = evOf(p, 'right');
     if (PH.REASONS[right.reason].rightOnly) {
       assert.ok(!g.availableReasons().includes(right.reason));
       assert.equal(answer(g, right, right.reason).status, 'incomplete');
-      assert.equal(g.misses, 1);
     } else {
       assert.equal(answer(g, right, right.reason).status, 'wrong-role');
-      assert.equal(g.misses, 2);
+    }
+    assert.equal(g.misses, 0);
+    // 理由もまちがっているときはミス
+    if (!ev.fromStep) {
+      const bad = g.availableReasons().find((x) => !PH.acceptedReasons(ev).includes(x));
+      const r2 = answer(g, ev, bad);
+      assert.equal(r2.status, 'wrong-role');
+      assert.equal(r2.miss, true);
+      assert.equal(g.misses, 1);
     }
   });
 
@@ -708,7 +716,7 @@ test('直角三角形のミニ問題（タイプA〜E）：正解が1つに決�
   assert.equal(rhs.answerText, PH.CONDITIONS.RHS.label);
   assert.equal(rha.answerText, PH.CONDITIONS.RHA.label);
   // タイプB：斜辺（直角に向かい合う辺。選択肢の残りは直角をはさむ辺）
-  assert.equal(byType('hypotenuse').length, 12);
+  assert.equal(byType('hypotenuse').length, 16);   // p25〜p30 の12問 ＋ Ver.0.9 の p38・p42 の4問
   byType('hypotenuse').forEach((q) => {
     const p = P(q.sourceId);
     const choices = q.choice.blanks[0].choices;
@@ -722,7 +730,7 @@ test('直角三角形のミニ問題（タイプA〜E）：正解が1つに決�
     assert.ok(!choices.includes('仮定より'), q.id);
     assert.ok(choices.includes(PH.REASONS[RT.rightEvidence(P(q.sourceId)).reason].proof), q.id);
   });
-  assert.deepEqual(byType('rightReason').map((q) => q.sourceId), ['p27', 'p28', 'p29', 'p30']);
+  assert.deepEqual(byType('rightReason').map((q) => q.sourceId), ['p27', 'p28', 'p29', 'p30', 'p38', 'p42']);   // p38・p42 は Ver.0.9
   // タイプE：あと何が必要？
   assert.equal(COMP.find((q) => q.id === 'rule-need-rhs').answerText, '対応する他の1辺');
   assert.equal(COMP.find((q) => q.id === 'rule-need-rha').answerText, '対応する1つの鋭角');
@@ -1006,7 +1014,7 @@ test('ハンター：直角三角形の問題では、説明する根拠も今�
   g.tap(k(p, acute.items[0])); g.tap(k(p, acute.items[1]));
   const r = g.explain();                                 // 今の欄は「直角」
   assert.equal(r.status, 'wrong-role');
-  assert.equal(g.misses, 1);
+  assert.equal(g.misses, 0);                             // 欄の順番だけのちがいはミスにしない
   assert.equal(explainEv(g, acute).status, 'wrong-role');
   g.selectRole('acute');
   assert.equal(explainEv(g, acute).status, 'correct');
