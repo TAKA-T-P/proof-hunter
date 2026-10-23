@@ -60,8 +60,8 @@
       desc: '二等辺三角形・直角三角形・平行四辺形など、いろいろな証明に挑戦！',
       allowedTopics: BASIC_TOPICS.concat(['isosceles', 'equilateral', 'angleExpressions', 'square', 'rightTriangle', 'rightTriangleRHA', 'rightTriangleRHS',
         'parallelogramProperties', 'parallelogramConditions', 'diagonalBisector', 'parallelConverse']),
-      // Ver.0.9：平行四辺形（para）も 0.6。二等辺三角形・直角三角形などの割合が極端に減らないようにする
-      categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 0.6, right: 0.6, para: 0.6 },
+      // 新しい単元（定理・三段論法、直角三角形、平行四辺形）も、ほかのカテゴリと同じ重み（Ver.0.9 で 0.6 → 1）
+      categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 1, right: 1, para: 1 },
     },
   };
   const ORDER = ['basic', 'comprehensive'];

@@ -842,8 +842,8 @@ test('コース別の記録が維持される（Ver.0.8 の総合証明の記録
   });
 });
 
-test('新カテゴリ（平行四辺形）の出題比率が適切：総合コースで偏らず、二等辺三角形・直角三角形も出る', () => {
-  assert.equal(TR.get('comprehensive').categoryWeights.para, 0.6);
+test('新カテゴリ（平行四辺形）の出題比率が適切：総合コースで、どのカテゴリも同じくらい出る（重みはすべて1）', () => {
+  ['eq', 'reason', 'cond', 'corr', 'final', 'theorem', 'right', 'para'].forEach((c) => assert.equal(TR.get('comprehensive').categoryWeights[c], 1, c));
   assert.equal(TR.get('basic').categoryWeights.para, undefined);
   const cnt = {};
   let total = 0;
@@ -858,10 +858,9 @@ test('新カテゴリ（平行四辺形）の出題比率が適切：総合コ�
       assert.equal(ok.status, 'correct', inst.q.id);
     }
   }
-  assert.ok(cnt.para > 0 && cnt.para / total <= 0.2, JSON.stringify(cnt));
-  assert.ok(cnt.theorem / total >= 0.05 && cnt.right / total >= 0.05, JSON.stringify(cnt));
-  const avg = ['eq', 'reason', 'cond', 'final'].reduce((s, c) => s + cnt[c], 0) / 4;
-  assert.ok(cnt.para < avg, JSON.stringify(cnt));
+  // 8つのカテゴリがほぼ均等（1/8 ＝ 12.5% 前後。どれも1割〜2割の間）
+  Object.keys(cnt).forEach((c) => assert.ok(cnt[c] / total >= 0.08 && cnt[c] / total <= 0.2, c + ' ' + JSON.stringify(cnt)));
+  assert.equal(Object.keys(cnt).length, 8);
 });
 
 // =====================================================================================
