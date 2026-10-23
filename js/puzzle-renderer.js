@@ -610,6 +610,8 @@
     const clear = z.phase === 'clear';
     this.ref('body').hidden = clear;
     this.ref('result').hidden = !clear;
+    this.root.classList.toggle('is-result', clear);     // 正解画面（PC・タブレットでは図を固定し、証明文だけスクロール）
+    doc.body.classList.toggle('has-result', clear);
     this.root.querySelectorAll('.head-hint').forEach(function (b) { b.disabled = clear; });
     if (clear) {
       if (!this.resultBuilt) this.buildResult();
@@ -949,7 +951,11 @@
       return current;
     },
     unmount: function () {
-      if (current) current.destroy();
+      if (current) {
+        current.destroy();
+        current.root.classList.remove('is-result');
+        doc.body.classList.remove('has-result');
+      }
       current = null;
     },
     current: function () { return current; },

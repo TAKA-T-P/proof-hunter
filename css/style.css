@@ -324,6 +324,10 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .tool .ico-glyph { font-weight: 900; line-height: 1.2; }
 .tool .lbl { font-size: .72rem; font-weight: 700; white-space: nowrap; }
 .tool-tri .lbl { font-size: .64rem; letter-spacing: -.02em; }   /* 「三角形確認」は5文字なので少し小さく */
+/* PC・タブレット：操作ボタン（辺選択・角選択など6つ）を図の上に置く（スマホの縦・横画面は従来どおり） */
+@media (min-width: 900px) and (min-height: 500px), (orientation: landscape) and (min-height: 500px) {
+  .screen-play:not(.screen-puzzle) .play-stage .toolbar { order: -1; }
+}
 .tool[aria-pressed="true"] {
   background: var(--blue); border-color: var(--gold); color: #fff;
   box-shadow: 0 0 0 2px var(--gold), 0 3px 8px rgba(29, 78, 216, .35);
@@ -555,6 +559,22 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
   }
 }
 
+/* PC・タブレット（スマホの縦・横画面以外）の正解画面：タイトルバー・図・結果カードを固定し、証明文・解説だけスクロール */
+@media (min-width: 900px) and (min-height: 500px), (orientation: landscape) and (min-height: 500px) {
+  body.has-result[data-screen="play"], body.has-result[data-screen="puzzle"] { overflow: hidden; }
+  .screen-play.is-result {
+    height: 100vh; height: 100dvh; padding-bottom: 0;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .screen-play.is-result .play-header { position: static; flex: none; }
+  .screen-play.is-result .result { flex: 1; min-height: 0; overflow: hidden; }
+  .screen-play.is-result .result-top { flex: none; }
+  .screen-play.is-result .result-top .figure.mini { max-height: 40vh; max-height: 40dvh; }
+  .screen-play.is-result .result-scroll {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    padding: 2px 4px calc(16px + env(safe-area-inset-bottom));
+  }
+}
 
 /* =====================================================================
    Ver.0.2：ステージ・復習・三角形の確認・解説
