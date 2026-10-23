@@ -10,6 +10,7 @@ require('../js/validation.js');
 require('../js/right-triangle.js');
 require('../js/quadrilateral.js');
 require('../js/parallelogram-rules.js');
+require('../js/special-quadrilaterals.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -106,7 +107,7 @@ function withFakeStorage(initial, fn) {
 // ---- 問題データ ---------------------------------------------------------------
 
 test('STAGE 6 は p16〜p20 で、結論が辺・角の等しさ', () => {
-  assert.equal(PH.problems.length, 42);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6
+  assert.equal(PH.problems.length, 48);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p48）
   const st6 = PH.getStage(6);
   assert.equal(st6.title, '合同から結論を導け！');
   // Ver.0.9 で p35（結論が平行。後半のステップで「錯角が等しいから平行」）が STAGE 6 に加わった（v09.test.js で確かめる）

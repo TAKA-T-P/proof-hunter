@@ -22,6 +22,11 @@
  *   conclusionType: 'parallelogram'、targetQuadrilateral: ['A','B','C','D']（証明する四角形）、knownParallelograms（仮定の平行四辺形）
  *   parallelogram: { intro, evidence: [{ id, items, rel?: 'parallel', reason, label, mark, via?, fromStep? }], condition,
  *                    alternatives（ほかの道すじで示せる成立条件。選んでもミスにしない）, reasons, distractors }
+ *
+ * Ver.1.0：結論が「四角形…はひし形」「…は長方形」の問題（PH.quadType が 'rhombus'・'rectangle'）も、同じ parallelogram のデータで
+ *   根拠を集め、成立条件（js/special-quadrilaterals.js の PH.SPECIAL_CONDITIONS）を選ぶ。証明する四角形は仮定で平行四辺形と分かっている。
+ *   chain … 「4つの辺（角）がすべて等しい」の確認の表示（'AB＝BC＝CD＝DA'）。生徒には入力させず、根拠がそろったら表示する
+ *   証明する四角形のひし形・長方形としての性質（4辺が等しい・4つの角が等しい・対角線が等しい）は、証明できるまで使えない（'property-unproved'）
  */
 (function (root) {
   'use strict';
@@ -42,7 +47,24 @@
   // 平行を導く理由 → 角の種類
   const CONVERSE_REASONS = { alternateConverse: 'alternate', correspondingConverse: 'corresponding' };
 
-  function isQuad(p) { return !!p && PH.conclusionType(p) === 'parallelogram'; }
+  function isQuad(p) { return !!p && PH.isQuadProblem(p); }
+  function S() { return PH.specialQuad; }
+  // 証明する四角形の種類（平行四辺形・ひし形・長方形）
+  function targetType(p) { return PH.quadType(p) || 'parallelogram'; }
+  function isSpecial(p) { return isQuad(p) && targetType(p) !== 'parallelogram'; }
+  // ひし形・長方形の性質の理由 → その性質をもつ種類（Ver.1.0）
+  const SPECIAL_PROPERTY_REASONS = { rhombusSides: 'rhombus', rhombusAngles: 'rhombus' };
+
+  // 仮定で平行四辺形と分かっている四角形（ひし形・長方形・正方形と書かれた四角形もふくむ。包含関係）
+  function knownParallelogramList(p) {
+    const out = (p.knownParallelograms || []).slice();
+    if (S()) {
+      S().knownOfType(p, 'parallelogram').forEach(function (q) {
+        if (!out.some(function (x) { return S().quadKey(x) === S().quadKey(q); })) out.push(q);
+      });
+    }
+    return out;
+  }
   function part(p) { return (p && p.parallelogram) || null; }
   function evidenceOf(p) { return (part(p) && part(p).evidence) || []; }
 
@@ -114,13 +136,37 @@
   // 仮定で平行四辺形と分かっている四角形の性質（ゲーム中に使える）
   function knownProperties(p) {
     const out = [];
-    (p.knownParallelograms || []).forEach(function (q) { propertyFacts(p.figure, q).forEach(function (f) { out.push(f); }); });
+    knownParallelogramList(p).forEach(function (q) { propertyFacts(p.figure, q).forEach(function (f) { out.push(f); }); });
+    return out;
+  }
+
+  // Ver.1.0：ひし形・長方形としての性質（4辺が等しい・4つの角が等しい・対角線の長さが等しい）
+  function specialPropertyFacts(fig, quad, type) {
+    const out = [];
+    const add = function (reason, items) {
+      const key = factKey(fig, items, 'eq');
+      if (key && !out.some(function (f) { return f.key === key; })) out.push({ rule: null, reason: reason, rel: 'eq', items: items, key: key });
+    };
+    const pairs = function (list) {
+      const r = [];
+      for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) r.push([list[i], list[j]]);
+      return r;
+    };
+    if (type === 'rhombus' || type === 'square') pairs(Q().sides(quad)).forEach(function (pr) { add('rhombusSides', pr); });
+    if (type === 'rectangle' || type === 'square') {
+      pairs(Q().angles(quad)).forEach(function (pr) { add(null, pr); });
+      add(null, Q().diagonals(quad));
+    }
     return out;
   }
 
   // 証明する四角形の性質（平行四辺形だと証明するまで使えない）
+  //   Ver.1.0：ひし形・長方形を証明する問題は、ひし形・長方形としての性質（平行四辺形の性質は仮定から使える）
   function targetProperties(p) {
-    return isQuad(p) ? propertyFacts(p.figure, p.targetQuadrilateral) : [];
+    if (!isQuad(p)) return [];
+    if (!isSpecial(p)) return propertyFacts(p.figure, p.targetQuadrilateral);
+    const known = knownProperties(p).map(function (f) { return f.key; });
+    return specialPropertyFacts(p.figure, p.targetQuadrilateral, targetType(p)).filter(function (f) { return known.indexOf(f.key) < 0; });
   }
 
   // ---- 成立条件の判定 -----------------------------------------------------------
@@ -164,10 +210,26 @@
   }
 
   // 根拠（evidence）の組から成立条件（PH.validation.deriveCondition の四角形版）
-  function deriveCondition(p, evidenceList) {
-    return deriveParallelogramCondition({ figure: p.figure, vertices: p.targetQuadrilateral },
-      (evidenceList || []).map(function (ev) { return { id: ev.id, items: ev.items, rel: ev.rel }; }));
+  //   Ver.1.0：ひし形・長方形を証明する問題は、ひし形・長方形の成立条件（証明する四角形は仮定で平行四辺形と分かっている）
+  function deriveCondition(p, evidenceList, extra) {
+    const facts = (evidenceList || []).map(function (ev) { return { id: ev.id, items: ev.items, rel: ev.rel }; }).concat(extra || []);
+    if (!isSpecial(p)) return deriveParallelogramCondition({ figure: p.figure, vertices: p.targetQuadrilateral }, facts);
+    const all = S().deriveSpecialCondition({ figure: p.figure, vertices: p.targetQuadrilateral, knownTypes: S().knownTypes(p, p.targetQuadrilateral) }, facts)
+      .filter(function (a) { return S().isA(a.type, targetType(p)); });
+    if (!all.length) return null;
+    const main = all.find(function (a) { return a.condition === part(p).condition; }) || all[0];
+    return { condition: main.condition, used: main.used, all: all };
   }
+
+  // 仮定の文から言える事実（ほかの道すじの条件の確認用）。「∠A＝90°」は直角
+  function givenFacts(p) {
+    return (p.given || []).map(function (g) {
+      return S() ? S().parseGivenFact(p.targetQuadrilateral || [], g) : parseFact(g);
+    }).filter(Boolean).map(function (f, i) { return { id: 'g' + i, items: f.items, rel: f.rel }; });
+  }
+
+  // 成立条件の表示
+  function conditionLabel(id) { const c = PH.quadCondition(id); return c ? c.label : ''; }
 
   // ⑤のまちがい：平行な辺と等しい辺が別の組の対辺（例 AB∥DC と AD＝BC）
   function isMixedPair(p, evidenceList) {
@@ -193,6 +255,17 @@
     const evs = ids.map(function (id) { return list.find(function (e) { return e.id === id; }); }).filter(Boolean);
     const r = deriveCondition(p, evs);
     if (!r) return { ok: false, status: 'invalid-set', miss: true };
+    if (isSpecial(p)) {
+      // ひし形・長方形：問題の道すじの条件が正解。ほかの種類の条件はミス、同じ種類で言える別の条件はミスにしない
+      const c = S().CONDITIONS[conditionId];
+      if (!c) return { ok: false, status: 'wrong-condition', miss: true };
+      if (conditionId === part(p).condition && r.all.some(function (a) { return a.condition === conditionId; })) return { ok: true, status: 'correct', condition: conditionId };
+      if (!S().isA(c.type, targetType(p))) return { ok: false, status: 'wrong-type', miss: true, type: c.type };
+      if (r.all.some(function (a) { return a.condition === conditionId; }) || (part(p).alternatives || []).indexOf(conditionId) >= 0) {
+        return { ok: false, status: 'alternative', miss: false };
+      }
+      return { ok: false, status: 'wrong-condition', miss: true };
+    }
     if (r.all.some(function (a) { return a.condition === conditionId; })) return { ok: true, status: 'correct', condition: conditionId };
     if ((part(p).alternatives || []).indexOf(conditionId) >= 0) return { ok: false, status: 'alternative', miss: false };
     if (conditionId === 'PP_PARALLEL_EQUAL_PAIR' && isMixedPair(p, evs)) return { ok: false, status: 'mixed-pair', miss: true };
@@ -259,6 +332,12 @@
   // 理由が平行四辺形の性質か
   function isPropertyReason(r) { return !!PROPERTY_REASONS[r]; }
 
+  // 証明する四角形の性質を、証明する前に使おうとした理由か（平行四辺形の性質、ひし形の性質など）
+  function isTargetPropertyReason(p, r) {
+    if (isPropertyReason(r)) return true;
+    return !!SPECIAL_PROPERTY_REASONS[r] && isSpecial(p);
+  }
+
   /*
    * 根拠ではない関係の種類
    *   target-property … 証明する四角形の性質（平行四辺形だと証明してから言える）
@@ -314,11 +393,11 @@
         if (ev.via && !rightVia(p, ev) && c.isEstablished && !c.isEstablished(viaKey(p, ev))) return out('via-unproved', true, { evidence: ev });
         return out('correct', false, { evidence: ev });
       }
-      if (isPropertyReason(reasonId) && targetProperties(p).some(function (f) { return f.key === key; })) return out('property-unproved', true, { evidence: ev });
+      if (isTargetPropertyReason(p, reasonId) && targetProperties(p).some(function (f) { return f.key === key; })) return out('property-unproved', true, { evidence: ev });
       return out('wrong-reason', true, { evidence: ev });
     }
     const st = otherStatus(p, key);
-    if (st.status === 'target-property') return out(isPropertyReason(reasonId) ? 'property-unproved' : 'wrong-equation', true);
+    if (st.status === 'target-property') return out(isTargetPropertyReason(p, reasonId) ? 'property-unproved' : 'wrong-equation', true);
     if (st.status === 'known') return st.reasons.indexOf(reasonId) >= 0 ? out('irrelevant', false) : out('wrong-reason', true);
     return out('wrong-equation', true);
   }
@@ -341,10 +420,31 @@
     const errors = [];
     const fig = p.figure;
     (p.knownParallelograms || []).forEach(function (q) {
-      if (!Q().isConvex(fig, q)) errors.push('仮定の平行四辺形が凸四角形ではない: ' + q.join(''));
       if ((p.given || []).indexOf(Q().name(q) + 'は平行四辺形') < 0) errors.push('仮定に平行四辺形が書かれていない: ' + q.join(''));
+    });
+    knownParallelogramList(p).forEach(function (q) {
+      if (!Q().isConvex(fig, q)) errors.push('仮定の平行四辺形が凸四角形ではない: ' + q.join(''));
       propertyFacts(fig, q).forEach(function (f) { if (!holdsInFigure(fig, f.items, f.rel)) errors.push('仮定の平行四辺形の図が正しくない: ' + relText(f.items, f.rel)); });
     });
+    // Ver.1.0：仮定のひし形・長方形・正方形の図と、ひし形の性質を使う根拠（p43）
+    if (S()) {
+      S().knownQuads(p).forEach(function (x) {
+        x.types.forEach(function (t) {
+          if (t === 'parallelogram') return;
+          if (!holdsSpecial(fig, x.vertices, t)) errors.push('仮定の' + S().typeName(t) + 'の図が正しくない: ' + x.vertices.join(''));
+        });
+      });
+      (p.evidence || []).forEach(function (ev) {
+        const t = SPECIAL_PROPERTY_REASONS[ev.reason];
+        if (!t) return;
+        const key = factKey(fig, ev.items, 'eq');
+        const ok = S().knownOfType(p, t).some(function (q) {
+          if (ev.reason === 'rhombusAngles') return propertyFacts(fig, q).some(function (f) { return f.key === key && f.reason === 'parallelogramAngles'; });
+          return specialPropertyFacts(fig, q, t).some(function (f) { return f.key === key && f.reason === ev.reason; });
+        });
+        if (!ok) errors.push(ev.id + ': 仮定の' + S().typeName(t) + 'の性質になっていない');
+      });
+    }
     (p.evidence || []).forEach(function (ev) {
       if (!isPropertyReason(ev.reason)) return;
       const key = factKey(fig, ev.items, 'eq');
@@ -380,6 +480,18 @@
     return Math.abs(d[0].x * d[1].y - d[0].y * d[1].x) < 0.005;
   }
 
+  // 図の四角形が、その種類の図形に描かれているか（ひし形：4辺が等しい、長方形：4つの角が90°。データの確認用）
+  function holdsSpecial(fig, quad, type) {
+    if (type === 'rhombus' || type === 'square') {
+      const s = Q().sides(quad);
+      if (!s.every(function (x) { return measureEqual(fig, [s[0], x]); })) return false;
+    }
+    if (type === 'rectangle' || type === 'square') {
+      if (!Q().angles(quad).every(function (a) { return Math.abs(V().measure(fig, a).value - 90) < 0.5; })) return false;
+    }
+    return true;
+  }
+
   // 事実が図の上で成り立つか（データの確認用。ゲームの判定には使わない）
   function holdsInFigure(fig, items, rel) {
     try { return rel === 'parallel' ? measureParallel(fig, items) : measureEqual(fig, items); } catch (e) { return false; }
@@ -399,8 +511,18 @@
     if (!quad) return ['targetQuadrilateral が不正'];
     if (!Q().isSimple(fig, quad)) errors.push('証明する四角形が退化・自己交差している');
     else if (!Q().isConvex(fig, quad)) errors.push('証明する四角形が凸四角形ではない');
-    if (p.conclusion !== Q().name(quad) + 'は平行四辺形') errors.push('結論の表記が targetQuadrilateral と一致しない');
-    if (!PH.PARALLELOGRAM_CONDITIONS[pz.condition]) errors.push('成立条件が無効: ' + pz.condition);
+    if (p.conclusion !== Q().name(quad) + 'は' + PH.quadTypeName(p)) errors.push('結論の表記が targetQuadrilateral と一致しない');
+    if (PH.quadConditionOrder(p).indexOf(pz.condition) < 0) errors.push('成立条件が無効: ' + pz.condition);
+    if (isSpecial(p)) {
+      // ひし形・長方形：証明する四角形は仮定で平行四辺形。条件の種類が結論と同じ。「すべて等しい」の確認の表示
+      if (!S()) return errors.concat(['ひし形・長方形の判定（special-quadrilaterals.js）がない']);
+      if (S().knownTypes(p, quad).indexOf('parallelogram') < 0) errors.push('証明する四角形が仮定で平行四辺形になっていない');
+      if (S().knownTypes(p, quad).indexOf(targetType(p)) >= 0) errors.push('結論の種類が仮定にふくまれている');
+      const c = S().CONDITIONS[pz.condition];
+      if (c && c.type !== targetType(p)) errors.push('成立条件の種類が結論と合わない: ' + pz.condition);
+      if (c && c.definition && !pz.chain) errors.push('「すべて等しい」の確認の表示（chain）がない');
+      if (!holdsSpecial(fig, quad, targetType(p))) errors.push('図の四角形が' + PH.quadTypeName(p) + 'になっていない');
+    }
     const els = G().getElements(fig);
     const ids = {};
     const steps = {};
@@ -458,13 +580,15 @@
       }
     });
     const derived = deriveCondition(p, pz.evidence);
-    if (!derived || derived.condition !== pz.condition || derived.all.length !== 1) errors.push('成立条件が根拠と一致しない: ' + (derived && derived.all.map(function (a) { return a.condition; }).join(',')));
+    if (isSpecial(p)) {
+      if (!derived || !derived.all.some(function (a) { return a.condition === pz.condition; })) errors.push('成立条件が根拠と一致しない: ' + (derived && derived.all.map(function (a) { return a.condition; }).join(',')));
+    } else if (!derived || derived.condition !== pz.condition || derived.all.length !== 1) errors.push('成立条件が根拠と一致しない: ' + (derived && derived.all.map(function (a) { return a.condition; }).join(',')));
     // ほかの道すじの条件：仮定の関係から本当に言えること
-    const givenFacts = (p.given || []).map(parseFact).filter(Boolean).map(function (f, i) { return { id: 'g' + i, items: f.items, rel: f.rel }; });
+    const gFacts = givenFacts(p);
     (pz.alternatives || []).forEach(function (c) {
-      if (!PH.PARALLELOGRAM_CONDITIONS[c]) { errors.push('alternatives が無効: ' + c); return; }
+      if (PH.quadConditionOrder(p).indexOf(c) < 0) { errors.push('alternatives が無効: ' + c); return; }
       if (c === pz.condition) errors.push('alternatives に正解の条件がある');
-      const r = deriveParallelogramCondition({ figure: fig, vertices: quad }, givenFacts);
+      const r = isSpecial(p) ? deriveCondition(p, [], gFacts) : deriveParallelogramCondition({ figure: fig, vertices: quad }, gFacts);
       if (!r || !r.all.some(function (a) { return a.condition === c; })) errors.push('alternatives が仮定から言えない: ' + c);
     });
     if (!(p.hints && p.hints.pcondition && p.hints.pcondition.length === 3)) errors.push('成立条件のヒントが3段階ない');
@@ -488,6 +612,15 @@
     PROPERTY_REASONS: PROPERTY_REASONS,
     CONVERSE_REASONS: CONVERSE_REASONS,
     isQuad: isQuad,
+    isSpecial: isSpecial,
+    targetType: targetType,
+    SPECIAL_PROPERTY_REASONS: SPECIAL_PROPERTY_REASONS,
+    knownParallelogramList: knownParallelogramList,
+    specialPropertyFacts: specialPropertyFacts,
+    isTargetPropertyReason: isTargetPropertyReason,
+    givenFacts: givenFacts,
+    conditionLabel: conditionLabel,
+    holdsSpecial: holdsSpecial,
     evidenceOf: evidenceOf,
     factKey: factKey,
     factKeyFromKeys: factKeyFromKeys,

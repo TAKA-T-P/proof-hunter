@@ -23,6 +23,8 @@
  *              チャレンジ … qe0 をキーパッドで入力（等式・平行。最初の入力の種類はその行の根拠に合わせて自動で決める）
  *   成立条件 … { id:'pcond', kind:'pcond' }（5つのカード）。ほかの道すじで示せる条件（alternatives）はミスに数えない
  *   三角形の合同の部分がない問題（p31〜p34・p36）は、三角形・合同条件の空欄を作らない。p36 のステップの行は平行四辺形の部分に入る
+ * Ver.1.0：結論がひし形・長方形の問題（p44〜p48）も同じ形。成立条件のカードは、ひし形の3つと長方形の3つ（キーパッドでは入力しない）。
+ *   「4つの辺（角）がすべて等しい」の確認（chain）は、証明文に表示済み（入力させない）
  */
 (function (root) {
   'use strict';
@@ -173,9 +175,9 @@
     return shuffle(out, problem.id + ':qreason').map(function (c, i) { c.id = 'qr' + i; return c; });
   }
 
-  function makeQuadConditionCards() {
-    return PH.PARALLELOGRAM_CONDITION_ORDER.map(function (c, i) {
-      return { id: 'pc' + i, kind: 'pcond', cond: c, text: PH.PARALLELOGRAM_CONDITIONS[c].label };
+  function makeQuadConditionCards(problem) {
+    return PH.quadConditionOrder(problem).map(function (c, i) {
+      return { id: 'pc' + i, kind: 'pcond', cond: c, text: PH.quadCondition(c).label };
     });
   }
 
@@ -356,7 +358,7 @@
       cond: this.tri ? makeConditionCards(problem) : [],
       qeq: this.quad && this.type !== 'challenge' ? makeQuadEquationCards(problem) : [],
       qreason: this.quad && this.buildLike ? makeQuadReasonCards(problem) : [],
-      pcond: this.quad ? makeQuadConditionCards() : [],
+      pcond: this.quad ? makeQuadConditionCards(problem) : [],
       tripair: this.hasFinal && this.type === 'fill' ? makeTriPairCards(problem) : [],
       tri1: triCards.tri1,
       tri2: triCards.tri2,
@@ -441,7 +443,7 @@
   Puzzle.prototype.quadSlots = function () {
     const out = [];
     this.qrowEv.forEach(function (ev, i) {
-      const name = '平行四辺形の根拠' + CIRCLED[i];
+      const name = PH.quadTypeName(this.problem) + 'の根拠' + CIRCLED[i];
       // チャレンジの入力の種類：その行の根拠に合わせて最初の種類を決める（毎回「＝／∥」を選ばせない）
       const first = ev.rel === 'parallel' ? 'par' : G().isAngleName(ev.items[0]) ? 'ang' : 'seg';
       const kinds = [first].concat(['seg', 'ang', 'par'].filter(function (k) { return k !== first; }));
@@ -758,7 +760,7 @@
     }
     const ids = rows.map(function (r) { return r.evidence.id; }).concat(quadEvidence(p).filter(function (ev) { return ev.fromStep || ev.fromFinal; }).map(function (ev) { return ev.id; }));
     const r = PH.parallelogram.checkCondition(p, ids, card.cond);
-    return { status: r.ok ? 'ok' : r.status, card: card, rows: rows };
+    return { status: r.ok ? 'ok' : r.status, card: card, rows: rows, type: r.type };
   };
 
   /*
@@ -972,17 +974,19 @@
 
     // Ver.0.9：平行四辺形の部分（根拠の行と成立条件）
     if (this.quad) {
+      const tname = PH.quadTypeName(p);
       const QMSG = {
-        targetProperty: 'それは平行四辺形だと証明できてから使える性質だよ！「平行四辺形の性質」と「平行四辺形になるための条件」を区別しよう。',
+        targetProperty: 'それは' + tname + 'だと証明できてから使える性質だよ！「' + tname + 'の性質」と「' + tname + 'になるための条件」を区別しよう。',
         wrongEquation: challenge ? 'その関係が言えるか、図と仮定を確認しよう。' : 'その関係は、まだ言えないよ！',
-        alternative: 'その条件でも平行四辺形といえる場合があるよ。今回は集めた根拠を使って考えよう！（ミスには数えないよ）',
+        alternative: 'その条件でも' + tname + 'といえる場合があるよ。今回は集めた根拠を使って考えよう！（ミスには数えないよ）',
+        wrongType: function (t) { return 'それは' + PH.QUAD_TYPE_NAMES[t] + 'になるための条件だよ！ 今回証明するのは' + tname + 'だね。'; },
         mixed: '平行な辺と長さが等しい辺は、同じ1組の対辺かな？',
         cond: challenge ? '集めた根拠と成立条件の関係を確認しよう。' : 'この根拠では、その成立条件は使えないよ！',
       };
       this.evaluateQuadRows().forEach(function (r) {
         const eqId = self.qEqSlotId(r.row);
         const rsId = self.buildLike ? 'qr' + r.row : null;
-        const label = '平行四辺形の根拠' + CIRCLED[r.row];
+        const label = tname + 'の根拠' + CIRCLED[r.row];
         const sig = eqId + ':' + r.eqCard.id + (rsId ? '/' + self.placed[rsId] : '');
         switch (r.status) {
           case 'ok':
@@ -1014,7 +1018,7 @@
       if (qc.status === 'ok') slotStatus.pcond = 'ok';
       else if (qc.status === 'alternative') note('pcond', QMSG.alternative, '成立条件');      // ミスに数えない
       else fail('pcond', 'pcond:' + qc.card.id + ':' + qc.rows.map(function (r) { return r.eqCard.id; }).join(','),
-        qc.status === 'mixed-pair' ? QMSG.mixed : QMSG.cond, '成立条件');
+        qc.status === 'mixed-pair' ? QMSG.mixed : qc.status === 'wrong-type' ? QMSG.wrongType(qc.type) : QMSG.cond, '成立条件');
     }
 
     this.misses += newMisses;

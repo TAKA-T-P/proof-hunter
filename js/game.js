@@ -16,6 +16,8 @@
  *         （5つの成立条件から選ぶ）→ 'clear'。三角形の合同を示す部分がある問題（PH.hasLemma。p35）は、
  *         'triangle' → 'collect' → 'congruence' → 'final'（合同から角の等しさを導く）のあとで 'qcollect' に進む。
  *         relation：2つの辺を選んだときの関係（'eq' 等しい ＝ / 'parallel' 平行 ∥。「＝⇔∥」で切りかえる）。
+ * Ver.1.0：結論がひし形・長方形の問題も同じ段階（'qcollect' → 'qcondition'）。成立条件は、ひし形・長方形の6つから選ぶ。
+ *         証明できたら、四角形の種類を証明済みの事実（{ kind: 'quadrilateralType', vertices, type }）として登録する。
  */
 (function (root) {
   'use strict';
@@ -146,6 +148,10 @@
     if (this.phase !== 'qcondition' || !this.pcondition) return { ok: false, status: 'incomplete' };
     const r = PH.parallelogram.checkCondition(this.problem, this.qfound, this.pcondition);
     if (r.ok) {
+      // 証明できた四角形の種類を、証明済みの事実として登録する（包含関係で、より一般的な種類としても使える）
+      const p = this.problem;
+      this.provedType = { kind: 'quadrilateralType', vertices: p.targetQuadrilateral.slice(), type: PH.quadType(p) };
+      if (this.engine) this.engine.establishType(p.targetQuadrilateral, PH.quadType(p), 'proved');
       this.finish();
       return r;
     }
@@ -472,12 +478,12 @@
 
   // 合同条件の選択肢（直角三角形の問題は5つ、それ以外は3つ）
   Game.prototype.conditionOptions = function () {
-    return this.phase === 'qcondition' ? PH.PARALLELOGRAM_CONDITION_ORDER.slice() : PH.conditionOrder(this.problem);
+    return this.phase === 'qcondition' ? PH.quadConditionOrder(this.problem) : PH.conditionOrder(this.problem);
   };
 
   Game.prototype.selectCondition = function (id) {
     if (this.phase === 'qcondition') {
-      if (!PH.PARALLELOGRAM_CONDITIONS[id]) return false;
+      if (this.conditionOptions().indexOf(id) < 0) return false;
       this.pcondition = id;
       return true;
     }
@@ -958,12 +964,15 @@
       if (ev.fromFinal && final) return final.no;
       return lines.find(function (l) { return l.evidenceId === ev.id; }).no;
     });
+    // Ver.1.0：「4つの辺（角）がすべて等しい」問題は、番号の小さい順に「①、②、⑥より、」
+    if (pz.chain) nums.sort(function (a, b) { return CIRCLED.indexOf(a) - CIRCLED.indexOf(b); });
     return {
       intro: pz.intro.slice(),
       lines: lines,
       stepLines: stepLines,
       summary: nums.join('、') + 'より、',
-      condition: PH.PARALLELOGRAM_CONDITIONS[pz.condition].label,
+      chain: pz.chain || null,                    // Ver.1.0：「AB＝BC＝CD＝DA」（4つの辺・角がすべて等しいことの確認）
+      condition: PH.quadCondition(pz.condition).label,
       conclusion: problem.conclusion + 'である。',
     };
   }

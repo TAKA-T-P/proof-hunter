@@ -150,7 +150,14 @@
     (problem.given || []).forEach(function (g) {
       const s = String(g);
       if (!/＝90°$/.test(s)) return;
-      s.replace(/＝90°$/, '').split('＝').forEach(function (n) { if (/^∠[A-Z]{3}$/.test(n)) out.push(n); });
+      s.replace(/＝90°$/, '').split('＝').forEach(function (n) {
+        if (/^∠[A-Z]{3}$/.test(n)) out.push(n);
+        // Ver.1.0：四角形の角「∠A＝90°」（証明する四角形の頂点1文字）
+        else if (/^∠[A-Z]$/.test(n) && problem.targetQuadrilateral && PH.specialQuad) {
+          const name = PH.specialQuad.quadAngleName(problem.targetQuadrilateral, n);
+          if (name) out.push(name);
+        }
+      });
     });
     return out;
   }

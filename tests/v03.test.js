@@ -10,6 +10,7 @@ require('../js/validation.js');
 require('../js/right-triangle.js');
 require('../js/quadrilateral.js');
 require('../js/parallelogram-rules.js');
+require('../js/special-quadrilaterals.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -51,7 +52,7 @@ test('全問題のデータ検証（パズルのダミーカードを含む）�
 // 直角三角形の問題（STAGE 8）は根拠の行の役割が決まっているので、v08.test.js で確かめる
 const SINGLE = TRI.filter((p) => !p.proofSteps && !PH.isRightProblem(p));
 test('全問題でパズルを作れ、正解カード・合同条件カードがそろっている', () => {
-  assert.equal(PH.problems.length, 42);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6
+  assert.equal(PH.problems.length, 48);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p48）
   SINGLE.forEach((p) => {
     const z = new PH.Puzzle(p);
     assert.equal(z.type, p.puzzle.type);

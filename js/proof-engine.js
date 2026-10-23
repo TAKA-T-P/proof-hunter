@@ -13,6 +13,10 @@
  *     定理のステップに平行四辺形の性質（quad：仮定の平行四辺形）・等しい線分の半分（halfSegments）が加わる。
  *     lead … パネル・パズルでの書き出し（なければ「premiseLabelより、」）、proofText … 証明文での理由の書き方（{s1} はそのステップの番号）
  *
+ *   Ver.1.0：ひし形・長方形の問題のステップ（隣り合う角の和・平行線の錯角・角の二等分線・角をつなぐ・二等辺三角形の2辺）。
+ *     四角形の種類（{ kind: 'quadrilateralType', vertices, type }）も証明済みの事実として登録できる（establishType）。
+ *     正方形と登録すれば、長方形・ひし形・平行四辺形としても使える（hasType）。より特別な種類へは、勝手に変換しない。
+ *
  * 進む順番（ハンター）：三角形の選択（あれば）→ 3つの根拠（前半のステップ（stage 'pre'）は、導く根拠を「詳しい理由を説明する」で解く）
  *   → 合同条件 → 最終結論 → 後半のステップ（'post'）。証明パズル・証明文は、前半のステップの行 → 根拠の行の順
  * ステップの状態：locked（前提がまだない）／ available（解ける）／ completed（証明した）。
@@ -57,6 +61,42 @@
     this.done = {};            // ステップID → true（証明した）
     this.reached = {};         // 'congruence' / 'final' → true
     this.facts = {};           // 等式キー → 導いたステップID（証明済みの事実）
+    this.types = {};           // Ver.1.0：四角形のキー → { kind: 'quadrilateralType', vertices, type, types（包含関係で言える種類） }
+    // 仮定で分かっている四角形の種類（「四角形ABCDは平行四辺形」「…はひし形」）
+    const S = PH.specialQuad;
+    const self = this;
+    if (S && this.problem) S.knownQuads(this.problem).forEach(function (x) { x.types.forEach(function (t) { self.establishType(x.vertices, t, 'given'); }); });
+  };
+
+  /*
+   * 四角形の種類を、証明済みの事実として登録する（Ver.1.0）。包含関係で、より一般的な種類としても使える
+   *   （正方形 → 長方形・ひし形・平行四辺形）。より特別な種類には変換しない（平行四辺形 → ひし形 にはならない）
+   */
+  ProofEngine.prototype.establishType = function (vertices, type, source) {
+    const S = PH.specialQuad;
+    if (!S || !S.isType(type)) return false;
+    const key = S.quadKey(vertices);
+    if (!key) return false;
+    const cur = this.types[key];
+    const types = S.closeTypes((cur ? cur.types : []).concat([type]));
+    this.types[key] = { kind: 'quadrilateralType', vertices: PH.quadrilateral.vertices(vertices), type: S.mostSpecific(types), types: types, source: cur ? cur.source : (source || true) };
+    return true;
+  };
+
+  // その四角形が、その種類だと分かっているか（包含関係をふくむ）
+  ProofEngine.prototype.hasType = function (vertices, type) {
+    const S = PH.specialQuad;
+    const x = S ? this.types[S.quadKey(vertices)] : null;
+    return !!x && x.types.indexOf(type) >= 0;
+  };
+
+  // 登録した四角形の種類の事実の一覧
+  ProofEngine.prototype.typeFacts = function () {
+    const self = this;
+    return Object.keys(this.types).map(function (k) {
+      const x = self.types[k];
+      return { kind: 'quadrilateralType', vertices: x.vertices.slice(), type: x.type, types: x.types.slice() };
+    });
   };
 
   ProofEngine.prototype.step = function (id) {
@@ -171,7 +211,12 @@
             if (!fk || V().equationKey(fk[0], fk[1]) !== V().equationKey(pk[0], pk[1])) errors.push(s.id + ': 前提が最終結論と一致しない');
             if ((s.dependsOn || []).indexOf('final') < 0) errors.push(s.id + ': 最終結論のあとに解くステップなのに dependsOn に final がない');
             if (s.label !== (s.lines || []).join('∥')) errors.push(s.id + ': label が平行の関係と一致しない');
-          } else if (s.rule === 'halfSegments') {
+          } else if (s.rule === 'parallelogramAdjacentSupplementary') err = R.checkAdjacentSupplementary(problem, s);
+          else if (s.rule === 'parallelAlternateAngles') err = R.checkParallelAlternate(problem, s);
+          else if (s.rule === 'angleBisector') err = R.checkAngleBisector(problem, s);
+          else if (s.rule === 'isoscelesConverseSides') err = R.checkIsoscelesConverseSides(problem, s);
+          else if (s.rule === 'angleTransitive') err = R.checkTransitive(problem, s, (s.dependsOn || []).map(function (d) { return ids[d]; }).filter(Boolean));
+          else if (s.rule === 'halfSegments') {
             err = R.checkHalfSegments(problem, s);
             // 前提（等しい2つの線分）は、依存するステップの結論であること
             const pk = s.premise.map(function (n) { return G().elementKey(problem.figure, n); });

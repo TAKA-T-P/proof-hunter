@@ -10,6 +10,7 @@ require('../js/validation.js');
 require('../js/right-triangle.js');
 require('../js/quadrilateral.js');
 require('../js/parallelogram-rules.js');
+require('../js/special-quadrilaterals.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');

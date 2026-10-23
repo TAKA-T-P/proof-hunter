@@ -12,6 +12,7 @@ require('../js/validation.js');
 require('../js/right-triangle.js');
 require('../js/quadrilateral.js');
 require('../js/parallelogram-rules.js');
+require('../js/special-quadrilaterals.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -453,8 +454,8 @@ test('最終結論（平行四辺形である）を正しく判定する：誤�
 // =====================================================================================
 
 test('42問・10ステージ。STAGE 9「平行四辺形を利用せよ！」・STAGE 10「平行四辺形を証明せよ！」', () => {
-  assert.equal(PH.problems.length, 42);
-  assert.equal(PH.STAGES.length, 10);
+  assert.equal(PH.problems.length, 48);   // Ver.1.0 で STAGE 11（p43〜p48）を追加（v10.test.js）
+  assert.equal(PH.STAGES.length, 11);
   assert.equal(PH.getStage(9).title, '平行四辺形を利用せよ！');
   assert.equal(PH.getStage(10).title, '平行四辺形を証明せよ！');
   assert.deepEqual(PH.stageProblems(6).map((p) => p.id), ['p16', 'p17', 'p18', 'p19', 'p20', 'p35']);
@@ -755,8 +756,10 @@ test('基本コースに平行四辺形・Ver.0.9 の問題が混入しない。
   PARA.forEach((q) => assert.ok(COMP.includes(q), q.id));
   assert.equal(COMP.length, ALL.length);
   // Ver.0.8 の274問 ＋ 平行四辺形 ＋ Ver.0.9 の問題の三角形の合同の部分（p35・p37〜p39・p42）
+  //   ＋ Ver.1.0 の四角形の分類と、p43〜p48 から作る問題（v10.test.js）
   const triNew = COMP.filter((q) => NEW_IDS.includes(q.sourceId) && q.category !== 'para').length;
-  assert.equal(COMP.length, 274 + PARA.length + triNew);
+  const v10 = COMP.filter((q) => q.category === 'quad' || ['p43', 'p44', 'p45', 'p46', 'p47', 'p48'].includes(q.sourceId)).length;
+  assert.equal(COMP.length, 274 + PARA.length + triNew + v10);
   ['parallelogramProperties', 'parallelogramConditions', 'diagonalBisector', 'parallelConverse']
     .forEach((t) => assert.ok(TR.get('comprehensive').allowedTopics.includes(t), t));
   assert.equal(PH.rankQuestions.CATEGORY_LABEL.para, '平行四辺形');
@@ -806,12 +809,12 @@ test('120秒・時間ペナルティ・21段階認定・認定基準は変わら
   assert.equal(CFG.grades.length, 21);
   assert.equal(PH.rank.gradeFor(20).name, '皆伝');
   assert.equal(CFG.criteriaVersion, 2);
-  assert.equal(CFG.questionPoolVersion, 2);
+  assert.equal(CFG.questionPoolVersion, 3);   // Ver.1.0 で 3（ひし形・長方形・四角形の分類を追加）
   const g = new PH.RankGame({ seed: 5, track: 'comprehensive' });
   g.start(0);
   g.tick(120001);
   assert.equal(g.result.criteriaVersion, 2);
-  assert.equal(g.result.questionPoolVersion, 2);
+  assert.equal(g.result.questionPoolVersion, 3);
 });
 
 test('コース別の記録が維持される（Ver.0.8 の総合証明の記録を引き継ぎ、基準が同じなので比べ続ける）', () => {
@@ -858,9 +861,9 @@ test('新カテゴリ（平行四辺形）の出題比率が適切：総合コ�
       assert.equal(ok.status, 'correct', inst.q.id);
     }
   }
-  // 8つのカテゴリがほぼ均等（1/8 ＝ 12.5% 前後。どれも1割〜2割の間）
-  Object.keys(cnt).forEach((c) => assert.ok(cnt[c] / total >= 0.08 && cnt[c] / total <= 0.2, c + ' ' + JSON.stringify(cnt)));
-  assert.equal(Object.keys(cnt).length, 8);
+  // 8つのカテゴリがほぼ均等（1/8 ＝ 12.5% 前後。どれも1割〜2割の間）。Ver.1.0 の「四角形の分類」（選択式だけ）は v10.test.js
+  Object.keys(cnt).filter((c) => c !== 'quad').forEach((c) => assert.ok(cnt[c] / total >= 0.08 && cnt[c] / total <= 0.2, c + ' ' + JSON.stringify(cnt)));
+  assert.equal(Object.keys(cnt).length, 9);
 });
 
 // =====================================================================================

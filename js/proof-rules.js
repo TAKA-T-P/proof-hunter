@@ -24,6 +24,14 @@
  *   segmentSubtraction   等しい線分から等しい線分をひいた残りは等しい（AB＝DC、AE＝FC → EB＝DF）
  *   alternateAnglesParallel（後半のステップ）… 合同から導いた錯角の等しさから「錯角が等しいから平行」（p35 の AD∥BC）
  *   PP_PARALLEL_PAIRS ほか5つ … 平行四辺形になるための条件（PH.PARALLELOGRAM_CONDITIONS）
+ *   Ver.1.0（ひし形・長方形。分類と成立条件は js/special-quadrilaterals.js）：
+ *   parallelogramAdjacentSupplementary  平行四辺形の隣り合う角の和は180°（∠A＝90° → ∠B＝180°－90°＝90°。1ステップにまとめる）
+ *   parallelAlternateAngles  平行線の錯角は等しい（AD∥BC → ∠CAD＝∠ACB。平行は仮定の平行四辺形の対辺）
+ *   angleBisector        角の二等分線でできる2つの角は等しい（ACは∠BADの二等分線 → ∠BAC＝∠CAD）
+ *   angleTransitive      同じ角に等しい2つの角は等しい（∠BAC＝∠CAD、∠CAD＝∠ACB → ∠BAC＝∠ACB）
+ *   isoscelesConverseSides  2つの角が等しい三角形は二等辺三角形で、その2辺が等しい（∠BAC＝∠ACB → AB＝BC）
+ *   segmentMidpoint      中点で分けた2つの線分は等しい（根拠の理由 midpoint）
+ *   rhombusDefinition ほか6つ … ひし形・長方形になるための条件（PH.SPECIAL_CONDITIONS）
  * 合同（三角形の合同・対応する辺・角）は既存の validation.js のしくみを使う（名前が重ならないよう、ここでは
  * 'triangleCongruence' は合同条件の判定、'correspondingSides'・'correspondingAngles' は PH.REASONS の既存の理由を指す）。
  *
@@ -70,6 +78,19 @@
     PP_EQUAL_ANGLES: { label: '2組の対角がそれぞれ等しい', short: '成立条件③', condition: 'PP_EQUAL_ANGLES' },
     PP_BISECT_DIAGONALS: { label: '対角線がそれぞれの中点で交わる', short: '成立条件④', condition: 'PP_BISECT_DIAGONALS' },
     PP_PARALLEL_EQUAL_PAIR: { label: '1組の対辺が平行で、その長さが等しい', short: '成立条件⑤', condition: 'PP_PARALLEL_EQUAL_PAIR' },
+    // Ver.1.0：ひし形・長方形（理由のステップと、成立条件）
+    parallelogramAdjacentSupplementary: { label: '平行四辺形の隣り合う角の和は180°だから', short: '隣り合う角の和' },
+    parallelAlternateAngles: { label: '平行線の錯角は等しいから', short: '平行線の錯角', reason: 'alternate' },
+    angleBisector: { label: '角の二等分線だから', short: '角の二等分線' },
+    angleTransitive: { label: '同じ角に等しい2つの角は等しいから', short: '角をつなぐ' },
+    isoscelesConverseSides: { label: '2つの角が等しい三角形は二等辺三角形だから', short: '二等辺三角形の2辺' },
+    segmentMidpoint: { label: '中点だから', short: '中点', reason: 'midpoint' },
+    rhombusDefinition: { label: '4つの辺がすべて等しい', short: 'ひし形の定義', condition: 'rhombusDefinition' },
+    rhombusAdjacentEqual: { label: '平行四辺形で、となり合う2辺が等しい', short: 'ひし形の条件', condition: 'rhombusAdjacentEqual' },
+    rhombusDiagonalPerpendicular: { label: '平行四辺形で、対角線が垂直に交わる', short: 'ひし形の条件', condition: 'rhombusDiagonalPerpendicular' },
+    rectangleDefinition: { label: '4つの角がすべて等しい', short: '長方形の定義', condition: 'rectangleDefinition' },
+    rectangleOneRightAngle: { label: '平行四辺形で、1つの角が直角', short: '長方形の条件', condition: 'rectangleOneRightAngle' },
+    rectangleDiagonalsEqual: { label: '平行四辺形で、対角線の長さが等しい', short: '長方形の条件', condition: 'rectangleDiagonalsEqual' },
   };
 
   // 理由を選ぶステップの誤答（その定理では言えない理由）。もっともらしい順
@@ -89,6 +110,12 @@
     segmentSubtraction: ['平行四辺形の対辺は等しいから', '共通な辺だから'],
     // 「錯角が等しいから平行」の誤答は、逆の推論（平行線の錯角は等しい）と、関係のない理由
     alternateAnglesParallel: ['平行線の錯角は等しいから', '対頂角は等しいから'],
+    // Ver.1.0
+    parallelogramAdjacentSupplementary: ['平行四辺形の対角は等しいから', '三角形の内角の和は180°だから'],
+    parallelAlternateAngles: ['錯角が等しいから', '対頂角は等しいから'],
+    angleBisector: ['対頂角は等しいから', '平行線の錯角は等しいから'],
+    angleTransitive: ['共通な角だから', '対頂角は等しいから'],
+    isoscelesConverseSides: ['二等辺三角形の底角は等しいから', '平行四辺形の対辺は等しいから'],
   };
 
   // ---- データの確認（図と仮定から、そのルールで本当に言えるか） ---------------------------
@@ -202,10 +229,84 @@
     const PG = PH.parallelogram;
     if (!PG) return '平行四辺形の判定がない';
     const quad = String(step.quad || '').split('');
-    if (!(problem.knownParallelograms || []).some(function (q) { return q.join('') === quad.join(''); })) return '仮定の平行四辺形ではない四角形の性質を使っている';
+    if (!knownParallelogram(problem, quad)) return '仮定の平行四辺形ではない四角形の性質を使っている';
     const key = PG.factKey(problem.figure, step.items, step.rel);
     const ok = PG.propertyFacts(problem.figure, quad).some(function (f) { return f.key === key && f.rule === step.rule; });
     return ok ? null : '結論が、その平行四辺形の性質になっていない';
+  }
+
+  // 仮定で平行四辺形と分かっている四角形か（ひし形・長方形などと書かれた四角形もふくむ）
+  function knownParallelogram(problem, quad) {
+    const list = PH.parallelogram ? PH.parallelogram.knownParallelogramList(problem) : (problem.knownParallelograms || []);
+    return list.some(function (q) { return q.join('') === quad.join(''); });
+  }
+
+  /*
+   * Ver.1.0：平行四辺形の隣り合う角の和は180°（parallelogramAdjacentSupplementary）。
+   *   premise は仮定の平行四辺形 step.quad の隣り合う2つの角。その一方が仮定で90°なら、もう一方も90°（items はその2つの角）
+   */
+  function checkAdjacentSupplementary(problem, step) {
+    const fig = problem.figure;
+    const quad = String(step.quad || '').split('');
+    if (!knownParallelogram(problem, quad)) return '仮定の平行四辺形ではない';
+    const angs = PH.quadrilateral.angles(quad).map(function (n) { return G().elementKey(fig, n); });
+    const pk = (step.premise || []).map(function (n) { return G().elementKey(fig, n); });
+    const i = angs.indexOf(pk[0]), j = angs.indexOf(pk[1]);
+    if (i < 0 || j < 0 || (Math.abs(i - j) !== 1 && Math.abs(i - j) !== 3)) return '平行四辺形の隣り合う2つの角になっていない';
+    const ik = step.items.map(function (n) { return G().elementKey(fig, n); }).sort().join('|');
+    if (ik !== pk.slice().sort().join('|')) return '結論が、隣り合う2つの角の等しさ（どちらも90°）になっていない';
+    const S = PH.specialQuad;
+    const rights = (problem.given || []).map(function (g) { return S ? S.parseGivenFact(quad, g) : null; })
+      .filter(function (f) { return f && f.rel === 'right'; }).map(function (f) { return G().elementKey(fig, f.items[0]); });
+    if (!pk.some(function (k) { return rights.indexOf(k) >= 0; })) return '隣り合う角のどちらも、仮定で90°になっていない';
+    return pk.every(function (k, n) { return near(V().measure(fig, step.premise[n]).value, 90); }) ? null : '2つの角が図の上で90°でない';
+  }
+
+  /*
+   * Ver.1.0：平行線の錯角（parallelAlternateAngles）。step.lines の2直線が平行（仮定の平行四辺形 step.quad の対辺）で、
+   *   items の2つの角が、その2直線と横切る直線でできた錯角
+   */
+  function checkParallelAlternate(problem, step) {
+    const PG = PH.parallelogram;
+    const fig = problem.figure;
+    const quad = String(step.quad || '').split('');
+    if (!knownParallelogram(problem, quad)) return '仮定の平行四辺形ではない';
+    if (PH.quadrilateral.oppositeIndex(quad, step.lines[0], step.lines[1]) < 0) return '平行な2直線が、その平行四辺形の対辺になっていない';
+    const err = PG.checkConverse(fig, step.lines, step.items, 'alternate');
+    if (err) return err;
+    return PG.holdsInFigure(fig, step.items, 'eq') ? null : '2つの角が図の上で等しくない';
+  }
+
+  /*
+   * Ver.1.0：角の二等分線（angleBisector）。仮定「ACは∠BADの二等分線」から、items が ∠BAC と ∠CAD
+   */
+  function checkAngleBisector(problem, step) {
+    const fig = problem.figure;
+    const g = (problem.given || []).map(function (t) { return /^([A-Z]{2})は(∠[A-Z]{3})の二等分線$/.exec(t); }).filter(Boolean);
+    const ok = g.some(function (m) {
+      const ang = clean(m[2]), ray = m[1];
+      const V0 = ang[1];
+      if (ray.indexOf(V0) < 0) return false;
+      const X = ray.replace(V0, '');
+      const want = [G().angleKey(fig, ang[0] + V0 + X), G().angleKey(fig, X + V0 + ang[2])].sort().join('|');
+      return want === step.items.map(function (n) { return G().elementKey(fig, n); }).sort().join('|');
+    });
+    if (!ok) return '結論が、仮定の角の二等分線でできる2つの角になっていない';
+    return near(V().measure(fig, step.items[0]).value, V().measure(fig, step.items[1]).value) ? null : '2つの角が図の上で等しくない';
+  }
+
+  /*
+   * Ver.1.0：2つの角が等しい三角形の2辺（isoscelesConverseSides）。premise の2つの角が三角形 step.triangle の角で、
+   *   items はその2つの角に向かい合う辺（∠BAC＝∠ACB → BC と AB）
+   */
+  function checkIsoscelesConverseSides(problem, step) {
+    const err = checkIsoscelesConverse(problem, step.premise, step.triangle);
+    if (err) return err;
+    const t = clean(step.triangle).split('');
+    const verts = step.premise.map(function (n) { return clean(n)[1]; });
+    const want = verts.map(function (v) { return G().segKey(t.filter(function (x) { return x !== v; }).join('')); }).sort().join('|');
+    const got = step.items.map(function (n) { return G().segKey(n); }).sort().join('|');
+    return want === got ? null : '結論が、等しい2つの角に向かい合う2辺になっていない';
   }
 
   /*
@@ -249,7 +350,10 @@
     if (deps.length !== 2) return '前提のステップが2つない';
     const par = step.rule === 'parallelTransitive';
     if (par !== (step.rel === 'parallel')) return '平行の推論と関係の種類が合わない';
-    const unit = function (n) { return par ? PH.quadrilateral.lineKey(fig, n) : G().segKey(n); };
+    // 角どうし（angleTransitive）は角の、辺どうし（equalTransitive）は辺の等式であること
+    const angle = step.rule === 'angleTransitive';
+    if (!par && step.items.concat(deps[0].items, deps[1].items).some(function (n) { return G().isAngleName(n) !== angle; })) return '辺・角の種類がルールと合わない';
+    const unit = function (n) { return par ? PH.quadrilateral.lineKey(fig, n) : G().elementKey(fig, n); };
     const a = deps[0].items.map(unit), b = deps[1].items.map(unit);
     if (deps.some(function (d) { return (d.rel === 'parallel') !== par; })) return '前提の関係の種類が合わない';
     const shared = a.filter(function (x) { return b.indexOf(x) >= 0; });
@@ -302,6 +406,11 @@
     checkHalfSegments: checkHalfSegments,
     checkTransitive: checkTransitive,
     checkSegmentSubtraction: checkSegmentSubtraction,
+    checkAdjacentSupplementary: checkAdjacentSupplementary,
+    checkParallelAlternate: checkParallelAlternate,
+    checkAngleBisector: checkAngleBisector,
+    checkIsoscelesConverseSides: checkIsoscelesConverseSides,
+    knownParallelogram: knownParallelogram,
     knownAngles: knownAngles,
   };
 

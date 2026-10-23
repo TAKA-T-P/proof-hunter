@@ -479,6 +479,9 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .pl-no { font-weight: 700; color: var(--muted); }
 .proof-sum { margin: 8px 0 0; }
 .proof-cond { margin: 0; }
+.proof-chain { margin: 2px 0 0; font-weight: 700; }
+.quad-chain { margin: 6px 0 4px; padding: 6px 10px; border-radius: 10px; background: #fef3c7; color: #78350f; font-size: .95rem; }
+.quad-chain b { font-size: 1.05rem; letter-spacing: .02em; }
 .proof-cond strong { background: linear-gradient(transparent 55%, #fde68a 55%); }
 .proof-concl { margin: 4px 0 0; font-size: 1.5rem; font-weight: 900; color: var(--navy); }
 .points { padding: 4px 16px; }

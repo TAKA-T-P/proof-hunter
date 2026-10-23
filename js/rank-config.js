@@ -12,8 +12,8 @@
   const config = {
     criteriaVersion: 2,          // 認定基準のバージョン（暫定版。2：誤答は時間ペナルティ、段位は正解数で判定）
     // 出題範囲（ミニ問題の集まり）のバージョン。認定基準は変えずに問題が増えたとき上げる（記録には残すが、最高段位は比べ続ける）
-    //   1：Ver.0.8（2コース）／ 2：Ver.0.9（総合証明に平行四辺形を追加）
-    questionPoolVersion: 2,
+    //   1：Ver.0.8（2コース）／ 2：Ver.0.9（総合証明に平行四辺形を追加）／ 3：Ver.1.0（総合証明にひし形・長方形・四角形の分類を追加）
+    questionPoolVersion: 3,
     timeLimitMs: 120000,         // 制限時間 120秒
     countdown: ['3', '2', '1', 'START！'],
     countdownStepMs: 650,        // カウントダウン1つの長さ
@@ -29,7 +29,7 @@
     recentAvoid: 12,             // 直近この問数に出た問題は、なるべく出さない
     // カテゴリごとの出題の重み（Ver.0.7 で追加した「定理・三段論法」は、既存のバランスを崩さないよう半分）
     // Ver.0.8：コース（基本・総合）ごとの重みは js/rank-tracks.js の categoryWeights。これはコースを指定しないときの値
-    categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 0.5, right: 0.5, para: 0.5 },
+    categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 0.5, right: 0.5, para: 0.5, quad: 0.5 },
     feedbackMs: 300,             // 正解・不正解の表示時間
     // 誤答（パスをふくむ）のペナルティ：n 回目の誤答で制限時間を 4×n 秒へらす（4秒、8秒、12秒…とだんだん重くなる）
     penaltyStepMs: 4000,

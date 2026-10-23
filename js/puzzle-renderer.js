@@ -750,6 +750,8 @@
       q.intro.map(function (t) { return '<p class="proof-intro">' + esc(t) + '</p>'; }).join('') +
       '<ol class="pz-lines">' + rows + steps + '</ol>' +
       '<p class="proof-sum">' + esc(q.summary) + '</p>' +
+      // Ver.1.0：「4つの辺（角）がすべて等しい」の確認は表示済み（入力しない）
+      (q.chain ? '<p class="proof-chain">' + esc(q.chain) + '</p>' : '') +
       '<div class="pz-condline">' + this.blank('pcond') + '<span>ので、</span></div>' +
       '<p class="proof-concl proof-goal">' + esc(q.conclusion) + '</p>' +
       '</div>';

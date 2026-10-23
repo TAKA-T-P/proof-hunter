@@ -9,6 +9,7 @@
  *   ミニ問題の requiredTopics … 元の問題の topics（定理の確認問題のテンプレートは、テンプレートに書いた topics）
  *   コースの allowedTopics にすべてふくまれるミニ問題だけを出題する
  * あとで単元を追加したら、その topics を総合証明の allowedTopics に加える（Ver.0.9：平行四辺形の4つの topics を加えた）。
+ * Ver.1.0：ひし形（rhombus）・長方形（rectangle）・四角形の分類（quadrilateralClassification）を総合証明に加えた（正方形 square は Ver.0.8 から）。
  * まだ実装していない単元の topics は、どのコースにも入れない（出題されない）。
  */
 (function (root) {
@@ -37,6 +38,10 @@
     parallelogramConditions: '平行四辺形になるための条件',
     diagonalBisector: '対角線がそれぞれの中点で交わる',
     parallelConverse: '錯角・同位角が等しいならば平行',
+    // Ver.1.0：特別な平行四辺形
+    rhombus: 'ひし形',
+    rectangle: '長方形',
+    quadrilateralClassification: '四角形の分類',
   };
 
   const BASIC_TOPICS = ['basicCongruence', 'given', 'common', 'vertical', 'alternate', 'corresponding', 'triangleCorrespondence', 'congruenceConsequence'];
@@ -57,11 +62,12 @@
       label: '総合証明',
       short: '総合',
       lead: 'いろいろな証明に挑戦！',
-      desc: '二等辺三角形・直角三角形・平行四辺形など、いろいろな証明に挑戦！',
+      desc: '二等辺三角形・直角三角形・平行四辺形・ひし形・長方形など、いろいろな証明に挑戦！',
       allowedTopics: BASIC_TOPICS.concat(['isosceles', 'equilateral', 'angleExpressions', 'square', 'rightTriangle', 'rightTriangleRHA', 'rightTriangleRHS',
-        'parallelogramProperties', 'parallelogramConditions', 'diagonalBisector', 'parallelConverse']),
-      // 新しい単元（定理・三段論法、直角三角形、平行四辺形）も、ほかのカテゴリと同じ重み（Ver.0.9 で 0.6 → 1）
-      categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 1, right: 1, para: 1 },
+        'parallelogramProperties', 'parallelogramConditions', 'diagonalBisector', 'parallelConverse',
+        'rhombus', 'rectangle', 'quadrilateralClassification']),
+      // 新しい単元（定理・三段論法、直角三角形、平行四辺形、四角形の分類）も、ほかのカテゴリと同じ重み（Ver.0.9 で 0.6 → 1）
+      categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 1, right: 1, para: 1, quad: 1 },
     },
   };
   const ORDER = ['basic', 'comprehensive'];
@@ -76,6 +82,7 @@
     parallelogramSides: 'parallelogramProperties', parallelogramParallel: 'parallelogramProperties',
     parallelogramAngles: 'parallelogramProperties', parallelogramDiagonals: 'diagonalBisector',
     alternateConverse: 'parallelConverse', correspondingConverse: 'parallelConverse',
+    rhombusSides: 'rhombus', rhombusAngles: 'rhombus', midpoint: 'given',
   };
   // 推論ルール → 学習テーマ
   const RULE_TOPIC = {
@@ -87,6 +94,9 @@
     halfSegments: ['parallelogramProperties'],
     parallelTransitive: ['parallelogramProperties'], equalTransitive: ['parallelogramProperties'], segmentSubtraction: ['parallelogramProperties'],
     alternateAnglesParallel: ['parallelConverse'],
+    // Ver.1.0
+    parallelogramAdjacentSupplementary: ['parallelogramProperties', 'rectangle'], parallelAlternateAngles: ['alternate', 'parallelogramProperties'],
+    angleBisector: ['rhombus'], angleTransitive: ['angleExpressions'], isoscelesConverseSides: ['isosceles'],
   };
   // 合同条件 → 学習テーマ
   const CONDITION_TOPIC = {
@@ -111,7 +121,9 @@
     }
     // Ver.0.9：平行四辺形の成立条件・根拠の理由（性質・平行の推論）
     if (PH.isQuadProblem && PH.isQuadProblem(p)) {
-      addAll(out, ['parallelogramConditions']);
+      // Ver.1.0：ひし形・長方形を証明する問題は、その種類の topics（平行四辺形の成立条件は使わない）
+      const qt = PH.quadType ? PH.quadType(p) : 'parallelogram';
+      addAll(out, qt === 'parallelogram' ? ['parallelogramConditions'] : [qt]);
       if (p.parallelogram.condition === 'PP_BISECT_DIAGONALS') addAll(out, ['diagonalBisector']);
       p.parallelogram.evidence.forEach(function (ev) {
         if (ev.reason !== 'proved') addAll(out, [REASON_TOPIC[ev.reason] || 'unknown:' + ev.reason]);

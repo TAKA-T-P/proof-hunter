@@ -281,7 +281,7 @@
       PH.sound.play('get');
       this.popMessage('新しい根拠を発見！');
       this.say(this.problem.finalStep.label + ' を導けた！ 次は、' + PH.quadrilateral.name(this.problem.targetQuadrilateral) +
-        'が平行四辺形になるための根拠を集めよう！', 'ok');
+        'が' + PH.quadTypeName(this.problem) + 'になるための根拠を集めよう！', 'ok');
       this.focusPanel = true;
       this.render();
       return;
@@ -416,7 +416,7 @@
         this.popMessage('根拠発見！');
         this.flash(g.evidenceKeys(r.registered.id), 1200);
         this.say(r.registered.label + ' を説明できた！ 根拠に登録したよ。' + (r.complete
-          ? (g.phase === 'qcondition' ? '根拠がそろった！ どの成立条件で平行四辺形といえるかな？' : '3つの根拠がそろった！ 合同条件を見極めよう！')
+          ? (g.phase === 'qcondition' ? '根拠がそろった！ どの成立条件で' + PH.quadTypeName(this.problem) + 'といえるかな？' : '3つの根拠がそろった！ 合同条件を見極めよう！')
           : 'ほかの根拠も見つけよう。'), 'ok');
       } else if (r.stageDone === 'pre') {
         this.say(s.label + ' を導けた！', 'ok');
@@ -495,7 +495,7 @@
     if (r.type === 'ignored') {
       if (r.message) this.say(r.message, 'info');
       else if (g.phase === 'congruence') this.say('3つの根拠はそろったよ。合同条件を選ぼう！', 'info');
-      else if (g.phase === 'qcondition') this.say('根拠はそろったよ。平行四辺形になるための条件を選ぼう！', 'info');
+      else if (g.phase === 'qcondition') this.say('根拠はそろったよ。' + PH.quadTypeName(this.problem) + 'になるための条件を選ぼう！', 'info');
     } else {
       PH.sound.play('tap');
       this.say(null);
@@ -678,7 +678,7 @@
         '<dt>対角線</dt><dd>' + Q.diagonals(quad).map(function (d) { return '<span class="q-chip q-diag">' + esc(d) + '</span>'; }).join('') +
           (O ? '<span class="quad-o">交点 ' + esc(O) + '</span>' : '') + '</dd>' +
       '</dl>' +
-      '<p class="tri-note">同じ色どうしが向かい合う組だよ。平行四辺形になるための条件は、対辺・対角・対角線のどれかについての関係だよ。</p>';
+      '<p class="tri-note">同じ色どうしが向かい合う組だよ。' + esc(PH.quadTypeName(p)) + 'になるための条件は、辺・角・対角線のどれかについての関係だよ。</p>';
   };
 
   PlayController.prototype.fillTriSearchPopup = function (popup) {
@@ -834,7 +834,7 @@
         PH.hints.hide(doc.getElementById('hint-popup'));
         this.bumpCounter = true;
         if (r.complete) {
-          this.say('根拠がそろった！ どの成立条件で平行四辺形といえるかな？', 'ok');
+          this.say('根拠がそろった！ どの成立条件で' + PH.quadTypeName(p) + 'といえるかな？', 'ok');
           this.focusPanel = true;
         } else this.say('根拠発見！ ' + ev.label + '（' + PH.REASONS[ev.reason].short + '）', 'ok');
         break;
@@ -874,15 +874,18 @@
     const r = g.confirmCondition();
     if (r.status === 'incomplete') return;
     if (r.ok) return this.cleared();
+    const tname = PH.quadTypeName(this.problem);
     if (r.status === 'alternative') {
       PH.sound.play('soft');
-      this.say('その条件でも平行四辺形といえる場合があるよ。今回は集めた根拠を使って考えよう！', 'info');
+      this.say('その条件でも' + tname + 'といえる場合があるよ。今回は集めた根拠を使って考えよう！', 'info');
     } else {
       PH.sound.play('wrong');
       this.shake = true;
       this.say(r.status === 'mixed-pair'
         ? '平行な辺と長さが等しい辺は、同じ1組の対辺かな？ 集めた根拠をもう一度確認しよう！'
-        : '集めた根拠と成立条件の関係を確認しよう！ どの辺・角・対角線についての関係かな？', 'ng');
+        : r.status === 'wrong-type'
+          ? 'それは' + PH.QUAD_TYPE_NAMES[r.type] + 'になるための条件だよ！ 今回証明するのは' + tname + 'だね。'
+          : '集めた根拠と成立条件の関係を確認しよう！ どの辺・角・対角線についての関係かな？', 'ng');
     }
     this.render();
   };
@@ -1119,7 +1122,8 @@
     const ORDER = ['triangle', 'collect', 'congruence', 'final', 'qcollect', 'qcondition', 'clear'];
     const ph = g.phase === 'step' ? (g.explainPart === 'quad' ? 'qcollect' : 'collect') : g.phase;
     const now = ORDER.indexOf(ph);
-    let steps = [['triangle', '三角形'], ['collect', '合同の根拠'], ['congruence', '合同条件'], ['final', '角の等しさ'], ['qcollect', '平行四辺形の根拠'], ['qcondition', '成立条件']];
+    const qlabel = PH.quadTypeName(this.problem) + 'の根拠';
+    let steps = [['triangle', '三角形'], ['collect', '合同の根拠'], ['congruence', '合同条件'], ['final', '角の等しさ'], ['qcollect', qlabel], ['qcondition', '成立条件']];
     if (!PH.hasLemma(this.problem)) steps = steps.slice(4);
     const items = steps.map(function (st) {
       const i = ORDER.indexOf(st[0]);
@@ -1130,7 +1134,7 @@
       const pre = PH.proofEngine.stepsOf(this.problem, 'pre').map(function (s) {
         return { label: s.short || NAME[s.type], state: g.engine.done[s.id] ? 'is-done' : g.stepId === s.id && g.phase === 'step' ? 'is-now' : '', sub: true };
       });
-      const ci = items.findIndex(function (it) { return it.label === '平行四辺形の根拠'; });
+      const ci = items.findIndex(function (it) { return it.label === qlabel; });
       items.splice.apply(items, [ci + 1, 0].concat(pre));
     }
     let n = 0;
@@ -1275,12 +1279,15 @@
 
     if (g.phase === 'qcondition') {
       const qname = PH.quadrilateral.name(this.problem.targetQuadrilateral);
+      const chain = this.problem.parallelogram.chain;
       html += '<div class="panel-head">▱ 成立条件を選ぼう！</div>' + this.stepBar() +
-        '<p class="panel-note">根拠がそろった！ どの条件で <b>' + esc(qname) + '</b> が平行四辺形といえるかな？</p>' +
+        // Ver.1.0：4つの辺（角）がすべて等しいことは入力させず、集めた根拠から確認して表示する
+        (chain ? '<p class="quad-chain">集めた根拠から <b>' + esc(chain) + '</b></p>' : '') +
+        '<p class="panel-note">根拠がそろった！ どの条件で <b>' + esc(qname) + '</b> が' + esc(PH.quadTypeName(this.problem)) + 'といえるかな？</p>' +
         '<div class="choices conds conds-5">' +
           g.conditionOptions().map(function (id, i) {
             return '<button class="choice" data-cond="' + id + '" aria-pressed="' + (g.pcondition === id) + '">' +
-              '<span class="choice-no">' + CIRCLED[i] + '</span>' + esc(PH.PARALLELOGRAM_CONDITIONS[id].label) + '</button>';
+              '<span class="choice-no">' + CIRCLED[i] + '</span>' + esc(PH.quadCondition(id).label) + '</button>';
           }).join('') +
         '</div>' +
         '<div class="panel-actions"><button class="btn btn-confirm btn-wide" data-act="confirm-cond"' + (g.pcondition ? '' : ' disabled') + '>証明を完成する</button></div>' +
@@ -1331,7 +1338,7 @@
     const par = qc && g.relation === 'parallel';
     if (qc) {
       const qname = PH.quadrilateral.name(this.problem.targetQuadrilateral);
-      if (n === 0) note = qname + 'が平行四辺形になるための根拠を探そう！ ' + (g.mode === 'angle'
+      if (n === 0) note = qname + 'が' + PH.quadTypeName(this.problem) + 'になるための根拠を探そう！ ' + (g.mode === 'angle'
         ? '等しい角を、角の内側をタップして選ぼう。'
         : '2つの辺をタップしよう。平行を示すときは「＝⇔∥」で ∥ に切りかえよう。');
       else if (n === 1) note = '2つ目の' + what + 'をタップしよう。';
@@ -1340,7 +1347,7 @@
     // Ver.0.8：直角三角形の問題は、今集めている欄（直角・斜辺・他の1辺・鋭角）を見出しに出す
     const RT = PH.rightTriangle;
     const roleNow = !final && g.isRight() ? g.role : null;
-    let head = final ? '⭐ 結論を導こう！' : qc ? '▱ 平行四辺形の根拠をさがそう' : g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
+    let head = final ? '⭐ 結論を導こう！' : qc ? '▱ ' + PH.quadTypeName(this.problem) + 'の根拠をさがそう' : g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
     if (roleNow) {
       head = roleNow === 'right' ? '📐 直角を確かめよう' : '📐 ' + RT.ROLE_LABEL[roleNow] + 'をさがそう';
       if (n === 0) note = {
@@ -1540,15 +1547,17 @@
       q.intro.map(function (t) { return '<p class="proof-intro">' + esc(t) + '</p>'; }).join('') +
       '<ol class="proof-lines">' + rows + stepLinesHtml({ stepLines: q.stepLines }) + '</ol>' +
       '<p class="proof-sum">' + esc(q.summary) + '</p>' +
-      '<p class="proof-cond"><strong>' + esc(q.condition) + '</strong>' + (/平行$/.test(q.condition) ? 'な' : '') + 'ので、</p>' +
+      (q.chain ? '<p class="proof-chain">' + esc(q.chain) + '</p>' : '') +
+      '<p class="proof-cond"><strong>' + esc(q.condition) + '</strong>' + (/(平行|直角)$/.test(q.condition) ? 'な' : '') + 'ので、</p>' +
       '<p class="proof-concl proof-goal">' + esc(q.conclusion) + '</p>' +
       '</div>';
   }
 
   // 証明する四角形の性質を、平行四辺形と分かる前に使ったときのメッセージ
   function targetPropertyText(p) {
-    return 'それは、' + PH.quadrilateral.name(p.targetQuadrilateral) + 'が平行四辺形だと証明できてから使える性質だよ！ ' +
-      '「平行四辺形の性質」と「平行四辺形になるための条件」を区別しよう。';
+    const t = PH.quadTypeName(p);
+    return 'それは、' + PH.quadrilateral.name(p.targetQuadrilateral) + 'が' + t + 'だと証明できてから使える性質だよ！ ' +
+      '「' + t + 'の性質」と「' + t + 'になるための条件」を区別しよう。';
   }
 
   // 多段階証明の前半のステップの行（「③、④より、∠ACE＝∠BCD ……⑤」など。タップすると図が光る）

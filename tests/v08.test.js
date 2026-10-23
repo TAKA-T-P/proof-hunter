@@ -10,6 +10,7 @@ require('../js/validation.js');
 require('../js/right-triangle.js');
 require('../js/quadrilateral.js');
 require('../js/parallelogram-rules.js');
+require('../js/special-quadrilaterals.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -144,8 +145,8 @@ function result(over) {
 // =====================================================================================
 
 test('30問・8ステージ。STAGE 8「直角三角形を攻略せよ！」は p25〜p30', () => {
-  assert.equal(PH.problems.length, 42);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6
-  assert.equal(PH.STAGES.length, 10);
+  assert.equal(PH.problems.length, 48);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p48）
+  assert.equal(PH.STAGES.length, 11);
   assert.equal(PH.getStage(8).title, '直角三角形を攻略せよ！');
   assert.deepEqual(PH.stageProblems(8).map((p) => p.id), ['p25', 'p26', 'p27', 'p28', 'p29', 'p30']);
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
@@ -650,8 +651,8 @@ test('2つのコースの定義（表示名・説明・出題範囲）', () => {
   assert.equal(TR.get('basic').label, '基本の合同証明');
   assert.equal(TR.get('basic').desc, '3つの合同条件と基本的な辺・角の性質に挑戦！');
   assert.equal(TR.get('comprehensive').label, '総合証明');
-  // Ver.0.9 で平行四辺形を加えた（説明文も更新）
-  assert.equal(TR.get('comprehensive').desc, '二等辺三角形・直角三角形・平行四辺形など、いろいろな証明に挑戦！');
+  // Ver.0.9 で平行四辺形、Ver.1.0 でひし形・長方形を加えた（説明文も更新）
+  assert.equal(TR.get('comprehensive').desc, '二等辺三角形・直角三角形・平行四辺形・ひし形・長方形など、いろいろな証明に挑戦！');
   // 総合証明は基本の範囲をすべてふくむ
   TR.get('basic').allowedTopics.forEach((t) => assert.ok(TR.get('comprehensive').allowedTopics.includes(t), t));
   // 平行四辺形（Ver.0.9）は総合証明だけ。基本の合同証明には入らない
@@ -671,8 +672,9 @@ test('出題範囲はステージ番号ではなく、必要な知識（topics�
   const fake = variant(P('p01'), { evidence: P('p01').evidence.map((ev, i) => (i === 0 ? Object.assign({}, ev, { reason: 'isoscelesBaseAngles' }) : ev)) });
   assert.ok(!TR.problemTopics(fake).every((t) => TR.get('basic').allowedTopics.includes(t)));
   // 知らない理由・ルールは unknown として、どのコースにも入らない
-  const unknown = variant(P('p01'), { evidence: P('p01').evidence.map((ev, i) => (i === 0 ? Object.assign({}, ev, { reason: 'rhombusSides' }) : ev)) });   // まだ実装していない単元（ひし形）の理由
-  assert.ok(TR.problemTopics(unknown).includes('unknown:rhombusSides'));
+  // （Ver.1.0 でひし形を実装したので、まだ実装していない単元（たこ形）の理由で確かめる）
+  const unknown = variant(P('p01'), { evidence: P('p01').evidence.map((ev, i) => (i === 0 ? Object.assign({}, ev, { reason: 'kiteSides' }) : ev)) });
+  assert.ok(TR.problemTopics(unknown).includes('unknown:kiteSides'));
   assert.equal(TR.allows('comprehensive', { requiredTopics: TR.problemTopics(unknown) }), false);
   // requiredTopics のない問題は出題しない
   assert.equal(TR.allows('basic', { requiredTopics: [] }), false);
@@ -716,7 +718,7 @@ test('直角三角形のミニ問題（タイプA〜E）：正解が1つに決�
   assert.equal(rhs.answerText, PH.CONDITIONS.RHS.label);
   assert.equal(rha.answerText, PH.CONDITIONS.RHA.label);
   // タイプB：斜辺（直角に向かい合う辺。選択肢の残りは直角をはさむ辺）
-  assert.equal(byType('hypotenuse').length, 16);   // p25〜p30 の12問 ＋ Ver.0.9 の p38・p42 の4問
+  assert.equal(byType('hypotenuse').length, 18);   // p25〜p30 の12問 ＋ Ver.0.9 の p38・p42 の4問 ＋ Ver.1.0 の p43 の2問
   byType('hypotenuse').forEach((q) => {
     const p = P(q.sourceId);
     const choices = q.choice.blanks[0].choices;
@@ -730,7 +732,7 @@ test('直角三角形のミニ問題（タイプA〜E）：正解が1つに決�
     assert.ok(!choices.includes('仮定より'), q.id);
     assert.ok(choices.includes(PH.REASONS[RT.rightEvidence(P(q.sourceId)).reason].proof), q.id);
   });
-  assert.deepEqual(byType('rightReason').map((q) => q.sourceId), ['p27', 'p28', 'p29', 'p30', 'p38', 'p42']);   // p38・p42 は Ver.0.9
+  assert.deepEqual(byType('rightReason').map((q) => q.sourceId), ['p27', 'p28', 'p29', 'p30', 'p38', 'p42', 'p43']);   // p38・p42 は Ver.0.9、p43 は Ver.1.0
   // タイプE：あと何が必要？
   assert.equal(COMP.find((q) => q.id === 'rule-need-rhs').answerText, '対応する他の1辺');
   assert.equal(COMP.find((q) => q.id === 'rule-need-rha').answerText, '対応する1つの鋭角');

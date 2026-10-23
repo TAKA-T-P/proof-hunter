@@ -10,6 +10,7 @@ require('../js/validation.js');
 require('../js/right-triangle.js');
 require('../js/quadrilateral.js');
 require('../js/parallelogram-rules.js');
+require('../js/special-quadrilaterals.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -109,7 +110,7 @@ function solveHunter(p) {
 // ---- 問題データ ---------------------------------------------------------------------
 
 test('STAGE 7「証明をつなげろ！」は p21〜p24 の多段階証明', () => {
-  assert.equal(PH.problems.length, 42);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6
+  assert.equal(PH.problems.length, 48);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p48）
   assert.equal(PH.getStage(7).title, '証明をつなげろ！');
   assert.deepEqual(PH.stageProblems(7).map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
   assert.deepEqual(MULTI.map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
@@ -467,8 +468,8 @@ test('段位認定：定理・三段論法のミニ問題（1か所解答・正�
   assert.equal(cmp.input.check('∠ACE=∠ACD'), false);
   // 出題の割合：定理・三段論法は既存カテゴリのおよそ半分（重み 0.5）
   const cnt = {};
-  // Ver.0.8 までのミニ問題で確かめる（Ver.0.9 の平行四辺形の割合は v09.test.js）
-  const pool = PH.rankQuestions.all().filter((q) => q.category !== 'para');
+  // Ver.0.8 までのミニ問題で確かめる（Ver.0.9 の平行四辺形の割合は v09.test.js、Ver.1.0 の四角形の分類は v10.test.js）
+  const pool = PH.rankQuestions.all().filter((q) => q.category !== 'para' && q.category !== 'quad');
   for (let seed = 1; seed <= 20; seed++) {
     const g = new PH.RankGame({ seed, pool });
     g.start(0);

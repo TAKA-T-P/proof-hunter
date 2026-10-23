@@ -406,12 +406,13 @@
         verifyFinalStep(problem, errors);
       }
       // Ver.0.9：平行四辺形の根拠・成立条件・性質の使い方（js/parallelogram-rules.js）
-      if (ctype === 'parallelogram') {
+      if (PH.isQuadProblem(problem)) {
         if (!PH.parallelogram) errors.push('平行四辺形の判定（parallelogram-rules.js）がない');
         else PH.parallelogram.verify(problem).forEach(function (e) { errors.push(e); });
       }
       // 仮定の平行四辺形と、その性質を使う合同の根拠（STAGE 9 の p37〜p39 など）
-      if (PH.parallelogram && ((problem.knownParallelograms || []).length || (problem.evidence || []).some(function (ev) { return PH.parallelogram.isPropertyReason(ev.reason); }))) {
+      if (PH.parallelogram && ((problem.knownParallelograms || []).length || (PH.specialQuad && PH.specialQuad.knownQuads(problem).length) ||
+          (problem.evidence || []).some(function (ev) { return PH.parallelogram.isPropertyReason(ev.reason) || PH.parallelogram.SPECIAL_PROPERTY_REASONS[ev.reason]; }))) {
         PH.parallelogram.verifyKnown(problem).forEach(function (e) { errors.push(e); });
       }
 
@@ -498,6 +499,16 @@
           if (err) errors.push(ev.id + ': ' + err);
         }
         if ((ev.reason === 'proved') !== !!ev.fromStep) errors.push(ev.id + ': 導いた事実の根拠は reason: proved と fromStep の両方が必要');
+        // Ver.1.0：中点（midpoint）は、仮定の中点で分けた2つの線分
+        if (ev.reason === 'midpoint') {
+          const segs = ev.items.map(function (n) { return geo().segKey(n); });
+          const ok = (problem.midpoints || []).some(function (m) {
+            const s = String(m.of);
+            return [geo().segKey(s[0] + m.point), geo().segKey(m.point + s[1])].sort().join('|') === segs.slice().sort().join('|') &&
+              (problem.given || []).indexOf(m.point + 'は辺' + s + 'の中点') >= 0;
+          });
+          if (!ok) errors.push(ev.id + ': 仮定の中点で分けた2つの線分になっていない');
+        }
       });
       if (PH.proofEngine && PH.proofEngine.hasSteps(problem)) {
         PH.proofEngine.verify(problem).forEach(function (e) { errors.push(e); });
@@ -546,7 +557,7 @@
     // 結論が「平行四辺形」（Ver.0.9）の問題は、合同から導いた等式（finalStep）を、平行四辺形の根拠（平行を導く角など）に使う
     const ctype = PH.conclusionType(problem);
     const viaPost = ctype === 'isoscelesTriangle' || ctype === 'parallelLines';   // 後半のステップで結論を導く（二等辺三角形・平行）
-    const viaQuad = ctype === 'parallelogram';
+    const viaQuad = PH.isQuadProblem(problem);
     const kind = ctype === 'equalAngle' ? 'angle' : ctype === 'equalSide' ? 'side' : fs.relationType;
     if (fs.relationType !== kind) errors.push('finalStep.relationType が conclusionType と合わない');
     if (fs.items.some(function (n) { return geo().isAngleName(n) !== (kind === 'angle'); })) errors.push('finalStep.items の種類が合わない');

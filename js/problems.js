@@ -36,10 +36,14 @@
     parallelogramDiagonals: { label: '平行四辺形の対角線はそれぞれの中点で交わる', short: '平行四辺形の対角線', proof: '平行四辺形の対角線はそれぞれの中点で交わるから', quadOnly: true },
     alternateConverse:      { label: '錯角が等しいから（平行）', short: '錯角が等しい', proof: '錯角が等しいから', quadOnly: true, rel: 'parallel' },
     correspondingConverse:  { label: '同位角が等しいから（平行）', short: '同位角が等しい', proof: '同位角が等しいから', quadOnly: true, rel: 'parallel' },
+    // Ver.1.0：ひし形の性質（仮定でひし形と分かっている四角形にだけ使える）と、中点
+    rhombusSides:  { label: 'ひし形の4辺は等しい', short: 'ひし形の辺', proof: 'ひし形の4辺は等しいから' },
+    rhombusAngles: { label: 'ひし形の対角は等しい', short: 'ひし形の対角', proof: 'ひし形の対角は等しいから' },
+    midpoint:      { label: '中点より', short: '中点', proof: '中点だから' },
   };
 
   // 結論の種類（Ver.0.5）。conclusionType がない問題は三角形の合同
-  PH.CONCLUSION_TYPES = ['triangleCongruence', 'equalSide', 'equalAngle', 'isoscelesTriangle', 'parallelogram', 'parallelLines'];
+  PH.CONCLUSION_TYPES = ['triangleCongruence', 'equalSide', 'equalAngle', 'isoscelesTriangle', 'parallelogram', 'parallelLines', 'rhombus', 'rectangle'];
   PH.conclusionType = function (p) { return p.conclusionType || 'triangleCongruence'; };
   // 合同を示したあと、対応する辺・角の等しさを導く問題か（三角形選択・最終結論のステップがある）
   PH.hasFinalStep = function (p) { return PH.conclusionType(p) !== 'triangleCongruence' && !!p.finalStep; };
@@ -49,7 +53,23 @@
   PH.finalReasonFor = function (p) { return p.finalStep.relationType === 'angle' ? 'correspondingAngles' : 'correspondingSides'; };
   // Ver.0.9：結論が「四角形…は平行四辺形」の問題（js/parallelogram-rules.js）。
   //   hasLemma … 平行四辺形の根拠を集める前に、三角形の合同を示す部分（triangles・evidence・congruence・finalStep）がある
-  PH.isQuadProblem = function (p) { return !!p && PH.conclusionType(p) === 'parallelogram'; };
+  //   Ver.1.0：結論が「四角形…はひし形」「…は長方形」の問題（conclusionType 'rhombus'・'rectangle'）も四角形の問題。
+  //     四角形の部分のデータは、どの種類でも parallelogram（根拠・成立条件）に書く。成立条件は js/special-quadrilaterals.js
+  PH.QUAD_CONCLUSIONS = ['parallelogram', 'rhombus', 'rectangle'];
+  PH.isQuadProblem = function (p) { return !!p && PH.QUAD_CONCLUSIONS.indexOf(PH.conclusionType(p)) >= 0; };
+  // 証明する四角形の種類（'parallelogram'・'rhombus'・'rectangle'。四角形の問題でなければ null）
+  PH.quadType = function (p) { return PH.isQuadProblem(p) ? PH.conclusionType(p) : null; };
+  PH.QUAD_TYPE_NAMES = { parallelogram: '平行四辺形', rhombus: 'ひし形', rectangle: '長方形', square: '正方形' };
+  PH.quadTypeName = function (p) { return PH.QUAD_TYPE_NAMES[PH.quadType(p)] || '四角形'; };
+  // 四角形の成立条件の表示（平行四辺形の5つの条件と、ひし形・長方形の条件）
+  PH.quadCondition = function (id) {
+    return PH.PARALLELOGRAM_CONDITIONS[id] || (PH.SPECIAL_CONDITIONS && PH.SPECIAL_CONDITIONS[id]) || null;
+  };
+  // 問題ごとの成立条件の選択肢（平行四辺形は5つ。ひし形・長方形は、ひし形の3つと長方形の3つ）
+  PH.quadConditionOrder = function (p) {
+    if (PH.quadType(p) === 'parallelogram' || !PH.specialQuad) return PH.PARALLELOGRAM_CONDITION_ORDER.slice();
+    return PH.specialQuad.PROOF_CONDITION_ORDER.slice();
+  };
   PH.hasLemma = function (p) { return PH.isQuadProblem(p) && Array.isArray(p.triangles) && p.triangles.length === 2; };
   // 三角形の合同を示す部分がある問題か（平行四辺形だけの問題は、三角形・合同条件がない）
   PH.hasCongruence = function (p) { return !PH.isQuadProblem(p) || PH.hasLemma(p); };
@@ -83,8 +103,11 @@
    * その根拠の理由として正しいと認める理由。標準の理由（ev.reason）に加えて：
    *   垂直から言える直角（perpendicular）は、仮定に「BD⊥AC」と書かれているので「仮定より」も正しい
    */
+  //   Ver.1.0：中点から言える等しい線分（midpoint）も、仮定に「MはADの中点」と書かれているので「仮定より」も正しい。
+  //            ev.alsoReasons … ほかにも正しい理由（ひし形の対角は、ひし形が平行四辺形なので「平行四辺形の対角は等しい」でもよい）
   PH.acceptedReasons = function (ev) {
-    return ev.reason === 'perpendicular' ? ['perpendicular', 'given'] : [ev.reason];
+    const base = ev.reason === 'perpendicular' ? ['perpendicular', 'given'] : ev.reason === 'midpoint' ? ['midpoint', 'given'] : [ev.reason];
+    return base.concat(ev.alsoReasons || []);
   };
 
   // ステージ（問題の stage で参照）
@@ -99,6 +122,7 @@
     { id: 8, title: '直角三角形を攻略せよ！', theme: '直角を確かめ、斜辺を見つけて、直角三角形の合同条件を使いこなそう！' },
     { id: 9, title: '平行四辺形を利用せよ！', theme: '平行四辺形の性質（対辺・対角線）を使って、三角形の合同を証明しよう！' },
     { id: 10, title: '平行四辺形を証明せよ！', theme: '何を示せば平行四辺形といえる？ 5つの成立条件から逆算して根拠を集めよう！' },
+    { id: 11, title: '特別な平行四辺形', theme: 'ひし形・長方形の性質を使い、証明を完成させよう！' },
   ];
 
   // 合同条件を選ぶときのヒント（問題データから呼び出す共通文）
@@ -3025,6 +3049,467 @@
         '合同から導いた辺の等しさを、平行四辺形の根拠に使う。',
         '垂線がつくる直角どうしは錯角として等しいので、2直線は平行になる。',
         '1組の対辺が平行で、その長さが等しい四角形は平行四辺形である。',
+      ],
+    }
+  );
+
+  // ==================================================================
+  // Ver.1.0 追加問題（STAGE 11「特別な平行四辺形」）
+  //   p43 … ひし形と直角三角形の合同（RHA。ひし形の4辺・対角の性質）
+  //   p44・p45 … ひし形になることの証明（4つの辺がすべて等しい）。p45 は角の二等分線・錯角・二等辺三角形のステップ
+  //   p46 … 長方形になることの証明（隣り合う角の和 → 4つの角がすべて等しい）
+  //   p47・p48 … 三角形の合同 → 対応する角 → 平行四辺形の対角 → 4つの角がすべて等しい → 長方形（1つの問題の中で続けて解く）
+  //   chain … 「4つの辺（角）がすべて等しい」の確認の表示（入力はさせない）
+  // ==================================================================
+  // ひし形（1辺210、∠B＝64°）
+  const RH = {
+    A: { x: 132.06, y: 91.25, label: [-8, -20] },
+    B: { x: 40,     y: 280,   label: [-18, 14] },
+    C: { x: 250,    y: 280,   label: [12, 18] },
+    D: { x: 342.06, y: 91.25, label: [12, -16] },
+  };
+  // 長方形（平行四辺形で、図は長方形に描く）
+  const RE = {
+    A: { x: 80,  y: 60,  label: [-16, -14] },
+    B: { x: 80,  y: 250, label: [-16, 18] },
+    C: { x: 400, y: 250, label: [14, 18] },
+    D: { x: 400, y: 60,  label: [14, -14] },
+  };
+  function pts(base, extra) { return Object.assign({}, base, extra || {}); }
+
+  PH.problems.push(
+    // ------------------------------------------------------------------
+    {
+      id: 'p43',
+      number: '43',
+      title: 'ひし形と直角三角形の合同',
+      difficulty: 2,
+      stage: 11,
+      statement: 'ひし形ABCDの頂点Aから、辺BC、CDにそれぞれ垂線AH、AKをひく。このとき、△ABH≡△ADK であることを証明しよう。',
+      given: ['四角形ABCDはひし形', 'AH⊥BC', 'AK⊥CD'],
+      conclusion: '△ABH≡△ADK',
+      triangles: [['A', 'B', 'H'], ['A', 'D', 'K']],
+      figure: {
+        viewBox: [0, 0, 400, 320],
+        points: pts(RH, {
+          H: { x: 132.06, y: 280,    label: [2, 22] },
+          K: { x: 301.7,  y: 173.99, label: [18, 8] },
+        }),
+        lines: [['B', 'H', 'C'], ['C', 'K', 'D']],
+        segments: ['AB', 'BH', 'HC', 'CK', 'KD', 'DA', 'AH', 'AK'],
+        angles: ['AHB', 'AKD', 'ABH', 'ADK', 'BAH', 'DAK'],
+        parallel: [],
+        rightMarks: ['AHB', 'AKD'],
+      },
+      perpendicular: [{ a: 'AH', b: 'BC', label: 'AH⊥BC' }, { a: 'AK', b: 'CD', label: 'AK⊥CD' }],
+      reasons: ['given', 'rhombusSides', 'rhombusAngles', 'parallelogramAngles', 'perpendicular', 'vertical'],
+      evidence: [
+        { id: 'e1', role: 'right', items: ['∠AHB', '∠AKD'], reason: 'perpendicular', label: '∠AHB＝∠AKD', mark: 'right' },
+        { id: 'e2', items: ['AB', 'AD'], reason: 'rhombusSides', label: 'AB＝AD', mark: 1 },
+        // ひし形は平行四辺形なので「平行四辺形の対角は等しい」でもよい
+        { id: 'e3', items: ['∠ABH', '∠ADK'], reason: 'rhombusAngles', alsoReasons: ['parallelogramAngles'], label: '∠ABH＝∠ADK', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'RHA',
+      proof: { intro: '△ABHと△ADKにおいて' },
+      puzzle: { type: 'build', distractors: { equations: ['AB＝AH', '∠BAH＝∠ABH', 'BH＝HC'], reasons: ['vertical'] } },
+      hints: {
+        e1: [
+          { text: '直角三角形に注目しよう！ AH⊥BC、AK⊥CD だね。' },
+          { text: '垂直な線がつくる角 ∠AHB と ∠AKD に注目しよう。', focus: ['∠AHB', '∠AKD'] },
+          { text: '垂直な2直線がつくる角だから、∠AHB＝∠AKD＝90° だね！', focus: ['∠AHB', '∠AKD'] },
+        ],
+        e2: [
+          { text: '斜辺と、等しい鋭角を見つけよう！ まずは斜辺。斜辺は直角に向かい合う辺だよ。' },
+          { text: '△ABHで直角∠AHBに向かい合う辺はAB、△ADKではADだね。', focus: ['AB', 'AD'] },
+          { text: 'ひし形の辺の性質を使おう！ ひし形の4辺は等しいから AB＝AD だね！', focus: ['AB', 'AD'] },
+        ],
+        e3: [
+          { text: '斜辺と、等しい鋭角を見つけよう！' },
+          { text: '∠ABHと∠ADKは、ひし形ABCDの向かい合う角（対角）∠Bと∠Dだね。', focus: ['∠ABH', '∠ADK'] },
+          { text: 'ひし形の対角の性質を使おう！ ひし形の対角は等しいから ∠ABH＝∠ADK だね！', focus: ['∠ABH', '∠ADK'] },
+        ],
+        congruence: rhaHints(),
+      },
+      explanation: 'AH⊥BC、AK⊥CD より ∠AHB＝∠AKD＝90°。ひし形の4辺は等しいので AB＝AD（斜辺）、ひし形の対角は等しいので ∠ABH＝∠ADK（鋭角）。直角三角形の斜辺と1つの鋭角がそれぞれ等しいので △ABH≡△ADK です。',
+      learningPoints: [
+        'ひし形の性質（4辺が等しい・対角が等しい）を、直角三角形の合同の根拠に使う。',
+        '垂線から直角三角形を見つけ、斜辺と鋭角を確かめる。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p44',
+      number: '44',
+      title: '隣り合う2辺が等しい平行四辺形',
+      difficulty: 1,
+      stage: 11,
+      statement: '四角形ABCDは平行四辺形である。AB＝AD のとき、四角形ABCDはひし形であることを証明しよう。',
+      given: ['四角形ABCDは平行四辺形', 'AB＝AD'],
+      conclusion: '四角形ABCDはひし形',
+      conclusionType: 'rhombus',
+      targetQuadrilateral: ['A', 'B', 'C', 'D'],
+      knownParallelograms: [['A', 'B', 'C', 'D']],
+      figure: {
+        viewBox: [0, 0, 400, 320],
+        points: pts(RH),
+        lines: [],
+        segments: ['AB', 'BC', 'CD', 'DA'],
+        angles: ['DAB', 'ABC', 'BCD', 'CDA'],
+        parallel: PARA_ARROWS,
+      },
+      reasons: [],
+      evidence: [],
+      parallelogram: {
+        intro: ['平行四辺形ABCDにおいて'],
+        reasons: ['given', 'parallelogramSides', 'parallelogramAngles', 'rhombusSides'],
+        evidence: [
+          { id: 'q1', items: ['AB', 'CD'], reason: 'parallelogramSides', label: 'AB＝CD', mark: 1 },
+          { id: 'q2', items: ['AD', 'BC'], reason: 'parallelogramSides', label: 'AD＝BC', mark: 1 },
+          { id: 'q3', items: ['AB', 'AD'], reason: 'given', label: 'AB＝AD', mark: 1 },
+        ],
+        condition: 'rhombusDefinition',
+        // 「平行四辺形で、となり合う2辺が等しい」でも言える（仮定から）。選んでもミスにしない
+        alternatives: ['rhombusAdjacentEqual'],
+        chain: 'AB＝BC＝CD＝DA',
+        distractors: { equations: ['AB＝BC', 'AC＝BD', '∠DAB＝∠ABC'], reasons: [] },
+      },
+      puzzle: { type: 'fill', distractors: { equations: [], reasons: [] } },
+      hints: {
+        q1: ppHints('平行四辺形の対辺にはどんな性質があるかな？', 'AB＝CD、AD＝BCを確認しよう！ まずは辺ABと辺CD。',
+          'AB＝CD。平行四辺形の対辺は等しいね！', ['AB', 'CD']),
+        q2: ppHints('平行四辺形の対辺にはどんな性質があるかな？', 'AB＝CD、AD＝BCを確認しよう！ 次は辺ADと辺BC。',
+          'AD＝BC。平行四辺形の対辺は等しいね！', ['AD', 'BC']),
+        q3: ppHints('仮定のAB＝ADと組み合わせて4辺の長さを比べよう！', '仮定に書かれている等しい辺はどれかな？ 辺ABと辺ADに注目しよう。',
+          'AB＝AD。仮定より等しいね！', ['AB', 'AD']),
+        pcondition: [
+          { text: '仮定のAB＝ADと組み合わせて4辺の長さを比べよう！' },
+          { text: 'AB＝CD、AD＝BC、AB＝AD から、AB＝BC＝CD＝DA だね。' },
+          { text: '4つの辺がすべて等しいね。「4つの辺がすべて等しい」を選ぼう！' },
+        ],
+      },
+      explanation: '平行四辺形の対辺は等しいので AB＝CD、AD＝BC。仮定より AB＝AD。これらから AB＝BC＝CD＝DA となり、4つの辺がすべて等しいので、四角形ABCDはひし形です。',
+      learningPoints: [
+        '平行四辺形の対辺の性質と仮定を組み合わせて、4つの辺の長さを比べる。',
+        '4つの辺がすべて等しい四角形はひし形である（ひし形の定義）。',
+        '「ひし形の4辺は等しい」は、ひし形だと分かってから使える性質であることに注意する。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p45',
+      number: '45',
+      title: '角の二等分線からひし形へ',
+      difficulty: 2,
+      stage: 11,
+      statement: '平行四辺形ABCDで、対角線ACが∠BADの二等分線になっている。このとき、四角形ABCDはひし形であることを証明しよう。',
+      given: ['四角形ABCDは平行四辺形', 'ACは∠BADの二等分線'],
+      conclusion: '四角形ABCDはひし形',
+      conclusionType: 'rhombus',
+      targetQuadrilateral: ['A', 'B', 'C', 'D'],
+      knownParallelograms: [['A', 'B', 'C', 'D']],
+      figure: {
+        viewBox: [0, 0, 400, 320],
+        points: pts(RH),
+        lines: [],
+        segments: ['AB', 'BC', 'CD', 'DA', 'AC'],
+        angles: ['BAC', 'CAD', 'ACB', 'ACD'],
+        parallel: PARA_ARROWS,
+      },
+      reasons: [],
+      evidence: [],
+      proofSteps: [
+        { id: 's1', type: 'theorem', rule: 'angleBisector', premiseLabel: 'ACは∠BADの二等分線',
+          lead: 'ACは∠BADの二等分線だから、', items: ['∠BAC', '∠CAD'], label: '∠BAC＝∠CAD', short: '角の二等分線', dependsOn: [],
+          proofText: '仮定より、ACは∠BADの二等分線だから、' },
+        { id: 's2', type: 'theorem', rule: 'parallelAlternateAngles', quad: 'ABCD', lines: ['AD', 'BC'], premiseLabel: 'AD∥BC',
+          lead: '四角形ABCDは平行四辺形で AD∥BC だから、', items: ['∠CAD', '∠ACB'], label: '∠CAD＝∠ACB', short: '平行線の錯角', dependsOn: [],
+          proofText: 'AD∥BCより、平行線の錯角は等しいから、' },
+        { id: 's3', type: 'theorem', rule: 'angleTransitive', premiseLabel: '∠BAC＝∠CAD、∠CAD＝∠ACB',
+          lead: '∠BAC＝∠CAD、∠CAD＝∠ACB だから、', items: ['∠BAC', '∠ACB'], label: '∠BAC＝∠ACB', short: '角をつなぐ', dependsOn: ['s1', 's2'],
+          proofText: '{s1}、{s2}より、' },
+        { id: 's4', type: 'theorem', rule: 'isoscelesConverseSides', premise: ['∠BAC', '∠ACB'], triangle: 'BAC', premiseLabel: '∠BAC＝∠ACB',
+          lead: '△ABCで ∠BAC＝∠ACB だから、△ABCは二等辺三角形で、', items: ['AB', 'BC'], label: 'AB＝BC', short: '二等辺三角形の2辺', dependsOn: ['s3'],
+          proofText: '{s3}より、2つの角が等しいので△ABCは二等辺三角形だから、' },
+      ],
+      parallelogram: {
+        intro: ['平行四辺形ABCDにおいて'],
+        reasons: ['given', 'parallelogramSides', 'parallelogramAngles', 'rhombusSides'],
+        evidence: [
+          { id: 'q1', items: ['AB', 'BC'], reason: 'proved', fromStep: 's4', label: 'AB＝BC', mark: 1 },
+          { id: 'q2', items: ['AB', 'CD'], reason: 'parallelogramSides', label: 'AB＝CD', mark: 1 },
+          { id: 'q3', items: ['AD', 'BC'], reason: 'parallelogramSides', label: 'AD＝BC', mark: 1 },
+        ],
+        condition: 'rhombusDefinition',
+        alternatives: [],
+        chain: 'AB＝BC＝CD＝DA',
+        distractors: { equations: ['AC＝BD', 'AB＝AC', '∠BAC＝∠ABC'], reasons: [] },
+      },
+      puzzle: { type: 'build', distractors: { equations: [], reasons: [] } },
+      hints: {
+        q1: ppHints('角の二等分線に注目しよう！', '平行線の錯角を使うと、△ABCについて何が分かるかな？',
+          '二等辺三角形の2辺の等しさを利用しよう！ 辺ABと辺BCを選んで「詳しい理由を説明する」を押そう！', ['AB', 'BC']),
+        q2: ppHints('平行四辺形の対辺にはどんな性質があるかな？', '辺ABと辺CDは、平行四辺形の対辺だね。', 'AB＝CD。平行四辺形の対辺は等しいね！', ['AB', 'CD']),
+        q3: ppHints('もう1組の対辺はどれかな？', '辺ADと辺BCは、平行四辺形の対辺だね。', 'AD＝BC。平行四辺形の対辺は等しいね！', ['AD', 'BC']),
+        s1: stepHints('角の二等分線に注目しよう！', 'ACは∠BADを2つの等しい角に分けるね。', '角の二等分線だから ∠BAC＝∠CAD！', ['∠BAC', '∠CAD']),
+        s2: stepHints('平行四辺形ABCDの対辺は平行だね。AD∥BC と、それに交わる直線ACに注目しよう。', '∠CADと∠ACBは錯角だね。',
+          '平行線の錯角は等しいから ∠CAD＝∠ACB！', ['∠CAD', '∠ACB']),
+        s3: stepHints('∠BAC＝∠CAD、∠CAD＝∠ACB。どちらにも∠CADが出てくるね。', '同じ角に等しい2つの角の関係は？',
+          '同じ角に等しい2つの角は等しいから ∠BAC＝∠ACB！', ['∠BAC', '∠ACB']),
+        s4: stepHints('平行線の錯角を使うと、△ABCについて何が分かるかな？', '△ABCの2つの角∠BACと∠ACBが等しいね。',
+          '二等辺三角形の2辺の等しさを利用しよう！ 2つの角が等しい三角形は二等辺三角形だから AB＝BC！', ['AB', 'BC']),
+        pcondition: [
+          { text: '集めた3つの根拠で、4つの辺の長さを比べよう！' },
+          { text: 'AB＝BC、AB＝CD、AD＝BC から、AB＝BC＝CD＝DA だね。' },
+          { text: '4つの辺がすべて等しいね。「4つの辺がすべて等しい」を選ぼう！' },
+        ],
+      },
+      explanation: 'ACは∠BADの二等分線なので ∠BAC＝∠CAD、AD∥BCより錯角 ∠CAD＝∠ACB。よって ∠BAC＝∠ACB となり、△ABCは二等辺三角形なので AB＝BC。平行四辺形の対辺は等しいので AB＝CD、AD＝BC。4つの辺がすべて等しいので、四角形ABCDはひし形です。三角形の合同は使いません。',
+      learningPoints: [
+        '角の二等分線と平行線の錯角から、等しい角をつなぐ。',
+        '2つの角が等しい三角形は二等辺三角形で、その2辺が等しい。',
+        '平行四辺形の対辺の性質と組み合わせて、4つの辺がすべて等しいことを示す。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p46',
+      number: '46',
+      title: '1つの直角から長方形へ',
+      difficulty: 1,
+      stage: 11,
+      statement: '平行四辺形ABCDで、∠A＝90°である。このとき、四角形ABCDは長方形であることを証明しよう。',
+      given: ['四角形ABCDは平行四辺形', '∠A＝90°'],
+      conclusion: '四角形ABCDは長方形',
+      conclusionType: 'rectangle',
+      targetQuadrilateral: ['A', 'B', 'C', 'D'],
+      knownParallelograms: [['A', 'B', 'C', 'D']],
+      figure: {
+        viewBox: [0, 0, 480, 310],
+        points: pts(RE),
+        lines: [],
+        segments: ['AB', 'BC', 'CD', 'DA'],
+        angles: ['DAB', 'ABC', 'BCD', 'CDA'],
+        parallel: PARA_ARROWS,
+        rightMarks: ['DAB'],
+      },
+      reasons: [],
+      evidence: [],
+      proofSteps: [
+        { id: 's1', type: 'theorem', rule: 'parallelogramAdjacentSupplementary', quad: 'ABCD', premise: ['∠DAB', '∠ABC'],
+          premiseLabel: '∠A＝90°、∠A＋∠B＝180°',
+          lead: '平行四辺形の隣り合う角の和は180°で、∠A＝90° だから、∠B＝180°－90°＝90°。よって、',
+          items: ['∠DAB', '∠ABC'], label: '∠DAB＝∠ABC＝90°', short: '隣り合う角の和', dependsOn: [],
+          proofText: '平行四辺形の隣り合う角の和は180°だから ∠A＋∠B＝180°。仮定より ∠A＝90° なので ∠B＝90°。よって、' },
+      ],
+      parallelogram: {
+        intro: ['平行四辺形ABCDにおいて'],
+        reasons: ['given', 'parallelogramAngles', 'parallelogramSides'],
+        evidence: [
+          { id: 'q1', items: ['∠DAB', '∠ABC'], reason: 'proved', fromStep: 's1', label: '∠DAB＝∠ABC', mark: 1 },
+          { id: 'q2', items: ['∠DAB', '∠BCD'], reason: 'parallelogramAngles', label: '∠DAB＝∠BCD', mark: 1 },
+          { id: 'q3', items: ['∠ABC', '∠CDA'], reason: 'parallelogramAngles', label: '∠ABC＝∠CDA', mark: 1 },
+        ],
+        condition: 'rectangleDefinition',
+        // 「平行四辺形で、1つの角が直角」でも言える（仮定から）。選んでもミスにしない
+        alternatives: ['rectangleOneRightAngle'],
+        chain: '∠A＝∠B＝∠C＝∠D＝90°',
+        distractors: { equations: ['AB＝BC', 'AB＝AD', 'AD＝DC'], reasons: [] },
+      },
+      puzzle: { type: 'fill', distractors: { equations: [], reasons: [] } },
+      hints: {
+        q1: ppHints('平行四辺形の隣り合う角の和は？', '∠A＝90°なら、∠Bは何度かな？ ∠DABと∠ABCに注目しよう。',
+          '∠DABと∠ABCを選んで「詳しい理由を説明する」を押そう！', ['∠DAB', '∠ABC']),
+        q2: ppHints('さらに対角の等しさを使って、残りの角も求めよう！', '∠Aと∠Cは、平行四辺形の対角だね。',
+          '∠DAB＝∠BCD。平行四辺形の対角は等しいね！', ['∠DAB', '∠BCD']),
+        q3: ppHints('さらに対角の等しさを使って、残りの角も求めよう！', '∠Bと∠Dは、平行四辺形の対角だね。',
+          '∠ABC＝∠CDA。平行四辺形の対角は等しいね！', ['∠ABC', '∠CDA']),
+        s1: stepHints('平行四辺形の隣り合う角の和は？', '∠A＋∠B＝180°で ∠A＝90° だから、∠B＝180°－90°＝90°。',
+          '「平行四辺形の隣り合う角の和は180°」を使おう！', ['∠DAB', '∠ABC']),
+        pcondition: [
+          { text: '集めた3つの根拠で、4つの角を比べよう！' },
+          { text: '∠A＝∠B＝90°、∠A＝∠C、∠B＝∠D から、∠A＝∠B＝∠C＝∠D＝90° だね。' },
+          { text: '4つの角がすべて等しいね。「4つの角がすべて等しい」を選ぼう！' },
+        ],
+      },
+      explanation: '平行四辺形の隣り合う角の和は180°なので ∠A＋∠B＝180°。∠A＝90° なので ∠B＝90°。平行四辺形の対角は等しいので ∠C＝∠A＝90°、∠D＝∠B＝90°。4つの角がすべて等しい（すべて90°）ので、四角形ABCDは長方形です。',
+      learningPoints: [
+        '平行四辺形の隣り合う角の和は180°（∠A＝90° なら ∠B＝90°）。',
+        '平行四辺形の対角の性質で、残りの角も90°と分かる。',
+        '4つの角がすべて等しい四角形は長方形である（長方形の定義）。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p47',
+      number: '47',
+      title: '辺の中点と合同から長方形へ',
+      difficulty: 3,
+      stage: 11,
+      statement: '平行四辺形ABCDの辺ADの中点をMとする。MB＝MC のとき、四角形ABCDは長方形であることを証明しよう。',
+      given: ['四角形ABCDは平行四辺形', 'Mは辺ADの中点', 'MB＝MC'],
+      conclusion: '四角形ABCDは長方形',
+      conclusionType: 'rectangle',
+      targetQuadrilateral: ['A', 'B', 'C', 'D'],
+      knownParallelograms: [['A', 'B', 'C', 'D']],
+      midpoints: [{ point: 'M', of: 'AD' }],
+      // 長方形になることを示す前に、△ABM≡△DCM（3組の辺）から ∠BAM＝∠CDM を導く
+      triangles: [['A', 'B', 'M'], ['D', 'C', 'M']],
+      figure: {
+        viewBox: [0, 0, 480, 310],
+        points: pts(RE, { M: { x: 240, y: 60, label: [0, -18] } }),
+        lines: [['A', 'M', 'D']],
+        segments: ['AB', 'BC', 'CD', 'AM', 'MD', 'BM', 'CM'],
+        angles: ['BAM', 'CDM', 'ABM', 'DCM', 'AMB', 'DMC', 'ABC', 'BCD'],
+        parallel: PARA_ARROWS,
+      },
+      reasons: ['given', 'parallelogramSides', 'midpoint', 'vertical'],
+      evidence: [
+        { id: 'e1', items: ['AB', 'DC'], reason: 'parallelogramSides', label: 'AB＝DC', mark: 1 },
+        { id: 'e2', items: ['AM', 'DM'], reason: 'midpoint', label: 'AM＝DM', mark: 2, proofReason: 'MはADの中点だから' },
+        { id: 'e3', items: ['BM', 'CM'], reason: 'given', label: 'BM＝CM', mark: 3 },
+      ],
+      extraTruths: [],
+      congruence: 'SSS',
+      finalStep: { relationType: 'angle', items: ['∠BAM', '∠CDM'], reason: 'correspondingAngles', label: '∠BAM＝∠CDM' },
+      proof: { intro: '△ABMと△DCMにおいて' },
+      parallelogram: {
+        intro: ['Mは辺AD上にあるので、④の2つの角は、四角形ABCDの∠Aと∠Dである'],
+        reasons: ['given', 'correspondingAngles', 'parallelogramAngles', 'parallelogramSides'],
+        evidence: [
+          { id: 'q1', items: ['∠DAB', '∠CDA'], reason: 'correspondingAngles', fromFinal: true, label: '∠DAB＝∠CDA', mark: 1 },
+          { id: 'q2', items: ['∠DAB', '∠BCD'], reason: 'parallelogramAngles', label: '∠DAB＝∠BCD', mark: 1 },
+          { id: 'q3', items: ['∠ABC', '∠CDA'], reason: 'parallelogramAngles', label: '∠ABC＝∠CDA', mark: 1 },
+        ],
+        condition: 'rectangleDefinition',
+        alternatives: [],
+        chain: '∠A＝∠B＝∠C＝∠D',
+        distractors: { equations: ['AB＝BM', '∠ABM＝∠AMB', 'AM＝AB'], reasons: [] },
+      },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['AB＝AM', '∠BAM＝∠ABM', 'BM＝BC'],
+          reasons: ['vertical'],
+          triangles: ['ABM/CDM', 'ABM/MDC'],
+          finals: ['∠ABM＝∠DCM', 'AB＝DC'],
+        },
+      },
+      hints: {
+        triangleSelection: [
+          { text: '△ABMと△DCMを比べよう！' },
+          { text: '長方形を示すには角の等しさが必要だね。∠Aと∠Dをふくむ三角形を考えよう。', focus: ['∠BAM', '∠CDM'] },
+          { text: '△ABMと△DCMに注目しよう。対応する頂点は A↔D、B↔C、M↔M だよ。', focus: ['∠BAM', '∠CDM'] },
+        ],
+        e1: stepHints('平行四辺形の対辺、中点、仮定から3組の辺を集めよう！', '辺ABと辺DCは、平行四辺形の対辺だね。', 'AB＝DC。平行四辺形の対辺は等しいね！', ['AB', 'DC']),
+        e2: stepHints('平行四辺形の対辺、中点、仮定から3組の辺を集めよう！', 'MはADの中点だね。AMとDMを比べよう！', 'AM＝DM。中点だから等しいね！', ['AM', 'DM']),
+        e3: stepHints('平行四辺形の対辺、中点、仮定から3組の辺を集めよう！', '仮定に書かれている等しい辺はどれかな？ 辺MBと辺MCに注目しよう。', 'BM＝CM。仮定より等しいね！', ['BM', 'CM']),
+        congruence: sssHints(),
+        finalStep: finalHints(['∠BAM', '∠CDM'], 'angle'),
+        q1: ppHints('合同から角の等しさを導き、平行四辺形の対角と組み合わせよう！', '合同から導いた ∠BAM＝∠CDM は、四角形ABCDの ∠A と ∠D だね。',
+          '∠A と ∠D を選んで、「合同な図形の対応する角は等しい」を選ぼう！', ['∠BAM', '∠CDM']),
+        q2: ppHints('平行四辺形の対角にはどんな性質があるかな？', '∠Aと∠Cは対角だね。', '∠DAB＝∠BCD。平行四辺形の対角は等しいね！', ['∠BAM', '∠BCD']),
+        q3: ppHints('平行四辺形の対角にはどんな性質があるかな？', '∠Bと∠Dは対角だね。', '∠ABC＝∠CDA。平行四辺形の対角は等しいね！', ['∠ABC', '∠CDM']),
+        pcondition: [
+          { text: '集めた3つの根拠で、4つの角を比べよう！' },
+          { text: '∠A＝∠D、∠A＝∠C、∠B＝∠D から、∠A＝∠B＝∠C＝∠D だね。' },
+          { text: '4つの角がすべて等しいね。「4つの角がすべて等しい」を選ぼう！' },
+        ],
+      },
+      explanation: '△ABMと△DCMで、平行四辺形の対辺は等しいので AB＝DC、MはADの中点なので AM＝DM、仮定より BM＝CM。3組の辺がそれぞれ等しいので △ABM≡△DCM、合同な図形の対応する角は等しいので ∠BAM＝∠CDM、つまり ∠A＝∠D。平行四辺形の対角は等しいので ∠A＝∠C、∠B＝∠D。4つの角がすべて等しいので、四角形ABCDは長方形です。',
+      learningPoints: [
+        '平行四辺形の対辺・中点・仮定から、3組の辺がそれぞれ等しいことを示す。',
+        '合同から導いた角の等しさを、四角形の角（∠A＝∠D）として読みかえる。',
+        '平行四辺形の対角と組み合わせて、4つの角がすべて等しいことを示す。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
+    {
+      id: 'p48',
+      number: '48',
+      title: '対角線の等しさと合同から長方形へ',
+      difficulty: 3,
+      stage: 11,
+      statement: '平行四辺形ABCDで、AC＝DB である。このとき、四角形ABCDは長方形であることを証明しよう。',
+      given: ['四角形ABCDは平行四辺形', 'AC＝DB'],
+      conclusion: '四角形ABCDは長方形',
+      conclusionType: 'rectangle',
+      targetQuadrilateral: ['A', 'B', 'C', 'D'],
+      knownParallelograms: [['A', 'B', 'C', 'D']],
+      // 長方形になることを示す前に、△ABC≡△DCB（3組の辺）から ∠ABC＝∠DCB を導く
+      triangles: [['A', 'B', 'C'], ['D', 'C', 'B']],
+      figure: {
+        viewBox: [0, 0, 480, 310],
+        points: pts(RE),
+        lines: [],
+        segments: ['AB', 'BC', 'CD', 'DA', 'AC', 'BD'],
+        angles: ['ABC', 'DCB', 'BAC', 'CDB', 'ACB', 'DBC', 'DAB', 'CDA'],
+        parallel: PARA_ARROWS,
+      },
+      reasons: ['given', 'common', 'parallelogramSides', 'vertical'],
+      evidence: [
+        { id: 'e1', items: ['AB', 'DC'], reason: 'parallelogramSides', label: 'AB＝DC', mark: 1 },
+        { id: 'e2', items: ['AC', 'DB'], reason: 'given', label: 'AC＝DB', mark: 2 },
+        { id: 'e3', items: ['BC', 'CB'], reason: 'common', label: 'BC＝CB', mark: 3 },
+      ],
+      extraTruths: [],
+      congruence: 'SSS',
+      finalStep: { relationType: 'angle', items: ['∠ABC', '∠DCB'], reason: 'correspondingAngles', label: '∠ABC＝∠DCB' },
+      proof: { intro: '△ABCと△DCBにおいて' },
+      parallelogram: {
+        intro: [],
+        reasons: ['given', 'correspondingAngles', 'parallelogramAngles', 'parallelogramSides'],
+        evidence: [
+          { id: 'q1', items: ['∠ABC', '∠DCB'], reason: 'correspondingAngles', fromFinal: true, label: '∠ABC＝∠DCB', mark: 1 },
+          { id: 'q2', items: ['∠DAB', '∠BCD'], reason: 'parallelogramAngles', label: '∠DAB＝∠BCD', mark: 1 },
+          { id: 'q3', items: ['∠ABC', '∠CDA'], reason: 'parallelogramAngles', label: '∠ABC＝∠CDA', mark: 1 },
+        ],
+        condition: 'rectangleDefinition',
+        // 「平行四辺形で、対角線の長さが等しい」でも言える（仮定から）。選んでもミスにしない
+        alternatives: ['rectangleDiagonalsEqual'],
+        chain: '∠A＝∠B＝∠C＝∠D',
+        distractors: { equations: ['AB＝BC', '∠BAC＝∠ACB', 'AC＝BC'], reasons: [] },
+      },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['AB＝BC', '∠BAC＝∠ACB', 'AC＝BC'],
+          reasons: ['vertical'],
+          triangles: ['ABC/CDB', 'ABC/DBC'],
+          finals: ['∠BAC＝∠CDB', 'AB＝DC'],
+        },
+      },
+      hints: {
+        triangleSelection: [
+          { text: '対角線が等しいことを使って、合同な三角形を探そう！' },
+          { text: '辺BCを共通にもち、対角線ACとDBをそれぞれふくむ三角形はどれかな？', focus: ['AC', 'BD'] },
+          { text: '△ABCと△DCBに注目しよう。対応する頂点は A↔D、B↔C、C↔B だよ。', focus: ['AC', 'BD'] },
+        ],
+        e1: stepHints('△ABCと△DCBを比べて3組の辺を集めよう！', '辺ABと辺DCは、平行四辺形の対辺だね。', 'AB＝DC。平行四辺形の対辺は等しいね！', ['AB', 'DC']),
+        e2: stepHints('△ABCと△DCBを比べて3組の辺を集めよう！', '仮定に書かれている対角線の関係は？', 'AC＝DB。仮定より等しいね！', ['AC', 'BD']),
+        e3: stepHints('2つの三角形が共有している辺はないかな？', '辺BCは、両方の三角形の辺だね。', 'BC＝CB。共通な辺だね！ 辺BCを2回タップしよう。', ['BC']),
+        congruence: sssHints(),
+        finalStep: finalHints(['∠ABC', '∠DCB'], 'angle'),
+        q1: ppHints('合同から隣り合う角の等しさを導き、対角の性質も使おう！', '合同から導いた ∠ABC＝∠DCB は、四角形ABCDの ∠B と ∠C だね。',
+          '∠B と ∠C を選んで、「合同な図形の対応する角は等しい」を選ぼう！', ['∠ABC', '∠DCB']),
+        q2: ppHints('平行四辺形の対角にはどんな性質があるかな？', '∠Aと∠Cは対角だね。', '∠DAB＝∠BCD。平行四辺形の対角は等しいね！', ['∠DAB', '∠DCB']),
+        q3: ppHints('平行四辺形の対角にはどんな性質があるかな？', '∠Bと∠Dは対角だね。', '∠ABC＝∠CDA。平行四辺形の対角は等しいね！', ['∠ABC', '∠CDA']),
+        pcondition: [
+          { text: '集めた3つの根拠で、4つの角を比べよう！' },
+          { text: '∠B＝∠C、∠A＝∠C、∠B＝∠D から、∠A＝∠B＝∠C＝∠D だね。' },
+          { text: '4つの角がすべて等しいね。「4つの角がすべて等しい」を選ぼう！' },
+        ],
+      },
+      explanation: '△ABCと△DCBで、平行四辺形の対辺は等しいので AB＝DC、仮定より AC＝DB、BCは共通。3組の辺がそれぞれ等しいので △ABC≡△DCB、合同な図形の対応する角は等しいので ∠ABC＝∠DCB、つまり ∠B＝∠C。平行四辺形の対角は等しいので ∠A＝∠C、∠B＝∠D。4つの角がすべて等しいので、四角形ABCDは長方形です。',
+      learningPoints: [
+        '対角線の等しさと共通な辺から、3組の辺がそれぞれ等しいことを示す。',
+        '合同から隣り合う角の等しさ（∠B＝∠C）を導く。',
+        '平行四辺形の対角と組み合わせて、4つの角がすべて等しいことを示す。',
       ],
     }
   );

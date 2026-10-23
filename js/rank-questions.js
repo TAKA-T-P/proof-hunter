@@ -13,6 +13,7 @@
  *     answerText, explain }
  *   category（出題のバランス用）：eq 等しい辺・角 / reason 理由 / cond 合同条件 / corr 三角形の対応 / final 合同からの結論
  *     / theorem 定理・三段論法（Ver.0.7）/ right 直角三角形（Ver.0.8）/ para 平行四辺形（Ver.0.9。総合証明だけ）
+ *     / quad 四角形の分類（Ver.1.0。総合証明だけ。type 'quadrilateralClassification'）
  *   requiredTopics（Ver.0.8）：解くのに必要な学習テーマ。元の問題から作るミニ問題は元の問題の topics（js/rank-tracks.js）、
  *     定理の確認問題のテンプレートはテンプレートに書いた topics。段位認定のコース（基本・総合）は、これで出題範囲を決める。
  */
@@ -22,8 +23,8 @@
   function V() { return PH.validation; }
   function G() { return PH.geometry; }
 
-  const CATEGORIES = ['eq', 'reason', 'cond', 'corr', 'final', 'theorem', 'right', 'para'];
-  const CATEGORY_LABEL = { eq: '等しい辺・角', reason: '等しい理由', cond: '合同条件', corr: '三角形の対応', final: '合同からの結論', theorem: '定理・三段論法', right: '直角三角形', para: '平行四辺形' };
+  const CATEGORIES = ['eq', 'reason', 'cond', 'corr', 'final', 'theorem', 'right', 'para', 'quad'];
+  const CATEGORY_LABEL = { eq: '等しい辺・角', reason: '等しい理由', cond: '合同条件', corr: '三角形の対応', final: '合同からの結論', theorem: '定理・三段論法', right: '直角三角形', para: '平行四辺形', quad: '四角形の分類' };
 
   // 理由ごとの解説（振り返り用）
   const REASON_EXPLAIN = {
@@ -46,6 +47,9 @@
     parallelogramDiagonals: '平行四辺形の対角線は、それぞれの中点で交わります。',
     alternateConverse: '錯角が等しいならば、2直線は平行です。',
     correspondingConverse: '同位角が等しいならば、2直線は平行です。',
+    rhombusSides: 'ひし形の4辺はすべて等しくなります（ひし形だと分かっているときだけ使えます）。',
+    rhombusAngles: 'ひし形は平行四辺形なので、対角は等しくなります。',
+    midpoint: '中点で分けた2つの線分の長さは等しくなります。',
   };
   // 理由の誤答の候補（もっともらしい順）
   const REASON_POOL = ['given', 'common', 'vertical', 'alternate', 'corresponding', 'commonAngle'];
@@ -615,7 +619,7 @@
   function parallelogramQuestions(p) {
     const out = [];
     const PG = PH.parallelogram;
-    if (!PG || !PH.isQuadProblem(p)) return out;
+    if (!PG || !PH.isQuadProblem(p) || PH.quadType(p) !== 'parallelogram') return out;
     const pz = p.parallelogram;
     const qname = PH.quadrilateral.name(p.targetQuadrilateral);
     const evs = pz.evidence;
@@ -815,6 +819,111 @@
     return out;
   }
 
+  // ---- Ver.1.0：四角形の分類（総合証明だけ。カテゴリ「四角形の分類」） ------------------------------------
+
+  /*
+   * 条件から、必ずいえる最も特別な四角形の名前を答える（type 'quadrilateralClassification'）。
+   * 正解は js/special-quadrilaterals.js の分類ルール（成立条件と包含関係）から求める（問題ごとに正解を書かない）。
+   *   前提の種類（平行四辺形・ひし形・長方形、または ただの四角形）と、性質の記号（atoms）の組から、
+   *   classify で最も特別な種類を求め、前提より特別になる（新しく言える）組だけを出題する。
+   *   選択肢は ひし形・長方形・正方形（ただの四角形が前提のときは 平行四辺形 もふくむ）の3つ。正解は1つに決まる
+   *   （ほかの選択肢は「この条件だけでは必ずそうなるとはいえない」か「より一般的な分類」）。
+   * 生成元の問題：p44（AB＝AD）・p45（角の二等分線）・p46（∠A＝90°）・p47（中点と MB＝MC）・p48（AC＝DB）と、成立条件の表
+   */
+  const QC_ATOM_TEXT = {
+    adjacentSidesEqual: ['AB＝AD', 'AB＝BC'],
+    oneRightAngle: ['∠A＝90°', '∠B＝90°'],
+    diagonalsEqual: ['AC＝BD'],
+    diagonalsPerpendicular: ['AC⊥BD'],
+    allSidesEqual: ['AB＝BC＝CD＝DA'],
+    allAnglesEqual: ['∠A＝∠B＝∠C＝∠D'],
+    // 問題から：平行四辺形で、対角線が角の二等分線（p45）→ となり合う2辺が等しい／辺の中点から等しい距離（p47）→ 1つの角が直角
+    bisector: ['対角線ACが∠BADの二等分線'],
+    midpointEqual: ['辺ADの中点Mについて MB＝MC'],
+  };
+  // 問題で証明した、性質の言いかえ（平行四辺形が前提）
+  const QC_DERIVED = {
+    bisector: { gives: 'adjacentSidesEqual', source: 'p45', note: '対角線ACが∠BADの二等分線なので、△ABCは二等辺三角形になり AB＝BC（問題45）' },
+    midpointEqual: { gives: 'oneRightAngle', source: 'p47', note: '△ABM≡△DCM から ∠A＝∠D。隣り合う角の和は180°なので ∠A＝90°（問題47）' },
+  };
+  const QC_CASES = [
+    { base: 'parallelogram', atoms: ['adjacentSidesEqual'], v: 0, source: 'p44' },
+    { base: 'parallelogram', atoms: ['adjacentSidesEqual'], v: 1 },
+    { base: 'parallelogram', atoms: ['bisector'], source: 'p45' },
+    { base: 'parallelogram', atoms: ['diagonalsPerpendicular'] },
+    { base: 'parallelogram', atoms: ['oneRightAngle'], v: 0, source: 'p46' },
+    { base: 'parallelogram', atoms: ['oneRightAngle'], v: 1 },
+    { base: 'parallelogram', atoms: ['diagonalsEqual'], source: 'p48' },
+    { base: 'parallelogram', atoms: ['midpointEqual'], source: 'p47' },
+    { base: 'parallelogram', atoms: ['adjacentSidesEqual', 'oneRightAngle'] },
+    { base: 'parallelogram', atoms: ['diagonalsEqual', 'diagonalsPerpendicular'] },
+    { base: 'rectangle', atoms: ['adjacentSidesEqual'], v: 1 },
+    { base: 'rectangle', atoms: ['diagonalsPerpendicular'] },
+    { base: 'rhombus', atoms: ['oneRightAngle'], v: 0 },
+    { base: 'rhombus', atoms: ['diagonalsEqual'] },
+    { base: null, atoms: ['allSidesEqual'] },
+    { base: null, atoms: ['allAnglesEqual'] },
+    { base: null, atoms: ['allSidesEqual', 'allAnglesEqual'] },
+  ];
+  const QC_TOPIC = { parallelogram: 'parallelogramConditions', rhombus: 'rhombus', rectangle: 'rectangle', square: 'square' };
+
+  // 1つの組から分類の問題を作る（新しく言える種類がなければ null）
+  function classificationQuestion(c, i) {
+    const S = PH.specialQuad;
+    const atoms = [];
+    const notes = [];
+    c.atoms.forEach(function (a) {
+      const d = QC_DERIVED[a];
+      if (d) { atoms.push(d.gives); notes.push(d.note); } else atoms.push(a);
+    });
+    const types = S.guaranteedTypes(c.base, atoms);
+    const answer = S.classify(c.base, atoms);
+    if (!answer || (c.base && !S.isA(answer, c.base)) || answer === c.base) return null;
+    if (c.base && S.implied(c.base).indexOf(answer) >= 0) return null;
+    // 選択肢：正解と、正解でない種類2つ（ただの四角形の前提では、平行四辺形もふくめて選ぶ）
+    const names = c.base ? ['rhombus', 'rectangle', 'square'] : ['parallelogram', 'rhombus', 'rectangle', 'square'];
+    const others = names.filter(function (t) { return t !== answer; });
+    // 必ずはいえない種類（guaranteed にない）を優先し、足りなければより一般的な種類
+    const notSure = others.filter(function (t) { return types.indexOf(t) < 0; });
+    const general = others.filter(function (t) { return types.indexOf(t) >= 0; });
+    const wrong = notSure.concat(general).slice(0, 2);
+    const conds = c.atoms.map(function (a) { return QC_ATOM_TEXT[a][c.v || 0] || QC_ATOM_TEXT[a][0]; });
+    const baseText = c.base ? S.typeName(c.base) + 'ABCD' : '四角形ABCD';
+    // 解説：使える成立条件（1回で言えるもの）。正方形は、ひし形かつ長方形
+    const direct = S.conditionsFor(c.base, atoms, answer);
+    let explain;
+    if (direct.length) explain = '「' + S.CONDITIONS[direct[0]].label + '」ので、' + S.typeName(answer) + 'です。';
+    else {
+      const rh = S.conditionsFor(c.base, atoms, 'rhombus'), re = S.conditionsFor(c.base, atoms, 'rectangle');
+      explain = (rh.length ? '「' + S.CONDITIONS[rh[0]].label + '」のでひし形、' : 'ひし形でもあり、') +
+        (re.length ? '「' + S.CONDITIONS[re[0]].label + '」ので長方形。' : '長方形でもある。') + 'ひし形でも長方形でもあるので正方形です。';
+    }
+    if (notes.length) explain = notes.join('。') + '。' + explain;
+    const wrongNote = wrong.map(function (t) {
+      return types.indexOf(t) >= 0 ? S.typeName(t) + 'でもあるけれど、' + S.typeName(answer) + 'はそれより特別な分類です'
+        : S.typeName(t) + 'は、この条件だけでは必ずそうなるとはいえません';
+    }).join('。') + '。';
+    const topics = ['quadrilateralClassification', QC_TOPIC[answer]];
+    if (c.base && QC_TOPIC[c.base] && topics.indexOf(QC_TOPIC[c.base]) < 0) topics.push(QC_TOPIC[c.base]);
+    if (answer === 'square') ['rhombus', 'rectangle'].forEach(function (t) { if (topics.indexOf(t) < 0) topics.push(t); });
+    return {
+      id: 'quad-class-' + answer + '-' + (i + 1), sourceId: c.source || null, category: 'quad', type: 'quadrilateralClassification',
+      typeLabel: '四角形の分類', difficulty: answer === 'square' || notes.length ? 2 : 1, blanks: 1, figure: null, highlight: [],
+      lines: [baseText + 'で、' + conds.join('、') + ' のとき', '（条件から必ずいえる、最も特別な四角形を答えよう）'],
+      ask: 'この条件から、さらに何という特別な四角形であるといえる？',
+      choice: { blanks: [choiceBlank('四角形', S.typeName(answer), wrong.map(function (t) { return S.typeName(t); }))] }, input: null,
+      answerText: S.typeName(answer), explain: explain + wrongNote,
+      premises: (c.base ? [c.base] : []).concat(c.atoms), answer: answer,
+      signature: 'qc|' + (c.base || 'quad') + '|' + c.atoms.join('+') + '|' + (c.v || 0),
+      requiredTopics: topics,
+    };
+  }
+
+  function classificationQuestions() {
+    if (!PH.specialQuad) return [];
+    return QC_CASES.map(classificationQuestion).filter(Boolean);
+  }
+
   // ---- 生成 ------------------------------------------------------------------
 
   /*
@@ -855,6 +964,8 @@
     src = null;
     if ((problems || PH.problems).some(function (p) { return PH.isRightProblem(p); })) rightTemplates().forEach(add);
     if ((problems || PH.problems).some(function (p) { return PH.isQuadProblem(p); })) parallelogramTemplates().forEach(add);
+    // Ver.1.0：ひし形・長方形の問題があれば、四角形の分類の問題
+    if ((problems || PH.problems).some(function (p) { return PH.quadType(p) === 'rhombus' || PH.quadType(p) === 'rectangle'; })) classificationQuestions().forEach(add);
     return list;
   }
 
@@ -872,6 +983,8 @@
     CATEGORY_LABEL: CATEGORY_LABEL,
     REASON_EXPLAIN: REASON_EXPLAIN,
     generate: generate,
+    classificationQuestions: classificationQuestions,
+    QC_CASES: QC_CASES,
     all: all,
     supports: supports,
     byId: function (id) { return all().find(function (q) { return q.id === id; }) || null; },

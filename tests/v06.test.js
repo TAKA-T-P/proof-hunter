@@ -10,6 +10,7 @@ require('../js/validation.js');
 require('../js/right-triangle.js');
 require('../js/quadrilateral.js');
 require('../js/parallelogram-rules.js');
+require('../js/special-quadrilaterals.js');
 require('../js/angle-expression.js');
 require('../js/proof-rules.js');
 require('../js/proof-engine.js');
@@ -227,6 +228,9 @@ function isCorrectChoice(q, blankIndex, text) {
       return text === PH.CONDITIONS[q.cond].label;
     case 'rightNeed': case 'rightFirst': case 'rightHypDef':
       return text === q.answerText;
+    case 'quadrilateralClassification':
+      // Ver.1.0：必ずいえる最も特別な四角形（分類ルールから求めた正解）
+      return text === PH.specialQuad.typeName(q.answer);
   }
   throw new Error('unknown type ' + q.type);
 }
@@ -356,8 +360,8 @@ test('同じ問題を短時間に出さない・同じ元問題が続かない�
     // 最初の10問で、等しい辺・角／理由／合同条件／合同からの結論 がすべて出る（証明する三角形は難しいので11問目から）
     // Ver.0.7 の「定理・三段論法」は重み 0.5 で、出ることも出ないこともある
     // Ver.0.8 の「直角三角形」も重みが軽いので同じ（コースを指定しないときは、すべての問題から出題）
-    // Ver.0.9 の「平行四辺形」も重みが軽いので同じ
-    const first = [...new Set(out.slice(0, 10).map((c) => c.q.category))].filter((c) => c !== 'theorem' && c !== 'right' && c !== 'para').sort();
+    // Ver.0.9 の「平行四辺形」、Ver.1.0 の「四角形の分類」も重みが軽いので同じ
+    const first = [...new Set(out.slice(0, 10).map((c) => c.q.category))].filter((c) => c !== 'theorem' && c !== 'right' && c !== 'para' && c !== 'quad').sort();
     assert.deepEqual(first, ['cond', 'eq', 'final', 'reason'], 'seed ' + seed);
     assert.ok(!out.slice(0, 10).some((c) => c.q.category === 'corr'), 'seed ' + seed);
     assert.ok(out.slice(10).some((c) => c.q.category === 'corr'), 'seed ' + seed);
