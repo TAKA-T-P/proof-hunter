@@ -34,12 +34,12 @@
     wrongTheorem:        { label: '定理・条件の間違い', hint: '使っている図形の性質や条件の向き（「〜ならば〜」）が正しいか確かめよう！' },
   };
 
-  // 単元（問題一覧の分類）
+  // 単元（問題一覧の分類）。short は問題一覧の単元のボタンの短い名前
   const UNITS = [
-    { id: 'basic', label: '基本の合同証明' },
-    { id: 'conclusion', label: '合同から結論を導く' },
-    { id: 'triangle', label: '三角形の性質・直角三角形' },
-    { id: 'quadrilateral', label: '平行四辺形・特別な平行四辺形' },
+    { id: 'basic', label: '基本の合同証明', short: '基本の合同証明' },
+    { id: 'conclusion', label: '合同から結論を導く', short: '合同から結論へ' },
+    { id: 'triangle', label: '三角形の性質・直角三角形', short: '三角形の性質' },
+    { id: 'quadrilateral', label: '平行四辺形・特別な平行四辺形', short: '平行四辺形' },
   ];
 
   // 証明する四角形の、特別な平行四辺形としての性質（証明する前には使えない）

@@ -6,6 +6,8 @@
  *   PH.errorView.mount(el, def, nav)   … プレイ画面と正解画面（#/error/play/<問題ID>）
  *   PH.errorView.unmount()
  * 証明文は論理ステップ（PH.errorHunt.structure）ごとに1つのボタン。スマホで文が折り返されても、1つのステップは1つのタップ領域。
+ * プレイ画面のレイアウトは証明パズルと同じ（.screen-play・.pz-body・.pz-top・.pz-scroll。スマホ縦画面は図・仮定・結論を
+ * 上に固定して証明文だけスクロール、PC は左に図・仮定・結論）。図をタップすると拡大ウィンドウで印をつけられる（判定には関係しない）。
  */
 (function (root) {
   'use strict';
@@ -73,7 +75,7 @@
         '<nav class="eh-tabs" aria-label="単元">' +
           '<a class="eh-tab" href="#/error"' + (!unit ? ' aria-current="page"' : '') + '>すべて</a>' +
           PH.errorHunt.UNITS.map(function (u) {
-            return '<a class="eh-tab" href="#/error/category/' + u.id + '"' + (unit === u.id ? ' aria-current="page"' : '') + '>' + esc(u.label) + '</a>';
+            return '<a class="eh-tab" href="#/error/category/' + u.id + '"' + (unit === u.id ? ' aria-current="page"' : '') + ' aria-label="' + esc(u.label) + '">' + esc(u.short) + '</a>';
           }).join('') +
         '</nav>' +
         units.map(function (u) {
@@ -108,8 +110,16 @@
     this.feedback = null;
     this.hint = null;
     this.timers = [];
+    this.userMarks = {};          // 図につけた印（要素キー → 本数）。判定には使わない
+    this.markTool = { kind: 'seg', n: 1 };
+    this.markMode = 'mark';       // 'mark'（印をつける）/ 'erase'（消す）
+    this.markOpen = false;
     this.onClick = this.handleClick.bind(this);
+    this.onKey = this.handleKey.bind(this);
+    this.onResize = function () { this.renderFigure(); if (this.markOpen) this.renderMarkFigure(); }.bind(this);
     el.addEventListener('click', this.onClick);
+    doc.addEventListener('keydown', this.onKey);
+    root.addEventListener('resize', this.onResize);
     this.build();
     this.render();
   }
@@ -119,6 +129,9 @@
 
   ErrorView.prototype.destroy = function () {
     this.root.removeEventListener('click', this.onClick);
+    doc.removeEventListener('keydown', this.onKey);
+    root.removeEventListener('resize', this.onResize);
+    this.root.classList.remove('screen-play', 'eh-playing');
     this.timers.forEach(function (t) { root.clearTimeout(t); });
     const ov = doc.getElementById('success-overlay');
     if (ov) { ov.classList.remove('show'); ov.hidden = true; }
@@ -133,15 +146,19 @@
         '<div class="play-title"><span class="play-no">間違い探し' + esc(this.def.no) + '</span><span class="play-name">' + esc(p.title) + '</span></div>' +
         '<button class="head-btn head-hint" data-act="hint" aria-label="ヒント"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
       '</header>' +
-      '<div class="eh-body" data-ref="body">' +
-        '<div class="eh-side">' +
-          '<div class="card figure-card eh-figure"><svg class="figure" data-ref="svg" role="img" aria-label="問題の図"></svg></div>' +
-          '<div class="card statement eh-statement">' +
+      // 証明パズルと同じレイアウト：上（図・仮定・結論）は固定、証明文だけスクロール、下に「ここが間違い！」
+      '<div class="pz-body" data-ref="body">' +
+        '<div class="pz-top">' +
+          '<button class="card figure-card pz-figure" data-act="open-marks" aria-label="図を大きくして印をつける">' +
+            '<svg class="figure" data-ref="svg" aria-hidden="true"></svg>' +
+            '<span class="pz-fig-badge" aria-hidden="true">✏️</span>' +
+          '</button>' +
+          '<div class="card statement pz-cond">' +
             '<div class="cond-row"><span class="tag tag-given">仮定</span><span class="cond-text">' + p.given.map(esc).join('、') + '</span></div>' +
             '<div class="cond-row"><span class="tag tag-goal">結論</span><span class="cond-text">' + esc(p.conclusion) + '</span></div>' +
           '</div>' +
         '</div>' +
-        '<div class="eh-main">' +
+        '<div class="pz-scroll" data-ref="scroll">' +
           '<div class="card eh-sheet">' +
             '<p class="eh-rule"><b>間違いは1か所！</b> 最初に論理がくずれる行をタップしよう。</p>' +
             '<ol class="eh-lines" data-ref="lines"></ol>' +
@@ -152,11 +169,146 @@
             '<button class="btn" data-act="hint">💡 ヒントを見る</button>' +
             '<button class="btn" data-act="reveal">正解を確認する</button>' +
           '</div>' +
-          '<button class="btn btn-primary btn-big eh-confirm" data-act="confirm" data-ref="confirm">ここが間違い！</button>' +
+        '</div>' +
+        '<div class="eh-bar">' +
+          '<button class="btn btn-big eh-confirm" data-act="confirm" data-ref="confirm">ここが間違い！</button>' +
         '</div>' +
       '</div>' +
-      '<div class="eh-result" data-ref="result" hidden></div>';
-    PH.renderer.render(this.ref('svg'), p, { interactive: false });
+      '<div class="eh-result" data-ref="result" hidden></div>' +
+      // 図に印をつけるウィンドウ（証明パズルと同じ。閉じると、つけた印が問題の図に反映される）
+      '<div class="pz-modal" data-ref="markModal" role="dialog" aria-modal="true" aria-label="図に印をつける" hidden>' +
+        '<div class="card pz-modal-box">' +
+          '<div class="pz-modal-head"><span class="pz-modal-title">✏️ 図に印をつける</span>' +
+            '<button class="pz-tray-close" data-act="close-marks" aria-label="閉じる">×</button></div>' +
+          '<div class="pz-modal-fig" data-ref="markFigWrap"><svg class="figure" data-ref="markSvg" role="group" aria-label="印をつける図"></svg></div>' +
+          '<div class="pz-modal-tools" data-ref="markTools"></div>' +
+          '<p class="pz-modal-note">印は考えを整理するための下書きで、判定には関係しないよ。</p>' +
+          '<div class="pz-modal-actions">' +
+            '<button class="btn" data-act="clear-marks">印をすべて消す</button>' +
+            '<button class="btn btn-primary" data-act="close-marks">閉じる</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    this.renderFigure();
+  };
+
+  ErrorView.prototype.renderFigure = function () {
+    const svg = this.ref('svg');
+    if (svg) PH.renderer.render(svg, this.problem, { interactive: false, userMarks: this.userMarks });
+  };
+
+  // ---- 図に印をつける（拡大ウィンドウ。証明パズルと同じ操作） ----------------------------
+
+  ErrorView.prototype.setMarks = function (open) {
+    this.markOpen = !!open;
+    const modal = this.ref('markModal');
+    modal.hidden = !this.markOpen;
+    if (this.markOpen) {
+      PH.sound.play('tap');
+      this.renderMarkTools();
+      this.renderMarkFigure();
+    } else {
+      this.renderFigure();       // 閉じたら、つけた印を問題の図に反映
+    }
+  };
+
+  ErrorView.prototype.selectMarkTool = function (v) {
+    if (v === 'erase') {
+      this.markMode = this.markMode === 'erase' ? 'mark' : 'erase';
+    } else {
+      const parts = v.split(':');
+      this.markTool = { kind: parts[0], n: Number(parts[1]) };
+      this.markMode = 'mark';
+    }
+    PH.sound.play('tap');
+    this.renderMarkTools();
+    this.renderMarkFigure();
+  };
+
+  ErrorView.prototype.tapMarkElement = function (key) {
+    if (!this.markOpen || !key) return;
+    const el = PH.geometry.getElements(this.problem.figure).byKey[key];
+    if (!el) return;
+    if (this.markMode === 'erase') {
+      if (this.userMarks[key] == null) return;
+      delete this.userMarks[key];
+    } else {
+      if (el.kind !== this.markTool.kind) return;
+      if (this.userMarks[key] === this.markTool.n) delete this.userMarks[key];
+      else this.userMarks[key] = this.markTool.n;
+    }
+    PH.sound.play('tap');
+    this.renderMarkFigure();
+  };
+
+  ErrorView.prototype.clearMarks = function () {
+    this.userMarks = {};
+    PH.sound.play('tap');
+    this.renderMarkFigure();
+  };
+
+  // タップした場所が2つ以上の辺・角にあたるときは「どちらに〜？」で選ぶ
+  ErrorView.prototype.tapMarkFromFigure = function (target, clientX, clientY) {
+    const self = this;
+    const key = target.getAttribute('data-key');
+    const svg = this.ref('markSvg');
+    const ctm = svg && svg.getScreenCTM && svg.getScreenCTM();
+    let list = [key];
+    if (ctm && clientX != null) {
+      const q = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+      const fig = this.problem.figure;
+      const c = target.classList.contains('hit-seg')
+        ? PH.geometry.segmentCandidates(fig, q)
+        : PH.geometry.angleCandidates(fig, q, this.markMode === 'mark' && this.markTool.kind === 'ang');
+      if (c.length) list = c;
+    }
+    if (this.markMode === 'erase') {
+      const marked = list.filter(function (k) { return self.userMarks[k] != null; });
+      if (marked.length) list = marked;
+    }
+    if (list.length <= 1) return this.tapMarkElement(list[0]);
+    const byKey = PH.geometry.getElements(this.problem.figure).byKey;
+    PH.chooser.open({
+      title: this.markMode === 'erase' ? 'どちらの印を消しますか？' : 'どちらに印をつけますか？',
+      options: list.map(function (k) { return { value: k, label: byKey[k].display }; }),
+      avoid: this.ref('markFigWrap'),
+      onChoose: function (k) { self.tapMarkElement(k); },
+    });
+  };
+
+  ErrorView.prototype.renderMarkTools = function () {
+    const self = this;
+    const btn = function (kind, n) {
+      const on = self.markMode === 'mark' && self.markTool.kind === kind && self.markTool.n === n;
+      return '<button class="tool-mark" data-mark-tool="' + kind + ':' + n + '" aria-pressed="' + on + '" aria-label="' +
+        (kind === 'seg' ? '辺の印 ' + n + '本線' : '角の印 円弧' + n + '本') + '">' + PH.markToolIcon(kind, n) + '</button>';
+    };
+    const tools = PH.MARK_TOOLS;
+    this.ref('markTools').innerHTML =
+      '<div class="palette-row"><span class="palette-label">辺の印</span>' +
+        tools.filter(function (t) { return t[0] === 'seg'; }).map(function (t) { return btn('seg', t[1]); }).join('') + '</div>' +
+      '<div class="palette-row"><span class="palette-label">角の印</span>' +
+        tools.filter(function (t) { return t[0] === 'ang'; }).map(function (t) { return btn('ang', t[1]); }).join('') +
+        '<button class="tool-mark tool-erase" data-mark-tool="erase" aria-pressed="' + (this.markMode === 'erase') + '">🧽 消す</button>' +
+      '</div>' +
+      '<p class="pz-modal-guide">' + (this.markMode === 'erase'
+        ? '消したい印がついた辺や角をタップしよう。'
+        : (this.markTool.kind === 'seg' ? '印をつけたい辺をタップしよう。' : '印をつけたい角の内側をタップしよう。')) + '</p>';
+  };
+
+  ErrorView.prototype.renderMarkFigure = function () {
+    const svg = this.ref('markSvg');
+    if (!svg || !this.markOpen) return;
+    this.ref('markFigWrap').className = 'pz-modal-fig mode-' + (this.markMode === 'erase' ? 'erase' : 'mark');
+    PH.renderer.render(svg, this.problem, {
+      userMarks: this.userMarks,
+      interactive: true,
+      hit: this.markMode === 'erase' ? { seg: true, ang: true } : { seg: this.markTool.kind === 'seg', ang: this.markTool.kind === 'ang' },
+    });
+  };
+
+  ErrorView.prototype.handleKey = function (e) {
+    if (e.key === 'Escape' && this.markOpen && !PH.chooser.isOpen()) this.setMarks(false);
   };
 
   // 1つの論理ステップ（前置き・理由・式・番号）
@@ -174,6 +326,10 @@
     this.ref('body').hidden = done;
     this.ref('result').hidden = !done;
     doc.body.classList.toggle('has-result', done);
+    // プレイ中は証明パズルと同じ画面の形（スマホ縦画面は図を固定）。正解画面はふつうにスクロールする
+    this.root.classList.toggle('screen-play', !done);
+    this.root.classList.toggle('eh-playing', !done);
+    doc.body.setAttribute('data-screen', done ? 'error' : 'error-play');
     this.root.querySelectorAll('.head-hint').forEach(function (b) { b.disabled = done; });
     if (done) { if (!this.resultBuilt) this.buildResult(); return; }
     const wrong = g.wrongIds;
@@ -194,10 +350,16 @@
   };
 
   ErrorView.prototype.handleClick = function (e) {
-    const t = e.target.closest('[data-step],[data-act]');
+    if (this.markOpen && e.target === this.ref('markModal')) return this.setMarks(false);   // 外側をタップで閉じる
+    const t = e.target.closest('[data-key],[data-mark-tool],[data-step],[data-act]');
     if (!t || !this.root.contains(t)) return;
+    if (t.hasAttribute('data-key')) return this.tapMarkFromFigure(t, e.clientX, e.clientY);
+    if (t.hasAttribute('data-mark-tool')) return this.selectMarkTool(t.getAttribute('data-mark-tool'));
     if (t.hasAttribute('data-step')) return this.select(t.getAttribute('data-step'));
     switch (t.getAttribute('data-act')) {
+      case 'open-marks': return this.setMarks(true);
+      case 'close-marks': return this.setMarks(false);
+      case 'clear-marks': return this.clearMarks();
       case 'list': return this.nav.list();
       case 'confirm': return this.confirm();
       case 'hint': return this.showHint();

@@ -1355,23 +1355,18 @@ body[data-screen="rank"], body[data-screen="rank-play"] { background: linear-gra
 .eh-unit-title { display: flex; align-items: baseline; gap: 10px; margin: 6px 0 8px; font-size: 1.05rem; color: var(--teal); }
 .eh-unit-stat { font-size: .8rem; color: var(--muted); font-weight: 700; }
 
-/* プレイ画面：スマホは図・仮定・結論の下に証明文。PC は左に図、右に証明文 */
+/* プレイ画面：証明パズルと同じレイアウト（.screen-play・.pz-body・.pz-top・.pz-scroll）。下に「ここが間違い！」のバー */
 .eh-header { background: var(--teal); }
-.eh-body { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
-.eh-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.eh-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.eh-figure .figure { max-height: 34vh; }
-.eh-statement { padding: 5px 12px; }
-@media (max-width: 899px) and (orientation: portrait) and (min-height: 600px) {
-  /* 証明文を読みながら図を見られるよう、図・仮定・結論を上に固定する（小さい画面では図を小さめに） */
-  .eh-side { position: sticky; top: 40px; z-index: 5; background: var(--bg, #eef4ff); padding: 10px 0 6px; margin-top: -10px; }
-  .eh-figure .figure { max-height: 24vh; }
-  .eh-statement .cond-text { font-size: .9rem; }
-}
-@media (min-width: 900px) {
-  .eh-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: start; }
-  .eh-side { position: sticky; top: 70px; }
-  .eh-figure .figure { max-height: 56vh; }
+.eh-bar { grid-area: tray; }
+@media (min-width: 900px) { .eh-bar { position: sticky; bottom: 8px; } }
+@media (max-width: 899px) and (orientation: portrait) {
+  body[data-screen="error-play"] { overflow: hidden; }
+  .eh-bar {
+    flex: none; padding: 6px 12px calc(8px + env(safe-area-inset-bottom)); background: var(--bg);
+    border-top: 1px solid var(--line); box-shadow: 0 -3px 8px rgba(30, 58, 138, .08);
+  }
+  .eh-playing .eh-sheet { padding: 6px 10px; }
+  .eh-playing .eh-line { font-size: .95rem; padding: 6px 9px; }
 }
 .eh-sheet { padding: 10px 12px; }
 .eh-rule { margin: 0 0 8px; font-size: .9rem; color: var(--navy); }
@@ -1398,7 +1393,7 @@ button.eh-line:hover { border-color: #93c5fd; }
 .eh-feedback.is-info { color: var(--muted); }
 .eh-hintbox { margin: 0; padding: 8px 12px; border-radius: 10px; background: #fffbeb; border: 2px solid #fcd34d; color: #713f12; font-weight: 700; }
 .eh-help { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.eh-confirm { position: sticky; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 4; background: var(--red); border-color: var(--red); }
+.eh-confirm { background: var(--red); border-color: var(--red); color: #fff; }
 .eh-confirm:disabled { opacity: .45; }
 
 /* 正解画面 */
