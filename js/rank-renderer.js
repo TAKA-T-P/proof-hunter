@@ -242,9 +242,11 @@
     this.timers = [];
     this.build();
     this.onClick = this.handleClick.bind(this);
+    this.onKpDown = this.handleKeypadDown.bind(this);
     this.onKey = this.handleKey.bind(this);
     this.onVis = this.update.bind(this);
     el.addEventListener('click', this.onClick);
+    el.addEventListener('pointerdown', this.onKpDown);
     doc.addEventListener('keydown', this.onKey);
     doc.addEventListener('visibilitychange', this.onVis);
     this.countdown();
@@ -298,6 +300,7 @@
 
   RankPlay.prototype.destroy = function () {
     this.el.removeEventListener('click', this.onClick);
+    this.el.removeEventListener('pointerdown', this.onKpDown);
     doc.removeEventListener('keydown', this.onKey);
     doc.removeEventListener('visibilitychange', this.onVis);
     clearInterval(this.loop);
@@ -471,7 +474,21 @@
     }
     if (act === 'rank-decide') return this.after(this.game.submit(now()));
     if (act === 'rank-pass') return this.after(this.game.pass(now()));
-    if (t.hasAttribute('data-kp')) return this.keypad(t.getAttribute('data-kp'));
+    // キーパッドは指が触れた時点（pointerdown）で入力する。click はキーボード操作（Enter・Space。detail が 0）のときだけ
+    if (t.hasAttribute('data-kp') && e.detail === 0) return this.keypad(t.getAttribute('data-kp'));
+  };
+
+  /*
+   * キーパッドのボタンは、指が触れた時点で入力する（Ver.1.1）。
+   * 押すたびにキーパッドを描き直すので、click（指をはなしたとき）で受けると、すばやく A→C と押したときに
+   * C を押している間に A の描き直しでボタンが入れかわり、C の click が届かないことがあった。
+   */
+  RankPlay.prototype.handleKeypadDown = function (e) {
+    if (e.button !== 0) return;      // 2本目の指（前の指をはなす前に押した次のキー）も受け付ける
+    const t = e.target.closest('[data-kp]');
+    if (!t || t.disabled || this.locked || this.game.state !== 'play') return;
+    e.preventDefault();               // フォーカスの移動・ダブルタップの拡大をしない
+    this.keypad(t.getAttribute('data-kp'));
   };
 
   RankPlay.prototype.keypad = function (action) {

@@ -60,12 +60,14 @@
     this.markOpen = false;
     this.build();
     this.onClick = this.handleClick.bind(this);
+    this.onKpDown = this.handleKeypadDown.bind(this);
     this.onResize = function () { this.renderFigure(); if (this.markOpen) this.renderMarkFigure(); }.bind(this);
     this.onKey = this.handleKey.bind(this);
     this.onPaste = this.handlePaste.bind(this);
     doc.addEventListener('keydown', this.onKey);
     doc.addEventListener('paste', this.onPaste);
     this.root.addEventListener('click', this.onClick);
+    this.root.addEventListener('pointerdown', this.onKpDown);
     root.addEventListener('resize', this.onResize);
     PH.storage.setLastProblem(problem.id, 'puzzle');
     this.render();
@@ -133,6 +135,7 @@
 
   PuzzleView.prototype.destroy = function () {
     this.root.removeEventListener('click', this.onClick);
+    this.root.removeEventListener('pointerdown', this.onKpDown);
     root.removeEventListener('resize', this.onResize);
     doc.removeEventListener('keydown', this.onKey);
     doc.removeEventListener('paste', this.onPaste);
@@ -154,7 +157,8 @@
     if (this.markOpen && e.target === this.ref('markModal')) return this.setMarks(false);   // 外側をタップで閉じる
     const t = e.target.closest('[data-key],[data-mark-tool],[data-kp],[data-slot],[data-card],[data-act],[data-ev],[data-proof-reason],[data-fact]');
     if (!t || t.disabled) return;
-    if (t.hasAttribute('data-kp')) return this.keypadAction(t.getAttribute('data-kp'));
+    // キーパッドは指が触れた時点（pointerdown）で入力する。click はキーボード操作（Enter・Space。detail が 0）のときだけ
+    if (t.hasAttribute('data-kp')) return e.detail === 0 ? this.keypadAction(t.getAttribute('data-kp')) : undefined;
     if (t.hasAttribute('data-key')) return this.tapMarkFromFigure(t, e.clientX, e.clientY);
     if (t.hasAttribute('data-mark-tool')) return this.selectMarkTool(t.getAttribute('data-mark-tool'));
     if (t.hasAttribute('data-slot')) return this.selectSlot(t.getAttribute('data-slot'));
@@ -213,6 +217,19 @@
       this.drafts[slotId] = kp;
     }
     return this.drafts[slotId];
+  };
+
+  /*
+   * キーパッドのボタンは、指が触れた時点で入力する（Ver.1.1。段位認定と同じ）。
+   * 押すたびにキーパッドを描き直すので、click（指をはなしたとき）で受けると、すばやく A→C と押したときに
+   * C を押している間に A の描き直しでボタンが入れかわり、C の click が届かないことがあった。
+   */
+  PuzzleView.prototype.handleKeypadDown = function (e) {
+    if (e.button !== 0) return;      // 2本目の指（前の指をはなす前に押した次のキー）も受け付ける
+    const t = e.target.closest('[data-kp]');
+    if (!t || t.disabled || this.markOpen) return;
+    e.preventDefault();               // フォーカスの移動・ダブルタップの拡大をしない
+    this.keypadAction(t.getAttribute('data-kp'));
   };
 
   PuzzleView.prototype.keypadAction = function (action) {

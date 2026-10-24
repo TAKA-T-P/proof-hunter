@@ -399,8 +399,8 @@
     // small … 説明・アイコンなしの小さいボタン（となり合うものは横に並べる）
     { id: 'hunter5', name: 'ハンター：STAGE5～', small: true, start: '#/select' },
     { id: 'puzzle5', name: '証明パズル：STAGE5～', small: true, start: '#/puzzle' },
-    { id: 'rank', ico: '⏱️', name: '段位認定', desc: '120秒のミニ問題・2つのコース・段位', start: '#/rank' },
     { id: 'error', ico: '🔎', name: '証明の間違い探し', desc: '証明文の中の間違いを1か所見つける遊び方', start: '#/error' },
+    { id: 'rank', ico: '⏱️', name: '段位認定', desc: '120秒のミニ問題・2つのコース・段位', start: '#/rank' },
   ];
   const LAB_URL = 'https://taka-t-p.github.io/math-app-portal/';   // KEC数学科ラボ
   let howtoMode = null;
