@@ -295,9 +295,11 @@
     PH.chooser.open({
       title: '解答レベルを変更する',
       message: '解答形式を変更すると、今の解答内容はリセットされます。変更しますか？',
-      options: others.map(function (l) { return { value: l.id, label: l.label }; }),
+      options: others.map(function (l) { return { value: l.id, label: l.label }; })
+        .concat([{ value: 'hunter', label: '🔍 ハンターモードに切り替える', wide: true }]),   // Ver.1.0：同じ問題のハンターモードへ
       textOptions: true,
       onChoose: function (id) {
+        if (id === 'hunter') return self.nav.switchMode();
         PH.storage.setPuzzleLevel(id);
         self.nav.reload();       // 新しい形式で最初から（ミス・ヒント・印もリセット。保存ずみの最高評価は変わらない）
       },

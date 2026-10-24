@@ -102,7 +102,7 @@
         '<button class="head-btn" data-act="list" aria-label="問題選択に戻る"><span class="ico">◀</span><span class="lbl">問題</span></button>' +
         '<div class="play-title"><span class="play-no">問題' + esc(p.number) + '</span><span class="play-name">' + esc(p.title) + '</span></div>' +
         '<div class="counter" data-ref="counter" aria-live="polite"><span class="counter-label">根拠</span><b data-ref="count">0</b><span data-ref="countTotal">/' + this.game.total() + '</span></div>' +
-        '<button class="head-btn head-hint" data-act="hint" aria-label="ヒント"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
+        '<button class="head-btn head-puzzle" data-act="to-puzzle" aria-label="証明パズルモードに切り替える"><span class="ico">🧩</span><span class="lbl">パズル</span></button>' +
       '</header>' +
       // スマホ縦画面: .play-stage（図＋ボタン）を上に固定し、.play-scroll（問題文・解答欄）だけスクロール
       // PC・横画面: .play-scroll は display: contents になり、グリッドで2カラム配置
@@ -117,7 +117,7 @@
             '<button class="tool" data-mode="side"><span class="ico ico-glyph">／</span><span class="lbl">辺選択</span></button>' +
             '<button class="tool" data-mode="angle"><span class="ico ico-glyph">∠</span><span class="lbl">角選択</span></button>' +
             '<button class="tool" data-mode="mark"><span class="ico">🖍️</span><span class="lbl">印つけ</span></button>' +
-            '<button class="tool" data-mode="erase"><span class="ico">🧽</span><span class="lbl">消す</span></button>' +
+            '<button class="tool head-hint" data-act="hint" aria-label="ヒント"><span class="ico">💡</span><span class="lbl">ヒント</span></button>' +
             '<button class="tool tool-tri" data-act="tri-check" aria-pressed="false" data-ref="triBtn" aria-label="三角形確認"><span class="ico ico-glyph">△</span><span class="lbl">三角形確認</span></button>' +
             '<button class="tool" data-act="restart"><span class="ico">↺</span><span class="lbl">最初から</span></button>' +
           '</div>' +
@@ -193,6 +193,8 @@
       case 'next-stage': return this.nav.nextStage();
       case 'tri-check': return this.setTriCheck(!this.triCheck);
       case 'hint': return this.hint();
+      case 'to-puzzle': return this.toPuzzle();
+      case 'erase-toggle': return this.setMode(this.game.mode === 'erase' ? 'mark' : 'erase');
       case 'restart': return this.restart();
       case 'clear-sel': return this.clearSelection();
       case 'confirm': return this.confirm();
@@ -543,6 +545,7 @@
   PlayController.prototype.selectTool = function (v) {
     const parts = v.split(':');
     this.game.setMarkTool(parts[0], Number(parts[1]));
+    if (this.game.mode === 'erase') this.game.setMode('mark');     // 消すモードで印を選んだら、印つけにもどる
     this.say(null);
     PH.sound.play('tap');
     this.render();
@@ -720,6 +723,18 @@
     el.classList.remove('show');
     void el.offsetWidth;
     el.classList.add('show');
+  };
+
+  // Ver.1.0：同じ問題の証明パズルモードへ（解答レベルを選ぶ）
+  PlayController.prototype.toPuzzle = function () {
+    const self = this;
+    PH.sound.play('tap');
+    PH.chooser.open({
+      title: '証明パズルモードに切り替えますか？',
+      options: PH.PUZZLE_LEVELS.map(function (l) { return { value: l.id, label: l.label }; }),
+      textOptions: true,
+      onChoose: function (id) { self.nav.switchMode(id); },
+    });
   };
 
   PlayController.prototype.hint = function () {
@@ -1076,7 +1091,7 @@
     const g = this.game;
     this.root.querySelectorAll('.toolbar [data-mode]').forEach(function (b) {
       const m = b.getAttribute('data-mode');
-      b.setAttribute('aria-pressed', String(g.mode === m));
+      b.setAttribute('aria-pressed', String(g.mode === m || (m === 'mark' && g.mode === 'erase')));   // 消すは印つけの中
       b.disabled = m !== 'mark' && m !== 'erase' && g.phase !== 'collect' && g.phase !== 'final' && g.phase !== 'qcollect';
     });
   };
@@ -1253,23 +1268,24 @@
     let html = '';
 
     if (g.mode === 'mark' || g.mode === 'erase') {
-      if (g.mode === 'mark') {
-        html += '<div class="panel-head">🖍️ 印つけモード</div>' +
-          '<p class="panel-note">印の種類を1つ選ぼう。「辺の印」なら辺だけ、「角の印」なら角だけに印をつけられるよ。印は下書き用で、正誤判定はしないよ。</p>' +
-          '<div class="palette">' +
-            '<div class="palette-row"><span class="palette-label">辺の印</span>' +
-              MARK_TOOLS.filter(function (t) { return t[0] === 'seg'; }).map(function (t) {
-                return '<button class="tool-mark" data-tool="seg:' + t[1] + '" aria-pressed="' + (g.markTool.kind === 'seg' && g.markTool.n === t[1]) + '" aria-label="辺の印 ' + t[1] + '本線">' + toolIcon('seg', t[1]) + '</button>';
-              }).join('') + '</div>' +
-            '<div class="palette-row"><span class="palette-label">角の印</span>' +
-              MARK_TOOLS.filter(function (t) { return t[0] === 'ang'; }).map(function (t) {
-                return '<button class="tool-mark" data-tool="ang:' + t[1] + '" aria-pressed="' + (g.markTool.kind === 'ang' && g.markTool.n === t[1]) + '" aria-label="角の印 円弧' + t[1] + '本">' + toolIcon('ang', t[1]) + '</button>';
-              }).join('') + '</div>' +
-          '</div>';
-      } else {
-        html += '<div class="panel-head">🧽 消すモード</div>' +
-          '<p class="panel-note">消したい印がついた辺や角をタップしよう。見つけた根拠の印（緑）は消えないよ。</p>';
-      }
+      // Ver.1.0：「消す」は印つけモードの中のボタン（ツールバーの「消す」はヒントに変えた）
+      const erasing = g.mode === 'erase';
+      html += '<div class="panel-head">🖍️ 印つけモード</div>' +
+        '<p class="panel-note">' + (erasing ? '消したい印がついた辺や角をタップしよう。見つけた根拠の印（緑）は消えないよ。'
+          : '印の種類を1つ選ぼう。「辺の印」なら辺だけ、「角の印」なら角だけに印をつけられるよ。印は下書き用で、正誤判定はしないよ。') + '</p>' +
+        '<div class="palette">' +
+          '<div class="palette-row"><span class="palette-label">辺の印</span>' +
+            MARK_TOOLS.filter(function (t) { return t[0] === 'seg'; }).map(function (t) {
+              return '<button class="tool-mark" data-tool="seg:' + t[1] + '" aria-pressed="' + (!erasing && g.markTool.kind === 'seg' && g.markTool.n === t[1]) + '" aria-label="辺の印 ' + t[1] + '本線">' + toolIcon('seg', t[1]) + '</button>';
+            }).join('') + '</div>' +
+          '<div class="palette-row"><span class="palette-label">角の印</span>' +
+            MARK_TOOLS.filter(function (t) { return t[0] === 'ang'; }).map(function (t) {
+              return '<button class="tool-mark" data-tool="ang:' + t[1] + '" aria-pressed="' + (!erasing && g.markTool.kind === 'ang' && g.markTool.n === t[1]) + '" aria-label="角の印 円弧' + t[1] + '本">' + toolIcon('ang', t[1]) + '</button>';
+            }).join('') + '</div>' +
+          '<div class="palette-row"><span class="palette-label">消す</span>' +
+            '<button class="tool-mark tool-erase" data-act="erase-toggle" aria-pressed="' + erasing + '" aria-label="印を消す">🧽</button>' +
+          '</div>' +
+        '</div>';
       html += '<div class="panel-actions">' +
         '<button class="btn" data-act="clear-marks">印をすべて消す</button>' +
         '<button class="btn btn-primary" data-mode="answer">解答にもどる</button>' +

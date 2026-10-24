@@ -4,6 +4,7 @@
  * PH.chooser.open({ title, message?, options: [{ value, label }], onChoose(value), textOptions? })
  *   textOptions: true … 選択肢が長い文字（「スタンダード」など）のとき、改行しない小さめの文字で表示
  *   avoid: 要素   … その要素（図）と重ならない位置に出す（図の下 → 図の右 → 図の左 → 図の上。どこにも入らなければ中央）
+ *   選択肢に wide: true をつけると、ほかの選択肢の下（キャンセルの上）に横いっぱいのボタンで出す（Ver.1.0：「ハンターモードに切り替える」）
  * キャンセル（ボタン・外側のタップ・Esc）では何もしない。
  */
 (function (root) {
@@ -27,7 +28,7 @@
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
     box.innerHTML = '<div class="card chooser-box"><p class="chooser-title"></p><p class="chooser-message"></p><div class="chooser-options"></div>' +
-      '<button class="btn chooser-cancel" data-choose-cancel>キャンセル</button></div>';
+      '<div class="chooser-wide"></div><button class="btn chooser-cancel" data-choose-cancel>キャンセル</button></div>';
     doc.body.appendChild(box);
     box.addEventListener('click', function (e) {
       const opt = e.target.closest('[data-choose]');
@@ -53,13 +54,19 @@
     // 文字の長い選択肢（解答レベル名など）は、改行しないよう小さめの文字にする
     el.classList.toggle('is-text', !!opts.textOptions);
     // 選択肢が4つ以上なら2列に並べる（1列に並べると、△BDM のような文字がボタンからはみ出す）
-    el.classList.toggle('is-many', opts.options.length > 3);
+    el.classList.toggle('is-many', opts.options.filter(function (o) { return !o.wide; }).length > 3);
     const msg = el.querySelector('.chooser-message');
     msg.textContent = opts.message || '';
     msg.hidden = !opts.message;
-    el.querySelector('.chooser-options').innerHTML = opts.options.map(function (o, i) {
-      return '<button class="btn chooser-option" data-choose="' + i + '">' + esc(o.label) + '</button>';
-    }).join('');
+    const buttons = function (wide, cls) {
+      return opts.options.map(function (o, i) {
+        return !!o.wide === wide ? '<button class="btn ' + cls + '" data-choose="' + i + '">' + esc(o.label) + '</button>' : '';
+      }).join('');
+    };
+    el.querySelector('.chooser-options').innerHTML = buttons(false, 'chooser-option');
+    const wideBox = el.querySelector('.chooser-wide');
+    wideBox.innerHTML = buttons(true, 'chooser-wide-option');
+    wideBox.hidden = !wideBox.innerHTML;
     el.hidden = false;
     place(el, opts.avoid);
     const first = el.querySelector('.chooser-option');

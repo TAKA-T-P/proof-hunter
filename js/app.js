@@ -427,6 +427,13 @@
         go(PH.getStage(problem.stage + 1) ? M.stage(problem.stage + 1) : M.select);
       },
       reload: function () { route(); },
+      // Ver.1.0：同じ問題のもう一方のモードへ（ハンター → パズルは解答レベルを選んでから）
+      switchMode: function (level) {
+        if (mode === 'hunter') {
+          if (level) PH.storage.setPuzzleLevel(level);
+          go(MODES.puzzle.play(problem.id));
+        } else go(MODES.hunter.play(problem.id));
+      },
     };
   }
 
