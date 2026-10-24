@@ -17,6 +17,8 @@
  * Ver.0.8：autoMarks の 'right' は直角の印（小さな四角）。figure.rightMarks（図にかかれている直角）は常に表示する。
  *         どちらも生徒の印（userMarks）とは別に管理するので、「消す」では消えない。
  *         figure.rays は直線をのばした飾りの線と名前（例：直線ℓ）。タップには反応しない。
+ * Ver.1.0：figure.compassArcs は作図のコンパスの跡（円弧）。{ center, through, around, pad }：center を中心に
+ *         through を通る円の、around の点の方向を pad 度ずつ広げた部分をかく。タップには反応しない。
  * Ver.0.9：
  *   view.quad          : { vertices, check } 証明する四角形を薄く塗る。check なら対辺・対角を組ごとに同じ色で強調し、
  *                        対角線（点線）とその交点を表示する（「四角形確認」）
@@ -218,6 +220,17 @@
         const t = el('text', { x: at.x.toFixed(1), y: at.y.toFixed(1), class: 'ray-label' }, gs);
         t.textContent = r.label;
       }
+    });
+
+    // Ver.1.0：作図のコンパスの跡（p48）
+    (fig.compassArcs || []).forEach(function (c) {
+      const C = fig.points[c.center], T = fig.points[c.through];
+      const r = Math.hypot(T.x - C.x, T.y - C.y);
+      const angs = c.around.map(function (n) { const p = fig.points[n]; return Math.atan2(p.y - C.y, p.x - C.x); });
+      const pad = (c.pad || 12) * Math.PI / 180;
+      const a1 = Math.min.apply(null, angs) - pad, a2 = Math.max.apply(null, angs) + pad;
+      const pt = function (a) { return (C.x + r * Math.cos(a)).toFixed(1) + ' ' + (C.y + r * Math.sin(a)).toFixed(1); };
+      el('path', { d: 'M ' + pt(a1) + ' A ' + r.toFixed(1) + ' ' + r.toFixed(1) + ' 0 ' + (a2 - a1 > Math.PI ? 1 : 0) + ' 1 ' + pt(a2), class: 'compass-arc' }, gs);
     });
 
     // 4. 選択できる角の目印（角選択モード）と、選択中の角の円弧

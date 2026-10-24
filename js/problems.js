@@ -2592,12 +2592,20 @@
           B: { x: 470,    y: 300,    label: [12, 18] },
           Q: { x: 144.2,  y: 192.1,  label: [-20, -8] },
           R: { x: 190,    y: 300,    label: [4, 22] },
-          P: { x: 316.15, y: 182.78, label: [14, -12] },
+          P: { x: 316.15, y: 182.78, label: [14, -28] },
         },
         lines: [['O', 'Q', 'A'], ['O', 'R', 'B']],
         segments: ['OQ', 'QA', 'OR', 'RB', 'OP', 'PQ', 'PR'],
         angles: ['POQ', 'POR', 'OQP', 'ORP', 'OPQ', 'OPR'],
         parallel: [],
+        // PQ・PR は実際の作図ではひかない線なので破線。コンパスの跡（Oを中心とする円、Q・Rを中心とする円）をかく
+        dashed: ['PQ', 'PR'],
+        rays: [{ from: 'O', through: 'P', extend: 70 }],
+        compassArcs: [
+          { center: 'O', through: 'Q', around: ['Q', 'R'], pad: 12 },
+          { center: 'Q', through: 'P', around: ['P'], pad: 14 },
+          { center: 'R', through: 'P', around: ['P'], pad: 14 },
+        ],
       },
       reasons: ['construction', 'common', 'vertical', 'alternate'],
       evidence: [

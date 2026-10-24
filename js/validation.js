@@ -523,6 +523,10 @@
       (fig.rays || []).forEach(function (r) {
         if (!fig.points[r.from] || !fig.points[r.through]) errors.push('rays の点が図にない');
       });
+      (fig.compassArcs || []).forEach(function (c) {
+        if (!fig.points[c.center] || !fig.points[c.through] || !(c.around || []).length ||
+          c.around.some(function (n) { return !fig.points[n]; })) errors.push('compassArcs の点が図にない');
+      });
 
       if (tri) {
         const derived = deriveCondition(problem, problem.evidence);
