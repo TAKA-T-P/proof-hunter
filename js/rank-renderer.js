@@ -104,15 +104,16 @@
           (r.best && !nxt ? '<p class="rank-next">最高の段位「皆伝」に到達！</p>' : '') +
           (!r.best ? '<p class="rank-next">まずは挑戦して、段位を認定してもらおう！</p>' : '') +
         '</div>' +
-        '<ol class="grade-list">' + grades.map(function (g) {
+        '<ol class="grade-list">' + grades.map(function (g, i, all) {
+          const lowest = all[all.length - 1].rank;
           const got = g.rank <= bestRank;
+          const shown = got || g.rank === lowest;      // 最初の段位（10級）だけは、未到達でも名前を見せる
           return '<li class="grade-item tier-' + PH.rank.tierFor(g.rank) + (got ? ' is-got' : '') + (g.rank === bestRank ? ' is-best' : '') + '">' +
             '<span class="grade-ico" aria-hidden="true">' + (got ? TIER_ICON[PH.rank.tierFor(g.rank)] : '・') + '</span>' +
-            '<span class="grade-name">' + esc(g.name) + '</span>' +
+            '<span class="grade-name">' + (shown ? esc(g.name) : '？？？') + '</span>' +     // 未到達の段位は名前を伏せる
             '<span class="grade-min">正解数 ' + g.min + '問 以上</span>' +
             '</li>';
         }).join('') + '</ol>' +
-        '<p class="select-note">認定基準は暫定版です（基準バージョン ' + C().criteriaVersion + '）。</p>' +
       '</div>';
   }
 
