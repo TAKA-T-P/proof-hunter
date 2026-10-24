@@ -149,7 +149,8 @@ test('合同条件の問題は、根拠を並べずに図と仮定・結論を�
     assert.equal(q.lines[0], '仮定：' + p.given.join('、'));
     assert.equal(q.lines[1], '結論：' + PH.congruenceText(p));
     // 根拠の等式（仮定にないもの）は問題文に書かない
-    p.evidence.filter((ev) => ev.reason !== 'given').forEach((ev) => {
+    // （作図の問題 p48 は、仮定に作図のしかた（OQ＝OR など）が書かれている）
+    p.evidence.filter((ev) => !PH.acceptedReasons(ev).includes('given')).forEach((ev) => {
       assert.ok(!q.lines.concat([q.ask]).join(' ').includes(ev.label), q.id + ' ' + ev.label);
     });
   });

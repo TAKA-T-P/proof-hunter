@@ -32,6 +32,7 @@
  *   isoscelesConverseSides  2つの角が等しい三角形は二等辺三角形で、その2辺が等しい（∠BAC＝∠ACB → AB＝BC）
  *   segmentMidpoint      中点で分けた2つの線分は等しい（根拠の理由 midpoint）
  *   linearPairRightAngle 一直線をつくる2つの角が等しければ、どちらも90°で2直線は垂直（∠AOB＝∠AOD → AC⊥BD。p47 の後半のステップ）
+ *   foldAngles           折り返した角は等しい（長方形ABCDを対角線ACで折り返した → ∠ACB＝∠ACF。p50）
  *   rhombusDefinition ほか6つ … ひし形・長方形になるための条件（PH.SPECIAL_CONDITIONS）
  * 合同（三角形の合同・対応する辺・角）は既存の validation.js のしくみを使う（名前が重ならないよう、ここでは
  * 'triangleCongruence' は合同条件の判定、'correspondingSides'・'correspondingAngles' は PH.REASONS の既存の理由を指す）。
@@ -87,6 +88,7 @@
     isoscelesConverseSides: { label: '2つの角が等しい三角形は二等辺三角形だから', short: '二等辺三角形の2辺' },
     segmentMidpoint: { label: '中点だから', short: '中点', reason: 'midpoint' },
     linearPairRightAngle: { label: '一直線をつくる2つの角が等しいから（どちらも90°）', short: '90°を導く' },
+    foldAngles: { label: '折り返した角は等しいから', short: '折り返した角' },
     rhombusDefinition: { label: '4つの辺がすべて等しい', short: 'ひし形の定義', condition: 'rhombusDefinition' },
     rhombusAdjacentEqual: { label: '平行四辺形で、となり合う2辺が等しい', short: 'ひし形の条件', condition: 'rhombusAdjacentEqual' },
     rhombusDiagonalPerpendicular: { label: '平行四辺形で、対角線が垂直に交わる', short: 'ひし形の条件', condition: 'rhombusDiagonalPerpendicular' },
@@ -119,6 +121,7 @@
     angleTransitive: ['共通な角だから', '対頂角は等しいから'],
     isoscelesConverseSides: ['二等辺三角形の底角は等しいから', '平行四辺形の対辺は等しいから'],
     linearPairRightAngle: ['対頂角は等しいから', '三角形の内角の和は180°だから'],
+    foldAngles: ['平行線の錯角は等しいから', '対頂角は等しいから'],
   };
 
   // ---- データの確認（図と仮定から、そのルールで本当に言えるか） ---------------------------
@@ -332,6 +335,30 @@
   }
 
   /*
+   * Ver.1.0：折り返した角（foldAngles）。problem.fold = { line: 'AC', from: 'B', to: 'E' }（B を直線ACで折り返すと E）。
+   *   items の2つの角は、頂点が折り目の上にあり、折り目にそう半直線を共有し、残りの半直線が from 側・to 側
+   */
+  function checkFold(problem, step) {
+    const fig = problem.figure;
+    const f = problem.fold;
+    if (!f) return '折り返しの仮定（fold）がない';
+    const v = G().vec;
+    const L0 = fig.points[f.line[0]], L1 = fig.points[f.line[1]], P = fig.points[f.from], Q = fig.points[f.to];
+    const d = v.unit(v.sub(L1, L0));
+    const foot = v.add(L0, v.mul(d, (P.x - L0.x) * d.x + (P.y - L0.y) * d.y));
+    if (v.dist(v.sub(v.mul(foot, 2), P), Q) > 0.6) return '図の上で、折り返した点の位置が正しくない';
+    const a = clean(step.items[0]), b = clean(step.items[1]);
+    if (a[1] !== b[1] || f.line.indexOf(a[1]) < 0) return '2つの角の頂点が、折り目の端の同じ点ではない';
+    const other = f.line.replace(a[1], '');
+    const k = function (name) { return G().angleKey(fig, name); };
+    const ok = [[a, b], [b, a]].some(function (pr) {
+      return k(pr[0]) === k(other + a[1] + f.from) && k(pr[1]) === k(other + a[1] + f.to);
+    });
+    if (!ok) return '2つの角が、折り返す前と後の角になっていない';
+    return near(V().measure(fig, step.items[0]).value, V().measure(fig, step.items[1]).value) ? null : '2つの角が図の上で等しくない';
+  }
+
+  /*
    * Ver.0.9：等しい線分の半分（halfSegments）。premise の2つの線分が等しく、items の線分がそれぞれの「端点と中点」を結ぶ
    *   例 p36 s2：OB＝OD、E は OB の中点・F は OD の中点 → OE＝OF。中点は problem.midpoints（仮定）
    */
@@ -433,6 +460,7 @@
     checkAngleBisector: checkAngleBisector,
     checkIsoscelesConverseSides: checkIsoscelesConverseSides,
     checkLinearPair: checkLinearPair,
+    checkFold: checkFold,
     knownParallelogram: knownParallelogram,
     knownAngles: knownAngles,
   };

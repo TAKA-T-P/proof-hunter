@@ -205,7 +205,9 @@
 
     // 3. 図形の線
     const gs = el('g', { class: 'layer-seg' }, svg);
-    els.segments.forEach(function (s) { line(s.p1, s.p2, { class: 'seg' }, gs); });
+    // Ver.1.0：figure.dashed の辺は破線（p50 の折り返す前の辺 AB・BC）
+    const dashed = (fig.dashed || []).map(function (n) { return g.segKey(n); });
+    els.segments.forEach(function (s) { line(s.p1, s.p2, { class: dashed.indexOf(s.key) >= 0 ? 'seg seg-dashed' : 'seg' }, gs); });
     // 直線をのばした飾りの線と名前（例：直線ℓ）
     (fig.rays || []).forEach(function (r) {
       const P = fig.points[r.from], Q = fig.points[r.through];

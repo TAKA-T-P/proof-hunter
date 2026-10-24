@@ -78,6 +78,8 @@
       this.mode = this.answerMode = 'side';
     }
     if (this.phase === 'collect') this.applyRoleMode();
+    // Ver.1.0（p50）：合同を使わない問題は、等しい2つの角を選ぶところから（最初から角選択）
+    if (PH.isGoalOnly && PH.isGoalOnly(this.problem)) this.mode = this.answerMode = 'angle';
   };
 
   // ---- 平行四辺形（Ver.0.9） -----------------------------------------------------
@@ -751,6 +753,8 @@
         if (list.length === this.total()) {
           this.phase = quad ? 'qcondition' : 'congruence';
           r.complete = true;
+          // Ver.1.0（p50）：合同を使わない問題は、根拠がそろったら後半のステップ（二等辺三角形である）へ
+          if (PH.isGoalOnly(this.problem)) { this.enterSteps('post'); r.post = true; }
         } else if (!quad && this.isRight()) {
           const self = this;
           this.role = this.roles.find(function (x) { return !self.roleFound(x); }) || null;
@@ -845,12 +849,15 @@
    * 理由を選ぶステップ（定理・角の式）の選択肢：正解（id 'a'）と、その定理では言えない理由2つ
    * 証明文の書き方（「二等辺三角形の底角は等しいから」「角の和より」など）で表示する
    */
+  //   ステップに choices があれば、理由ではなくその式を選ぶ（先頭が正解。p41 の「EB＝AB－AE、DF＝DC－FC」）
   function stepOptions(problem, step) {
     if (!step || step.type === 'compare') return [];
     const R = PH.proofRules;
-    const opts = [{ id: 'a', text: R.label(step.rule) }].concat((R.RULE_DISTRACTORS[step.rule] || []).slice(0, 2).map(function (t, i) {
-      return { id: 'w' + i, text: t };
-    }));
+    const opts = step.choices
+      ? step.choices.map(function (t, i) { return { id: i === 0 ? 'a' : 'w' + (i - 1), text: t }; })
+      : [{ id: 'a', text: R.label(step.rule) }].concat((R.RULE_DISTRACTORS[step.rule] || []).slice(0, 2).map(function (t, i) {
+        return { id: 'w' + i, text: t };
+      }));
     const rnd = seeded(problem.id + ':' + step.id);
     for (let i = opts.length - 1; i > 0; i--) {
       const j = Math.floor(rnd() * (i + 1));
@@ -887,6 +894,16 @@
    *   final     … 合同から導く結論、post … 最終結論のあとのステップ（例：二等辺三角形である）
    */
   function buildProof(problem) {
+    // Ver.1.0：合同を使わない問題（p50）は、書き出し → ステップの行 → 後半のステップ（結論）
+    if (PH.isGoalOnly && PH.isGoalOnly(problem)) {
+      const stepNo0 = {};
+      const sl = PH.proofEngine.stepsOf(problem, 'pre').map(function (s, i) {
+        stepNo0[s.id] = CIRCLED[i];
+        return { stepId: s.id, no: CIRCLED[i], reason: stepReasonText(s, stepNo0), equation: s.label, type: s.type };
+      });
+      return { goalOnly: true, intro: problem.proof.intro, lines: [], stepLines: sl, summary: '', condition: null, conclusion: null, final: null,
+        post: PH.proofEngine.stepsOf(problem, 'post').map(function (s) { return { stepId: s.id, reason: stepReasonText(s, stepNo0), conclusion: s.label }; }) };
+    }
     // Ver.0.9：平行四辺形だけの問題（三角形の合同の部分がない）は、平行四辺形の部分（proof.quad）だけ
     if (PH.isQuadProblem && PH.isQuadProblem(problem) && !PH.hasLemma(problem)) {
       const empty = { intro: null, lines: [], stepLines: [], summary: '', condition: null, conclusion: null, final: null, post: [] };

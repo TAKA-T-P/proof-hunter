@@ -50,6 +50,7 @@
     rhombusSides: 'ひし形の4辺はすべて等しくなります（ひし形だと分かっているときだけ使えます）。',
     rhombusAngles: 'ひし形は平行四辺形なので、対角は等しくなります。',
     midpoint: '中点で分けた2つの線分の長さは等しくなります。',
+    construction: '作図で同じ半径の円をかいたので、その半径は等しくなります。',
     rectangleSides: '長方形の対辺は等しくなります（長方形は平行四辺形）。',
     rectangleAngles: '長方形の4つの角はすべて90°で等しくなります。',
   };
@@ -78,6 +79,11 @@
   }
 
   function key(p, name) { return G().elementKey(p.figure, name); }
+  /*
+   * 同じ内容の問題をまとめるための署名の先頭。従来の問題は合同の式（△POQ≡△POR など）でまとめていたので、そのまま。
+   * あとから加えた問題で、ほかの問題と三角形の名前が同じになるもの（p48 と p29 の △POQ≡△POR）は rankKey で区別する
+   */
+  function sigPrefix(p) { return p.rankKey ? p.rankKey + '|' : ''; }
   function eqKeyOf(p, items) { return V().equationKey(key(p, items[0]), key(p, items[1])); }
   function triText(p) { return '△' + p.triangles[0].join('') + 'と△' + p.triangles[1].join(''); }
   // 図を使う問題の前置き：仮定（「仮定より」で答える問題に必要）と、2つの三角形
@@ -160,7 +166,7 @@
       },
       answerText: ev.label,
       explain: lastHint(p, ev.id) || REASON_EXPLAIN[ev.reason],
-      signature: PH.congruenceText(p) + '|' + shown.text + '|' + ev.label,
+      signature: sigPrefix(p) + PH.congruenceText(p) + '|' + shown.text + '|' + ev.label,
     };
   }
 
@@ -195,7 +201,7 @@
       input: null,
       answerText: reasonText(ev),
       explain: REASON_EXPLAIN[ev.reason] + (ev.proofReason ? '（' + ev.proofReason + '）' : ''),
-      signature: PH.congruenceText(p) + '|reason|' + ev.label,
+      signature: sigPrefix(p) + PH.congruenceText(p) + '|reason|' + ev.label,
     };
   }
 
@@ -219,7 +225,7 @@
       choice: { blanks: [choiceBlank('合同条件', PH.CONDITIONS[cond].label, wrong)] }, input: null,
       answerText: PH.CONDITIONS[cond].label,
       explain: p.evidence.map(function (ev) { return PH.evidenceText(ev); }).join('、') + ' から。' + lastHint(p, 'congruence'),
-      signature: cong + '|cond|' + p.given.join(','),
+      signature: sigPrefix(p) + cong + '|cond|' + p.given.join(','),
     };
   }
 
@@ -296,7 +302,7 @@
         },
         answerText: part.left + '＝' + part.right,
         explain: '合同な図形の対応する' + (part.kind === 'side' ? '辺' : '角') + 'は等しくなります。' + cong + ' で ' + part.left + ' と同じ位置にあるのは ' + part.right + ' です。',
-        signature: cong + '|pt|' + part.left,
+        signature: sigPrefix(p) + cong + '|pt|' + part.left,
       });
     });
     return out;

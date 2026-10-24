@@ -82,7 +82,7 @@
     parallelogramSides: 'parallelogramProperties', parallelogramParallel: 'parallelogramProperties',
     parallelogramAngles: 'parallelogramProperties', parallelogramDiagonals: 'diagonalBisector',
     alternateConverse: 'parallelConverse', correspondingConverse: 'parallelConverse',
-    rhombusSides: 'rhombus', rhombusAngles: 'rhombus', midpoint: 'given', rectangleSides: 'rectangle', rectangleAngles: 'rectangle',
+    rhombusSides: 'rhombus', rhombusAngles: 'rhombus', midpoint: 'given', construction: 'given', rectangleSides: 'rectangle', rectangleAngles: 'rectangle',
   };
   // 推論ルール → 学習テーマ
   const RULE_TOPIC = {
@@ -96,7 +96,7 @@
     alternateAnglesParallel: ['parallelConverse'],
     // Ver.1.0
     parallelogramAdjacentSupplementary: ['parallelogramProperties', 'rectangle'], parallelAlternateAngles: ['alternate', 'parallelogramProperties'],
-    angleBisector: ['rhombus'], angleTransitive: ['angleExpressions'], isoscelesConverseSides: ['isosceles'], linearPairRightAngle: ['rhombus'],
+    angleBisector: ['rhombus'], angleTransitive: ['angleExpressions'], isoscelesConverseSides: ['isosceles'], linearPairRightAngle: ['rhombus'], foldAngles: ['isosceles'],
   };
   // 合同条件 → 学習テーマ
   const CONDITION_TOPIC = {

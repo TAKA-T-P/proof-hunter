@@ -428,6 +428,7 @@
       this.say(s.type === 'compare'
         ? '2つの式の右辺が同じなら、左辺どうしが等しいね。等しくなる2つの角をもう一度選ぼう。'
         : s.type === 'expression' ? 'その式で合っているかな？ 角の大きさ（60°・90°）と、＋・－をもう一度確かめよう。'
+        : s.choices ? 'その式で合っているかな？ 線分の長さの和・差を、図でもう一度確かめよう。'
         : 'その理由で言えるかな？ どんな図形の性質・角の関係を使ったか、もう一度考えよう。', 'ng');
       PH.sound.play(r.miss ? 'wrong' : 'soft');
       this.shake = true;
@@ -1093,6 +1094,7 @@
     const now = at(g.phase);
     let steps = [['triangle', '三角形'], ['collect', '根拠'], ['congruence', '合同条件'], ['final', '結論']];
     if (!g.hasFinal) steps = steps.filter(function (s) { return s[0] !== 'triangle' && s[0] !== 'final'; });
+    if (PH.isGoalOnly(this.problem)) steps = [['collect', '等しい角']];        // Ver.1.0（p50）：合同を使わない
     const items = steps.map(function (st) {
       const i = at(st[0]);
       return { label: st[1], state: i < now || (st[0] === 'final' && g.phase === 'post') ? 'is-done' : i === now ? 'is-now' : '' };
@@ -1111,7 +1113,7 @@
         return ids.indexOf(g.stepId) >= 0 && (g.phase === 'step' || g.phase === 'post') ? 'is-now' : '';
       };
       const pre = groups.map(function (gr) { return { label: NAME[gr.type], state: stateOf(gr.ids), sub: true }; });
-      const ci = items.findIndex(function (it) { return it.label === '根拠'; });
+      const ci = items.findIndex(function (it) { return it.label === '根拠' || it.label === '等しい角'; });
       items.splice.apply(items, [ci + 1, 0].concat(pre));
       PH.proofEngine.stepsOf(this.problem, 'post').forEach(function (s) { items.push({ label: s.short, state: stateOf([s.id]) }); });
     }
@@ -1192,11 +1194,11 @@
         ? '<p class="step-premise">' + esc(s.note || s.premiseLabel + 'だから、正三角形の1つの角は60°') + '</p>' +
           '<p class="step-expr">' + esc(s.target + '＝' + PH.angleExpr.format(s.parts) + '＝') + '<span class="expr-blank">' + esc(g.stepChoice ? g.stepOptions(s).find(function (o) { return o.id === g.stepChoice; }).text : '？') + '</span></p>' +
           '<p class="panel-note">角の大きさを使って表すと、□に入る式はどれかな？</p>'
-        : '<p class="step-premise">' + esc(s.lead || s.premiseLabel + 'より、') + '</p><p class="panel-note">理由を選ぼう</p>';
+        : '<p class="step-premise">' + esc(s.lead || s.premiseLabel + 'より、') + '</p><p class="panel-note">' + (s.choices ? esc(s.choiceNote || '式を選ぼう') : '理由を選ぼう') + '</p>';
       html += lead + '<div class="choices reasons step-opts" role="group" aria-label="' + (s.type === 'expression' ? '式' : '理由') + '">' + g.stepOptions(s).map(function (o) {
         return '<button class="choice" data-step-opt="' + o.id + '" aria-pressed="' + (g.stepChoice === o.id) + '">' + esc(o.text) + '</button>';
       }).join('') + '</div>' +
-        (s.type === 'theorem' ? '<p class="step-concl">' + esc(s.label) + '</p>' : '');
+        (s.type === 'theorem' ? '<p class="step-concl">' + (s.choices ? 'だから、' : '') + esc(s.label) + '</p>' : '');
     }
     html += '<div class="panel-actions">' +
       '<button class="btn btn-confirm btn-wide" data-act="confirm-step"' + (g.canConfirmStep() ? '' : ' disabled') + '>決定</button>' +
@@ -1373,6 +1375,11 @@
       else if (roleNow === 'right' && n === 1) note = 'もう1つの三角形の直角をタップしよう。';
       else if (roleNow === 'right' && n === 2 && !g.reason) note = '2つの角が90°と言える理由を選ぼう。';
     }
+    // Ver.1.0（p50）：合同を使わない問題は、どの2つの角が等しいことを言えばよいかを最初に案内する
+    if (PH.isGoalOnly(this.problem) && g.phase === 'collect' && n === 0) {
+      head = '∠ 等しい2つの角をさがそう';
+      note = esc(this.problem.goalPrompt);
+    }
     html += '<div class="panel-head">' + head + '</div>' + this.stepBar() +
       (roleNow ? '<p class="role-now">いま集める根拠：<b class="role-tag role-' + roleNow + '">' + RT.ROLE_LABEL[roleNow] + '</b><span>' + esc(RT.ROLE_NOTE[roleNow]) + '</span></p>' : '') +
       '<p class="panel-note">' + note + '</p>' +
@@ -1510,7 +1517,10 @@
           '<div class="card proof-sheet">' +
             '<h2 class="proof-title">完成した証明</h2>' +
             '<p class="small-note">式や理由をタップすると、図の場所が光るよ</p>' +
-            (proof.intro ? '<p class="proof-intro">' + esc(proof.intro) + '</p>' +
+            (proof.goalOnly
+              ? '<p class="proof-intro">' + esc(proof.intro) + '</p><ol class="proof-lines">' + stepLinesHtml(proof) + '</ol>' + postProofHtml(proof)
+              : '') +
+            (proof.intro && !proof.goalOnly ? '<p class="proof-intro">' + esc(proof.intro) + '</p>' +
               '<ol class="proof-lines">' + lines + stepLinesHtml(proof) + '</ol>' +
               '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
               '<p class="proof-cond"><strong>' + esc(proof.condition) + '</strong>ので、</p>' +

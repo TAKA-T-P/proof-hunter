@@ -454,11 +454,11 @@ test('最終結論（平行四辺形である）を正しく判定する：誤�
 // =====================================================================================
 
 test('42問・10ステージ。STAGE 9「平行四辺形を利用せよ！」・STAGE 10「平行四辺形を証明せよ！」', () => {
-  assert.equal(PH.problems.length, 47);   // Ver.1.0 で STAGE 11（p43〜p47）を追加（v10.test.js）
+  assert.equal(PH.problems.length, 50);   // Ver.1.0 で STAGE 11（p43〜p47）を追加（v10.test.js）
   assert.equal(PH.STAGES.length, 10);
   assert.equal(PH.getStage(8).title, '平行四辺形を利用せよ！');
   assert.equal(PH.getStage(9).title, '平行四辺形を証明せよ！');
-  assert.deepEqual(PH.stageProblems(5).map((p) => p.id), ['p16', 'p17', 'p18', 'p19', 'p20', 'p35']);
+  assert.deepEqual(PH.stageProblems(5).map((p) => p.id), ['p16', 'p17', 'p18', 'p19', 'p20', 'p48', 'p35']);
   assert.deepEqual(PH.stageProblems(8).map((p) => p.id), USE_IDS);
   assert.deepEqual(PH.stageProblems(9).map((p) => p.id), QUAD_IDS);
   QUAD.forEach((p) => {
@@ -748,7 +748,7 @@ const BASIC = TR.pool('basic');
 const COMP = TR.pool('comprehensive');
 
 test('基本コースに平行四辺形・Ver.0.9 の問題が混入しない。総合コースに新しいミニ問題が追加される', () => {
-  assert.equal(BASIC.length, 148);
+  assert.equal(BASIC.length, 162);   // Ver.1.0 で STAGE 5 に p48（角の二等分線の作図）を加えて148問 → 162問
   assert.ok(!BASIC.some((q) => q.category === 'para'));
   assert.ok(!BASIC.some((q) => NEW_IDS.includes(q.sourceId)));
   assert.ok(!BASIC.some((q) => q.requiredTopics.some((t) => /parallel|diagonal/.test(t))));
@@ -758,7 +758,7 @@ test('基本コースに平行四辺形・Ver.0.9 の問題が混入しない。
   // Ver.0.8 の274問 ＋ 平行四辺形 ＋ Ver.0.9 の問題の三角形の合同の部分（p35・p37〜p39・p42）
   //   ＋ Ver.1.0 の四角形の分類と、p43〜p48 から作る問題（v10.test.js）
   const triNew = COMP.filter((q) => NEW_IDS.includes(q.sourceId) && q.category !== 'para').length;
-  const v10 = COMP.filter((q) => q.category === 'quad' || ['p43', 'p44', 'p45', 'p46', 'p47'].includes(q.sourceId)).length;
+  const v10 = COMP.filter((q) => q.category === 'quad' || ['p43', 'p44', 'p45', 'p46', 'p47', 'p48', 'p49', 'p50'].includes(q.sourceId)).length;
   assert.equal(COMP.length, 274 + PARA.length + triNew + v10);
   ['parallelogramProperties', 'parallelogramConditions', 'diagonalBisector', 'parallelConverse']
     .forEach((t) => assert.ok(TR.get('comprehensive').allowedTopics.includes(t), t));

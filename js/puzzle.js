@@ -348,6 +348,8 @@
     // Ver.0.9：平行四辺形の部分。tri … 三角形の合同の部分があるか（平行四辺形だけの問題は false）
     this.quad = !!(PH.isQuadProblem && PH.isQuadProblem(problem));
     this.tri = !this.quad || PH.hasLemma(problem);
+    // Ver.1.0：合同条件の空欄があるか（合同を使わない問題 p50 は、ステップの行と後半のステップだけ）
+    this.cong = this.tri && PH.hasCongruence(problem);
     // 平行四辺形の根拠の行：ステップで導く根拠と、合同から導いた結論そのもの（fromFinal。証明文では結論の番号を使う）は行にしない
     this.qrowEv = quadEvidence(problem).filter(function (ev) { return !ev.fromStep && !ev.fromFinal; });
     this.postSteps = this.multi ? PH.proofEngine.stepsOf(problem, 'post') : [];
@@ -356,7 +358,7 @@
       eq: this.type === 'challenge' ? [] : makeEquationCards(problem),   // チャレンジでは等式カードを出さない
       reason: this.buildLike ? makeReasonCards(problem) : [],
       rreason: this.buildLike ? makeRightReasonCards(problem) : [],
-      cond: this.tri ? makeConditionCards(problem) : [],
+      cond: this.cong ? makeConditionCards(problem) : [],
       qeq: this.quad && this.type !== 'challenge' ? makeQuadEquationCards(problem) : [],
       qreason: this.quad && this.buildLike ? makeQuadReasonCards(problem) : [],
       pcond: this.quad ? makeQuadConditionCards(problem) : [],
@@ -426,7 +428,7 @@
         });
       }
     }, this);
-    if (this.tri) slots.push({ id: 'cond', kind: 'cond', label: '合同条件' });
+    if (this.cong) slots.push({ id: 'cond', kind: 'cond', label: '合同条件' });
     if (this.hasFinal) {
       if (this.type === 'fill') {
         slots.push({ id: 'fe', kind: 'final', label: '結論', fixed: { text: PH.REASONS[PH.finalReasonFor(p)].proof } });
@@ -468,7 +470,7 @@
    *             チャレンジ   cp ＋ { id: 'cr:<id>', input: true }（導ける等式をキーパッドで入力）
    */
   Puzzle.prototype.stepSlots = function (st) {
-    if (st.type === 'expression') return [{ id: 'st:' + st.id, kind: 'srule:' + st.id, step: st.id, expr: true, label: st.short + '（式）' }];
+    if (st.type === 'expression' || st.choices) return [{ id: 'st:' + st.id, kind: 'srule:' + st.id, step: st.id, expr: true, label: st.short + '（式）' }];
     if (st.type !== 'compare') return [{ id: 'st:' + st.id, kind: 'srule:' + st.id, step: st.id, label: st.short + '（理由）' }];
     if (this.type === 'fill') return [{ id: 'cc:' + st.id, kind: 'cmc:' + st.id, step: st.id, label: '2つの式の共通部分' }];
     return [
@@ -783,6 +785,7 @@
         r.ngSlot = ids[0];
         r.sig = c ? c.id : '';
         r.message = st.type === 'expression' ? 'その式で合っているかな？ 角の大きさ（60°・90°）と、＋・－をもう一度確かめよう。'
+          : st.choices ? 'その式で合っているかな？ 線分の長さの和・差を、図でもう一度確かめよう。'
           : 'その理由で言えるかな？ どんな図形の性質を使うか、もう一度考えよう。';
         return r;
       }
@@ -947,7 +950,7 @@
     });
 
     // 合同条件：根拠がすべて正しければ、その3つから導いた条件と比べる
-    if (this.tri) {
+    if (this.cong) {
       const condCard = this.cardIn('cond');
       const allRowsOk = rows.every(function (r) { return r.status === 'ok'; });
       const fixedEv = p.evidence.filter(function (ev) { return ev.fromStep; });
@@ -1134,6 +1137,13 @@
       const postNg = steps.find(function (r) { return !r.ok && r.step.stage === 'post'; });
       if (cond && cond.cond === p.congruence && finalOk && postNg) return { id: postNg.step.id, ev: null, step: postNg.step, slotId: postNg.ngSlot };
     }
+    // Ver.1.0（p50）：合同を使わない問題は、ステップの行のあと、後半のステップ（結論）
+    if (!this.cong) {
+      const post = this.postSteps[this.postSteps.length - 1];
+      const ng = steps.find(function (r) { return !r.ok && r.step.stage === 'post'; });
+      const st = ng ? ng.step : post;
+      return { id: st.id, ev: null, step: st, slotId: this.stepSlots(st)[0].id };
+    }
     return { id: 'congruence', ev: null, slotId: 'cond' };
   };
 
@@ -1220,7 +1230,7 @@
         out['r' + row] = self.cards.reason.find(function (c) { return reasonAccepts(c, ev); }).id;
       }
     });
-    if (this.tri) out.cond = this.cards.cond.find(function (c) { return c.cond === p.congruence; }).id;
+    if (this.cong) out.cond = this.cards.cond.find(function (c) { return c.cond === p.congruence; }).id;
     if (this.quad) {
       this.qrowEv.forEach(function (ev, i) {
         out[self.qEqSlotId(i)] = self.type === 'challenge' ? ev.items.join(ev.rel === 'parallel' ? '∥' : '=')

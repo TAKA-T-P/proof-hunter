@@ -268,6 +268,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 
 /* SVGの図形 */
 .seg { stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; }
+.seg.seg-dashed { stroke-dasharray: 10 8; stroke-width: 2.5; stroke-linecap: butt; }
 .pt { fill: var(--ink); }
 .pt-label {
   font-size: 25px; font-weight: 800; fill: #0f172a; text-anchor: middle; dominant-baseline: central;
@@ -1063,6 +1064,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .pz-steprow .pz-row-no { color: #92400e; }
 .pz-step-lead { margin: 0 0 2px; font-weight: 800; }
 .pz-step-eq { font-weight: 900; font-size: 1.02rem; }
+.pz-step-expr { margin: 2px 0 0; font-weight: 900; font-size: 1.02rem; }
 .pz-blank.kind-srule, .pz-blank.kind-cmp { flex: 1 1 12em; font-size: .92rem; }
 .pz-cards.kind-srule, .pz-cards.kind-cmc, .pz-cards.kind-cmp, .pz-cards.kind-cmr { grid-template-columns: minmax(0, 1fr); }
 .pz-cards.kind-srule .pz-card { text-align: left; font-size: .9rem; }

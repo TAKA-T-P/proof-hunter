@@ -109,10 +109,10 @@ function solveHunter(p) {
 
 // ---- 問題データ ---------------------------------------------------------------------
 
-test('STAGE 7「証明をつなげろ！」は p21〜p24 の多段階証明', () => {
-  assert.equal(PH.problems.length, 47);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p47）
-  assert.equal(PH.getStage(6).title, '証明をつなげろ！');
-  assert.deepEqual(PH.stageProblems(6).map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
+test('STAGE 6「二等辺三角形・正三角形を攻略せよ！」（旧 STAGE 7「証明をつなげろ！」）は p21〜p24 の多段階証明', () => {
+  assert.equal(PH.problems.length, 50);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p47）
+  assert.equal(PH.getStage(6).title, '二等辺三角形・正三角形を攻略せよ！');
+  assert.deepEqual(PH.stageProblems(6).map((p) => p.id), ['p21', 'p22', 'p50', 'p23', 'p24']);   // Ver.1.0 で p50（合同を使わない二等辺三角形）を3問目に加えた
   assert.deepEqual(MULTI.map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
   // p01〜p20 は proofSteps を持たない（従来の形式）
@@ -539,7 +539,7 @@ test('回帰：Ver.0.6 の保存データを引き継ぎ、STAGE 7 は未クリ�
     assert.equal(S.getRankLegacy().best.rankName, '四段');
     assert.equal(S.getRank('basic').best, null);
     assert.equal(S.stageStats(6).cleared, 0);
-    assert.equal(S.stageStats(6).total, 4);
+    assert.equal(S.stageStats(6).total, 5);
     S.recordClear('p23', 3, 0, 'puzzle:challenge');
     assert.equal(S.getProblem('p23', 'puzzle:easy').bestStars, 3);          // 上位レベルの★★★の反映
     assert.equal(S.getProblem('p23').cleared, false);                       // ハンターとは独立

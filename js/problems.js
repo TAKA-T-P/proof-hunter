@@ -40,6 +40,8 @@
     rhombusSides:  { label: 'ひし形の4辺は等しい', short: 'ひし形の辺', proof: 'ひし形の4辺は等しいから' },
     rhombusAngles: { label: 'ひし形の対角は等しい', short: 'ひし形の対角', proof: 'ひし形の対角は等しいから' },
     midpoint:      { label: '中点より', short: '中点', proof: '中点だから' },
+    // 作図で等しい半径の円をかいたことから等しい線分（p48。仮定に作図のしかたが書かれているので「仮定より」でもよい）
+    construction:  { label: '作図より', short: '作図', proof: '作図より' },
     // 長方形の性質（仮定で長方形と分かっている四角形にだけ使える。p46）
     rectangleSides:  { label: '長方形の対辺は等しい', short: '長方形の対辺', proof: '長方形の対辺は等しいから' },
     rectangleAngles: { label: '長方形の4つの角は等しい', short: '長方形の角', proof: '長方形の角はすべて90°だから' },
@@ -77,7 +79,9 @@
   };
   PH.hasLemma = function (p) { return PH.isQuadProblem(p) && Array.isArray(p.triangles) && p.triangles.length === 2; };
   // 三角形の合同を示す部分がある問題か（平行四辺形だけの問題は、三角形・合同条件がない）
-  PH.hasCongruence = function (p) { return !PH.isQuadProblem(p) || PH.hasLemma(p); };
+  //   Ver.1.0：合同を使わずに結論を導く問題（p50。2つの角が等しいので二等辺三角形）も、三角形の合同の部分がない
+  PH.isGoalOnly = function (p) { return !!p && PH.conclusionType(p) === 'isoscelesTriangle' && !p.triangles; };
+  PH.hasCongruence = function (p) { return !PH.isGoalOnly(p) && (!PH.isQuadProblem(p) || PH.hasLemma(p)); };
 
   // 三角形の合同条件（中学数学の標準的な表現）
   PH.CONDITIONS = {
@@ -111,7 +115,8 @@
   //   Ver.1.0：中点から言える等しい線分（midpoint）も、仮定に「MはADの中点」と書かれているので「仮定より」も正しい。
   //            ev.alsoReasons … ほかにも正しい理由（ひし形の対角は、ひし形が平行四辺形なので「平行四辺形の対角は等しい」でもよい）
   PH.acceptedReasons = function (ev) {
-    const base = ev.reason === 'perpendicular' ? ['perpendicular', 'given'] : ev.reason === 'midpoint' ? ['midpoint', 'given'] : [ev.reason];
+    const base = ev.reason === 'perpendicular' ? ['perpendicular', 'given'] : ev.reason === 'midpoint' ? ['midpoint', 'given']
+      : ev.reason === 'construction' ? ['construction', 'given'] : [ev.reason];
     return base.concat(ev.alsoReasons || []);
   };
 
@@ -122,7 +127,7 @@
     { id: 3, title: '平行線を使いこなせ！', theme: '平行線の錯角・同位角を見つけよう！' },
     { id: 4, title: '証明マスターへの道', theme: 'いろいろな根拠を組み合わせよう！' },
     { id: 5, title: '合同から結論を導け！', theme: 'どの三角形を合同にする？ 合同から辺・角の等しさを証明しよう！' },
-    { id: 6, title: '証明をつなげろ！', theme: '新しい根拠を導き、それを使って証明を完成させよう！' },
+    { id: 6, title: '二等辺三角形・正三角形を攻略せよ！', theme: '二等辺三角形・正三角形の性質を使って新しい根拠を導き、証明をつなげよう！' },
     { id: 7, title: '直角三角形を攻略せよ！', theme: '直角を確かめ、斜辺を見つけて、直角三角形の合同条件を使いこなそう！' },
     { id: 8, title: '平行四辺形を利用せよ！', theme: '平行四辺形の性質（対辺・対角線）を使って、三角形の合同を証明しよう！' },
     { id: 9, title: '平行四辺形を証明せよ！', theme: '何を示せば平行四辺形といえる？ 5つの成立条件から逆算して根拠を集めよう！' },
@@ -252,7 +257,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p02',
-      number: '02',
+      number: '07',
       title: '対頂角を見つけろ！',
       difficulty: 1,
       stage: 2,
@@ -320,7 +325,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p03',
-      number: '03',
+      number: '10',
       title: '平行線の角を見抜け！',
       difficulty: 2,
       stage: 3,
@@ -395,7 +400,7 @@
     // ---- STAGE 1 ------------------------------------------------------
     {
       id: 'p04',
-      number: '04',
+      number: '02',
       title: '重なった三角形を見抜け！',
       difficulty: 1,
       stage: 1,
@@ -456,7 +461,7 @@
 
     {
       id: 'p06',
-      number: '06',
+      number: '03',
       title: '間の角を見つけろ！',
       difficulty: 1,
       stage: 1,
@@ -517,7 +522,7 @@
     // ---- STAGE 2 ------------------------------------------------------
     {
       id: 'p05',
-      number: '05',
+      number: '08',
       title: '上下の三角形と対頂角',
       difficulty: 1,
       stage: 2,
@@ -642,7 +647,7 @@
     // ---- STAGE 3 ------------------------------------------------------
     {
       id: 'p08',
-      number: '08',
+      number: '11',
       title: '平行線と共通な辺',
       difficulty: 2,
       stage: 3,
@@ -702,7 +707,7 @@
 
     {
       id: 'p10',
-      number: '10',
+      number: '12',
       title: '同位角を2組見つけろ！',
       difficulty: 2,
       stage: 3,
@@ -772,7 +777,7 @@
     // ---- STAGE 4 ------------------------------------------------------
     {
       id: 'p07',
-      number: '07',
+      number: '04',
       title: '離れた三角形の対応を見抜け！',
       difficulty: 1,
       stage: 1,
@@ -833,7 +838,7 @@
 
     {
       id: 'p11',
-      number: '11',
+      number: '05',
       title: '共通な辺と両端の角',
       difficulty: 1,
       stage: 1,
@@ -892,7 +897,7 @@
 
     {
       id: 'p12',
-      number: '12',
+      number: '06',
       title: '中点と3組の辺',
       difficulty: 1,
       stage: 1,
@@ -1496,7 +1501,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p21',
-      number: '21',
+      number: '23',
       title: '二等辺三角形の底角を使おう！',
       difficulty: 2,
       stage: 6,
@@ -1570,7 +1575,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p22',
-      number: '22',
+      number: '24',
       title: '二等辺三角形になることを証明！',
       difficulty: 3,
       stage: 6,
@@ -1647,9 +1652,83 @@
     },
 
     // ------------------------------------------------------------------
+    // Ver.1.0 追加（STAGE 6 の3問目）：合同を使わず、2つの角が等しいことから二等辺三角形を示す（PH.isGoalOnly）
+    //   根拠は「等しい2つの角」1つだけ（∠FAC＝∠ACF。「詳しい理由を説明する」で錯角・折り返し・角をつなぐのステップを解く）
+    //   → 後半のステップ「2つの角が等しい三角形は二等辺三角形」
+    {
+      id: 'p50',
+      number: '25',
+      title: '長方形を折り返すと？',
+      difficulty: 3,
+      stage: 6,
+      statement: '長方形ABCDを対角線ACで折り、折り返した辺ECとADの交点をFとする。このとき、△AFCは二等辺三角形であることを証明しよう。',
+      given: ['四角形ABCDは長方形', '長方形ABCDを対角線ACで折り返した（Bが移った点がE）'],
+      conclusion: '△AFCは二等辺三角形',
+      conclusionType: 'isoscelesTriangle',
+      goalPrompt: '二等辺三角形であることを示すには、△AFCのどの角とどの角が等しいことを言えばよいかな？ 2つの角を選んで「詳しい理由を説明する」を押そう。',
+      fold: { line: 'AC', from: 'B', to: 'E' },
+      figure: {
+        viewBox: [0, 0, 480, 360],
+        points: {
+          A: { x: 60,     y: 150,   label: [-18, 2] },
+          B: { x: 60,     y: 320,   label: [-16, 18] },
+          C: { x: 420,    y: 320,   label: [14, 18] },
+          D: { x: 420,    y: 150,   label: [14, -12] },
+          E: { x: 191.28, y: 41.99, label: [4, -14] },
+          F: { x: 280.14, y: 150,   label: [4, -14] },
+        },
+        lines: [['A', 'F', 'D'], ['E', 'F', 'C']],
+        segments: ['AB', 'BC', 'AF', 'FD', 'DC', 'AE', 'EF', 'FC', 'AC'],
+        dashed: ['AB', 'BC'],
+        angles: ['FAC', 'ACF', 'ACB', 'AFC', 'CAB'],
+        parallel: [],
+      },
+      reasons: ['proved'],
+      evidence: [
+        { id: 'e1', items: ['∠FAC', '∠ACF'], reason: 'proved', fromStep: 's3', label: '∠FAC＝∠ACF', mark: 1 },
+      ],
+      extraTruths: [],
+      proofSteps: [
+        { id: 's1', type: 'theorem', rule: 'parallelAlternateAngles', quad: 'ABCD', lines: ['AD', 'BC'], premiseLabel: 'AD∥BC',
+          lead: '四角形ABCDは長方形で AD∥BC だから、', items: ['∠ACB', '∠FAC'], label: '∠ACB＝∠FAC', short: '平行線の錯角', dependsOn: [],
+          proofText: 'AD∥BCより、平行線の錯角は等しいから、' },
+        { id: 's2', type: 'theorem', rule: 'foldAngles', items: ['∠ACB', '∠ACF'], premiseLabel: 'ACで折り返した',
+          lead: '対角線ACで折り返したので、', label: '∠ACB＝∠ACF', short: '折り返した角', dependsOn: [],
+          proofText: 'ACで折り返したので、' },
+        { id: 's3', type: 'theorem', rule: 'angleTransitive', premiseLabel: '∠ACB＝∠FAC、∠ACB＝∠ACF',
+          lead: '∠ACB＝∠FAC、∠ACB＝∠ACF だから、', items: ['∠FAC', '∠ACF'], label: '∠FAC＝∠ACF', short: '角をつなぐ', dependsOn: ['s1', 's2'],
+          proofText: '{s1}、{s2}より、' },
+        { id: 's4', type: 'theorem', stage: 'post', rule: 'isoscelesConverse', premise: ['∠FAC', '∠ACF'], triangle: 'FAC', premiseLabel: '∠FAC＝∠ACF',
+          label: '△AFCは二等辺三角形', short: '二等辺三角形', dependsOn: ['s3'] },
+      ],
+      proof: { intro: '長方形ABCDを対角線ACで折り返したとき、' },
+      puzzle: { type: 'build', distractors: { equations: [], reasons: [] } },
+      hints: {
+        e1: [
+          { text: '二等辺三角形であることを示すには、2つの角が等しいことを言えばいいね。△AFCの角に注目しよう。' },
+          { text: '△AFCの∠FACと∠ACFが等しいことを示そう！', focus: ['∠FAC', '∠ACF'] },
+          { text: '∠FACと∠ACFを選んで「詳しい理由を説明する」を押そう！', focus: ['∠FAC', '∠ACF'] },
+        ],
+        s1: stepHints('長方形の対辺は平行だね。AD∥BC と、それに交わる直線ACに注目しよう。', '∠ACBと∠FACは錯角だね。',
+          '平行線の錯角は等しいから ∠ACB＝∠FAC！', ['∠ACB', '∠FAC']),
+        s2: stepHints('折り返す前の∠ACBは、折り返したあと、どの角に重なるかな？', '∠ACBを、ACで折り返すと∠ACFに重なるね。',
+          '折り返した角は等しいから ∠ACB＝∠ACF！', ['∠ACB', '∠ACF']),
+        s3: stepHints('∠ACB＝∠FAC、∠ACB＝∠ACF。どちらにも∠ACBが出てくるね。', '同じ角に等しい2つの角の関係は？',
+          '同じ角に等しい2つの角は等しいから ∠FAC＝∠ACF！', ['∠FAC', '∠ACF']),
+        s4: stepHints('△AFCの2つの角∠FACと∠ACFが等しいことが分かったね。', '2つの角が等しい三角形は、どんな三角形かな？',
+          '2つの角が等しい三角形は二等辺三角形だから、△AFCは二等辺三角形！', ['∠FAC', '∠ACF']),
+      },
+      explanation: 'AD∥BCより、平行線の錯角は等しいので ∠ACB＝∠FAC。ACで折り返したので ∠ACB＝∠ACF。よって ∠FAC＝∠ACF。2つの角が等しいので、△AFCは二等辺三角形です（三角形の合同は使いません）。',
+      learningPoints: [
+        '二等辺三角形であることは、2つの角が等しいことから示せる（合同を使わなくてよい）。',
+        '平行線の錯角と、折り返した角の等しさを、同じ角（∠ACB）でつなぐ。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
     {
       id: 'p23',
-      number: '23',
+      number: '26',
       title: '正三角形の60°を使おう！',
       difficulty: 3,
       stage: 6,
@@ -1731,7 +1810,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p24',
-      number: '24',
+      number: '27',
       title: '三段論法で合同を証明！',
       difficulty: 3,
       stage: 6,
@@ -1824,7 +1903,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p25',
-      number: '25',
+      number: '28',
       title: '斜辺と他の1辺を見つけろ！',
       difficulty: 1,
       stage: 7,
@@ -1875,7 +1954,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p26',
-      number: '26',
+      number: '29',
       title: '斜辺と1つの鋭角で合同！',
       difficulty: 1,
       stage: 7,
@@ -1925,9 +2004,60 @@
     },
 
     // ------------------------------------------------------------------
+    // Ver.1.0 追加（STAGE 7 の3問目）：共通な角を鋭角に使う、直角三角形の斜辺と1つの鋭角
+    {
+      id: 'p49',
+      number: '30',
+      title: '共通な角と斜辺',
+      difficulty: 2,
+      stage: 7,
+      statement: '右の図で、OA＝OB、∠ACO＝∠BDO＝90°であるとき、△OAC≡△OBD であることを証明しよう。',
+      given: ['OA＝OB', '∠ACO＝∠BDO＝90°'],
+      conclusion: '△OAC≡△OBD',
+      triangles: [['O', 'A', 'C'], ['O', 'B', 'D']],
+      figure: {
+        viewBox: [0, 0, 470, 360],
+        points: {
+          O: { x: 40,     y: 320,    label: [-16, 18] },
+          A: { x: 287.11, y: 31.32,  label: [6, -14] },
+          B: { x: 420,    y: 320,    label: [12, 18] },
+          C: { x: 287.11, y: 320,    label: [4, 22] },
+          D: { x: 200.69, y: 132.27, label: [-20, -10] },
+        },
+        lines: [['O', 'D', 'A'], ['O', 'C', 'B']],
+        segments: ['OD', { name: 'OA', hit: ['D', 'A'] }, 'OC', { name: 'OB', hit: ['C', 'B'] }, 'AC', 'BD'],
+        angles: ['ACO', 'BDO', 'AOC', 'OAC', 'OBD'],
+        parallel: [],
+        rightMarks: ['ACO', 'BDO'],
+      },
+      reasons: ['given', 'commonAngle', 'common', 'vertical', 'perpendicular'],
+      evidence: [
+        { id: 'e1', role: 'right', items: ['∠ACO', '∠BDO'], reason: 'given', label: '∠ACO＝∠BDO', mark: 'right' },
+        { id: 'e2', items: ['OA', 'OB'], reason: 'given', label: 'OA＝OB', mark: 1 },
+        { id: 'e3', items: ['∠AOC', '∠BOD'], reason: 'commonAngle', label: '∠AOC＝∠BOD', mark: 1 },
+      ],
+      extraTruths: [],
+      congruence: 'RHA',
+      proof: { intro: '△OACと△OBDにおいて' },
+      puzzle: { type: 'build', distractors: { equations: ['OA＝AC', '∠OAC＝∠AOC', 'AC＝OC'], reasons: ['vertical'] } },
+      hints: {
+        e1: rightHints('仮定に直角が書かれているね。∠ACO と ∠BDO に注目しよう。', '仮定より', '∠ACO＝∠BDO', ['∠ACO', '∠BDO']),
+        e2: hypHints('△OACで直角∠ACOに向かい合う辺はOA、△OBDではOBだね。', 'OA＝OB。仮定より等しいね！ 斜辺どうしが等しいよ。', ['OA', 'OB']),
+        e3: stepHints('斜辺のほかに、等しい鋭角はないかな？', '∠AOCと∠BODは、どちらも点Oの角だね。同じ角かな？',
+          '∠AOC＝∠BOD。共通な角だね！ 点Oの角を2回タップしよう。', ['∠AOC']),
+        congruence: rhaHints(),
+      },
+      explanation: '△OACと△OBDで、仮定より ∠ACO＝∠BDO＝90°、OA＝OB（斜辺）、∠AOC＝∠BOD は共通な角（鋭角）。直角三角形の斜辺と1つの鋭角がそれぞれ等しいので △OAC≡△OBD です。',
+      learningPoints: [
+        '2つの直角三角形が重なっているとき、共通な角を鋭角として使う。',
+        '直角に向かい合う辺（斜辺）を、それぞれの三角形で見つける。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
     {
       id: 'p27',
-      number: '27',
+      number: '31',
       title: '二等辺三角形にひいた垂線',
       difficulty: 2,
       stage: 7,
@@ -1985,7 +2115,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p28',
-      number: '28',
+      number: '32',
       title: '正方形と正三角形',
       difficulty: 3,
       stage: 7,
@@ -2058,7 +2188,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p29',
-      number: '29',
+      number: '33',
       title: '角の二等分線と垂線',
       difficulty: 2,
       stage: 7,
@@ -2131,7 +2261,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p30',
-      number: '30',
+      number: '34',
       title: '直角二等辺三角形と三段論法',
       difficulty: 3,
       stage: 7,
@@ -2217,7 +2347,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p31',
-      number: '31',
+      number: '38',
       title: '2組の対辺を見つけろ！',
       difficulty: 1,
       stage: 9,
@@ -2274,7 +2404,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p32',
-      number: '32',
+      number: '39',
       title: '2組の対角を見つけろ！',
       difficulty: 1,
       stage: 9,
@@ -2330,7 +2460,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p33',
-      number: '33',
+      number: '40',
       title: '対角線の中点を見抜け！',
       difficulty: 1,
       stage: 9,
@@ -2386,7 +2516,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p34',
-      number: '34',
+      number: '41',
       title: '2組の対辺の平行を見つけろ！',
       difficulty: 1,
       stage: 9,
@@ -2441,9 +2571,72 @@
     },
 
     // ------------------------------------------------------------------
+    // Ver.1.0 追加（STAGE 5 の6問目）：角の二等分線の作図が正しいことの証明（作図から OQ＝OR、PQ＝PR → △POQ≡△POR → ∠POQ＝∠POR）
+    {
+      id: 'p48',
+      number: '21',
+      rankKey: 'p48',          // 段位認定：p29 と合同の式（△POQ≡△POR）が同じなので、ミニ問題をまとめないように区別する
+      title: '角の二等分線の作図',
+      difficulty: 2,
+      stage: 5,
+      statement: '∠AOBの二等分線を、次のように作図した。点Oを中心とする円をかき、OA、OBとの交点をQ、Rとする。Q、Rを中心とする等しい半径の円をかき、その交点をPとする。このとき、OPが∠AOBの二等分線であること（∠POQ＝∠POR）を証明しよう。',
+      given: ['OQ＝OR（点Oを中心とする円の半径）', 'PQ＝PR（Q、Rを中心とする等しい半径の円）'],
+      conclusion: '∠POQ＝∠POR',
+      conclusionType: 'equalAngle',
+      triangles: [['P', 'O', 'Q'], ['P', 'O', 'R']],
+      figure: {
+        viewBox: [0, 0, 500, 340],
+        points: {
+          O: { x: 40,     y: 300,    label: [-16, 18] },
+          A: { x: 317.86, y: 12.26,  label: [10, -6] },
+          B: { x: 470,    y: 300,    label: [12, 18] },
+          Q: { x: 144.2,  y: 192.1,  label: [-20, -8] },
+          R: { x: 190,    y: 300,    label: [4, 22] },
+          P: { x: 316.15, y: 182.78, label: [14, -12] },
+        },
+        lines: [['O', 'Q', 'A'], ['O', 'R', 'B']],
+        segments: ['OQ', 'QA', 'OR', 'RB', 'OP', 'PQ', 'PR'],
+        angles: ['POQ', 'POR', 'OQP', 'ORP', 'OPQ', 'OPR'],
+        parallel: [],
+      },
+      reasons: ['construction', 'common', 'vertical', 'alternate'],
+      evidence: [
+        { id: 'e1', items: ['OQ', 'OR'], reason: 'construction', label: 'OQ＝OR', mark: 1, proofReason: '作図より（点Oを中心とする円の半径）' },
+        { id: 'e2', items: ['PQ', 'PR'], reason: 'construction', label: 'PQ＝PR', mark: 2, proofReason: '作図より（Q、Rを中心とする等しい半径の円）' },
+        { id: 'e3', items: ['OP', 'OP'], reason: 'common', label: 'OP＝OP', mark: 3 },
+      ],
+      extraTruths: [],
+      congruence: 'SSS',
+      finalStep: { relationType: 'angle', items: ['∠POQ', '∠POR'], reason: 'correspondingAngles', label: '∠POQ＝∠POR' },
+      proof: { intro: '△POQと△PORにおいて' },
+      puzzle: {
+        type: 'build',
+        distractors: {
+          equations: ['OQ＝PQ', '∠OQP＝∠OPQ', 'OP＝PQ'],
+          reasons: ['vertical'],
+          triangles: ['POQ/ROP', 'POQ/OPR'],
+          finals: ['∠OQP＝∠ORP', 'OQ＝OR'],
+        },
+      },
+      hints: {
+        triangleSelection: triangleHints(['∠POQ', '∠POR'], ['P', 'O', 'Q'], ['P', 'O', 'R']),
+        e1: stepHints('作図で、同じ半径の円をかいたところはどこかな？', '点Oを中心とする円の上に、QとRがあるね。', 'OQ＝OR。作図より（同じ円の半径）等しいね！', ['OQ', 'OR']),
+        e2: stepHints('点Pは、どのようにしてとった点かな？', 'Q、Rを中心とする等しい半径の円の交点がPだね。PQとPRを比べよう。', 'PQ＝PR。作図より（等しい半径）等しいね！', ['PQ', 'PR']),
+        e3: stepHints('2つの三角形が共有している辺はないかな？', '辺OPは、両方の三角形の辺だね。', 'OP＝OP。共通な辺だね！ 辺OPを2回タップしよう。', ['OP']),
+        congruence: sssHints(),
+        finalStep: finalHints(['∠POQ', '∠POR'], 'angle'),
+      },
+      explanation: '△POQと△PORで、作図より OQ＝OR（点Oを中心とする円の半径）、PQ＝PR（Q、Rを中心とする等しい半径の円）、OPは共通。3組の辺がそれぞれ等しいので △POQ≡△POR。合同な図形の対応する角は等しいので ∠POQ＝∠POR。よって、OPは∠AOBの二等分線です。',
+      learningPoints: [
+        '作図で、同じ半径の円をかいたところから、等しい辺を見つける。',
+        '合同な図形の対応する角から、角の二等分線であることを示す。',
+      ],
+    },
+
+    // ------------------------------------------------------------------
     {
       id: 'p35',
-      number: '35',
+      number: '22',
       title: '合同から平行を導け！',
       difficulty: 3,
       stage: 5,
@@ -2521,7 +2714,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p36',
-      number: '36',
+      number: '42',
       title: '平行四辺形の性質を使え！',
       difficulty: 3,
       stage: 9,
@@ -2608,7 +2801,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p37',
-      number: '37',
+      number: '35',
       title: '平行四辺形の対辺と錯角',
       difficulty: 2,
       stage: 8,
@@ -2661,7 +2854,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p38',
-      number: '38',
+      number: '36',
       title: '平行四辺形にひいた垂線',
       difficulty: 3,
       stage: 8,
@@ -2728,7 +2921,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p39',
-      number: '39',
+      number: '37',
       title: '対角線の交点を通る直線',
       difficulty: 3,
       stage: 8,
@@ -2805,7 +2998,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p40',
-      number: '40',
+      number: '43',
       title: '2つの平行四辺形をつなげ！',
       difficulty: 3,
       stage: 9,
@@ -2892,7 +3085,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p41',
-      number: '41',
+      number: '44',
       title: '対辺から等しい長さをひくと？',
       difficulty: 3,
       stage: 9,
@@ -2924,7 +3117,10 @@
           lead: '四角形ABCDは平行四辺形だから、', items: ['AB', 'DC'], label: 'AB＝DC', short: '対辺の長さ', dependsOn: [],
           proofText: '平行四辺形の対辺は等しいから、' },
         { id: 's2', type: 'theorem', rule: 'segmentSubtraction', premise: ['AB', 'DC'], subtract: ['AE', 'FC'], premiseLabel: 'AB＝DC、AE＝FC',
-          lead: 'AB＝DC、AE＝FC で、EB＝AB－AE、DF＝DC－FC だから、', items: ['EB', 'DF'], label: 'EB＝DF', short: '長さの差', dependsOn: ['s1'],
+          // 理由ではなく、EB・DF をほかの線分の長さで表す式を選ぶ（choices の先頭が正解）
+          lead: 'AB＝DC、AE＝FC で、', choiceNote: 'EB と DF を、ほかの線分の長さで表すと？',
+          choices: ['EB＝AB－AE、DF＝DC－FC', 'EB＝AB＋AE、DF＝DC＋FC', 'EB＝AE－AB、DF＝FC－DC'],
+          items: ['EB', 'DF'], label: 'EB＝DF', short: '長さの差', dependsOn: ['s1'],
           proofText: '仮定より AE＝FC、また EB＝AB－AE、DF＝DC－FC だから、{s1}より、' },
       ],
       parallelogram: {
@@ -2947,7 +3143,7 @@
           '辺EBと辺DFを選んで「詳しい理由を説明する」を押そう！ 平行四辺形の性質と仮定を使うよ。', ['EB', 'DF']),
         s1: stepHints('四角形ABCDは平行四辺形だね。対辺の長さについて、どんな性質があったかな？', '平行四辺形の対辺は等しいね。', '「平行四辺形の対辺は等しい」を使おう！ AB＝DC だね。', []),
         s2: stepHints('AB＝DC と AE＝FC が分かっているね。', 'EB＝AB－AE、DF＝DC－FC。等しい長さから等しい長さをひくと？',
-          '等しい線分から等しい線分をひいた残りは等しいね！ EB＝DF だよ。', ['EB', 'DF']),
+          'EB＝AB－AE、DF＝DC－FC だね。AB＝DC、AE＝FC だから、EB＝DF！', ['EB', 'DF']),
         pcondition: [
           { text: '集めた2つの根拠は、どちらも辺EBと辺DFについての関係だね。' },
           { text: 'EB∥DF で EB＝DF。同じ1組の対辺が、平行で長さも等しいね。' },
@@ -2965,7 +3161,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p42',
-      number: '42',
+      number: '45',
       title: '合同から平行四辺形へ！',
       difficulty: 3,
       stage: 9,
@@ -3086,7 +3282,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p43',
-      number: '43',
+      number: '46',
       title: 'ひし形と直角三角形の合同',
       difficulty: 2,
       stage: 10,
@@ -3146,7 +3342,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p44',
-      number: '44',
+      number: '47',
       title: '隣り合う2辺が等しい平行四辺形',
       difficulty: 1,
       stage: 10,
@@ -3205,7 +3401,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p45',
-      number: '45',
+      number: '48',
       title: '1つの直角から長方形へ',
       difficulty: 1,
       stage: 10,
@@ -3284,7 +3480,8 @@
     // ------------------------------------------------------------------
     {
       id: 'p46',
-      number: '46',
+      number: '49',
+      rankKey: 'p46',          // 段位認定：p04 と合同の式（△ABC≡△DCB）が同じなので、ミニ問題をまとめないように区別する
       title: '長方形の対角線の長さ',
       difficulty: 2,
       stage: 10,
@@ -3343,7 +3540,7 @@
     // ------------------------------------------------------------------
     {
       id: 'p47',
-      number: '47',
+      number: '50',
       title: 'ひし形の対角線は垂直',
       difficulty: 3,
       stage: 10,

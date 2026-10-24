@@ -248,8 +248,8 @@ test('証明済み事実（quadrilateralType）：包含関係で使えるが、
 // 21-2 新規6問
 // =====================================================================================
 
-test('47問・10ステージ。STAGE 10「特別な平行四辺形」は p43〜p47', () => {
-  assert.equal(PH.problems.length, 47);
+test('50問・10ステージ。STAGE 10「特別な平行四辺形」は p43〜p47', () => {
+  assert.equal(PH.problems.length, 50);
   assert.equal(PH.STAGES.length, 10);
   const st = PH.getStage(10);
   assert.equal(st.title, '特別な平行四辺形');
@@ -259,7 +259,6 @@ test('47問・10ステージ。STAGE 10「特別な平行四辺形」は p43〜p
   assert.deepEqual(NEW_IDS.concat(DIAG_IDS).map((id) => P(id).title), ['ひし形と直角三角形の合同', '隣り合う2辺が等しい平行四辺形', '1つの直角から長方形へ', '長方形の対角線の長さ', 'ひし形の対角線は垂直']);
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
   // 証明方法が複数あり複雑な問題（はじめの p45 角の二等分線・p47 中点と合同・p48 対角線と合同）は削除した
-  assert.equal(P('p48'), null);
 });
 
 test('p43〜p45 の仮定・結論・推論が正しい', () => {
@@ -500,7 +499,7 @@ test('正解が一意に決まり、図形の包含関係によって誤判定�
 });
 
 test('基本コースには出題されず、総合コースには出題される', () => {
-  assert.equal(BASIC.length, 148);                                   // 基本コースは変わらない
+  assert.equal(BASIC.length, 162);                                   // 基本コースは、STAGE 5 の p48（角の二等分線の作図）のぶんだけ増える（148問 → 162問）
   assert.ok(!BASIC.some((q) => q.category === 'quad'));
   assert.ok(!BASIC.some((q) => NEW_IDS.includes(q.sourceId)));
   assert.ok(!BASIC.some((q) => q.requiredTopics.some((t) => ['rhombus', 'rectangle', 'square', 'quadrilateralClassification'].includes(t))));
@@ -707,4 +706,104 @@ test('p45：隣り合う角のステップの書き出しに、答えの理由�
   assert.ok(!/180°/.test(st.lead), st.lead);
   assert.ok(!/隣り合う角/.test(st.lead), st.lead);
   assert.equal(PH.stepOptions(P('p45'), st).find((o) => o.id === 'a').text, '平行四辺形の隣り合う角の和は180°だから');
+});
+
+test('p41：線分の差のステップは、理由ではなく「EB＝AB－AE、DF＝DC－FC」を選ぶ（ハンター・パズル）', () => {
+  const p = P('p41');
+  const st = p.proofSteps.find((s) => s.rule === 'segmentSubtraction');
+  assert.ok(!/AB－AE|残りは等しい/.test(st.lead), st.lead);
+  const opts = PH.stepOptions(p, st);
+  assert.equal(opts.find((o) => o.id === 'a').text, 'EB＝AB－AE、DF＝DC－FC');
+  assert.equal(opts.length, 3);
+  assert.ok(!opts.some((o) => /残りは等しい/.test(o.text)));
+  assert.deepEqual(PH.proofEngine.verify(p), []);
+  assert.ok(PH.proofEngine.verify(variant(p, { proofSteps: p.proofSteps.map((s) => (s === st ? Object.assign({}, s, { choices: ['EB＝AB＋AE、DF＝DC＋FC', 'a', 'b'] }) : s)) })).length > 0);
+  ['fill', 'build', 'challenge'].forEach((t) => {
+    const z = new PH.Puzzle(p, t);
+    assert.equal(z.slot('st:' + st.id).expr, true);
+    assert.ok(z.cards['srule:' + st.id].some((c) => c.correct && c.text === 'EB＝AB－AE、DF＝DC－FC'));
+  });
+});
+
+test('p48（STAGE 5 の6問目）：角の二等分線の作図を、作図から OQ＝OR・PQ＝PR と共通な辺で証明する', () => {
+  const p = P('p48');
+  assert.equal(p.stage, 5);
+  assert.deepEqual(PH.stageProblems(5).map((x) => x.id), ['p16', 'p17', 'p18', 'p19', 'p20', 'p48', 'p35']);
+  assert.equal(PH.congruenceText(p), '△POQ≡△POR');
+  assert.equal(val.deriveCondition(p, p.evidence), 'SSS');
+  assert.equal(p.conclusion, '∠POQ＝∠POR');
+  // 「作図より」は「仮定より」でもよい（仮定に作図のしかたが書いてある）
+  assert.deepEqual(PH.acceptedReasons(p.evidence[0]), ['construction', 'given']);
+  const g = new PH.Game(p);
+  const r = solveLemma(g);
+  assert.equal(r.status, 'correct');
+  assert.equal(g.phase, 'clear');
+  assert.equal(g.stars, 3);
+  TYPES.forEach((t) => { const z = new PH.Puzzle(p, t); fill(z, z.solution()); assert.equal(z.check().status, 'clear', t); });
+  // 段位認定：合同の式が同じ p29（△POQ≡△POR）のミニ問題を消さない。基本コースにも入る
+  assert.ok(ALL.some((q) => q.sourceId === 'p29' && q.type === 'part'));
+  assert.ok(BASIC.some((q) => q.sourceId === 'p48'));
+});
+
+test('p49（STAGE 7 の3問目）：共通な角を鋭角に使う、直角三角形の斜辺と1つの鋭角', () => {
+  const p = P('p49');
+  assert.equal(p.stage, 7);
+  assert.deepEqual(PH.stageProblems(7).map((x) => x.id), ['p25', 'p26', 'p49', 'p27', 'p28', 'p29', 'p30']);
+  assert.equal(p.congruence, 'RHA');
+  assert.equal(val.deriveCondition(p, p.evidence), 'RHA');
+  assert.equal(geo.segKey(RT.hypotenuse(p, 0)), geo.segKey('OA'));
+  assert.equal(geo.segKey(RT.hypotenuse(p, 1)), geo.segKey('OB'));
+  assert.equal(k(p, '∠AOC'), k(p, '∠BOD'));          // 共通な角
+  // D を通る長い辺 OA があっても、∠BDO の操作領域がつぶれない
+  const el = geo.getElements(p.figure).byKey[k(p, '∠BDO')];
+  assert.ok(geo.angleHitRadius(p.figure, el, true) > 20);
+  const g = solveHunter(p);
+  assert.equal(g.phase, 'clear');
+  assert.equal(g.stars, 3);
+  TYPES.forEach((t) => { const z = new PH.Puzzle(p, t); fill(z, z.solution()); assert.equal(z.check().status, 'clear', t); });
+});
+
+test('p50（STAGE 6 の3問目）：合同を使わず、2つの角が等しいので二等辺三角形（ハンター・パズル）', () => {
+  const p = P('p50');
+  assert.equal(p.stage, 6);
+  assert.deepEqual(PH.stageProblems(6).map((x) => x.id), ['p21', 'p22', 'p50', 'p23', 'p24']);
+  assert.equal(PH.isGoalOnly(p), true);
+  assert.equal(PH.hasCongruence(p), false);
+  assert.equal(p.triangles, undefined);
+  assert.ok(/どの角とどの角が等しい/.test(p.goalPrompt));
+  assert.deepEqual(PH.proofEngine.verify(p), []);
+  // 折り返しのデータを壊すと検出する
+  assert.ok(PH.proofEngine.verify(variant(p, { fold: { line: 'AC', from: 'B', to: 'F' } })).length > 0);
+  const g = new PH.Game(p);
+  assert.equal(g.phase, 'collect');
+  assert.equal(g.mode, 'angle');
+  assert.equal(g.total(), 1);
+  sel(g, '∠FAC', '∠ACF');
+  assert.equal(g.explain().status, 'explain');
+  let last;
+  while (g.phase === 'step') last = solveStep(g);
+  assert.equal(last.post, true);
+  assert.equal(g.phase, 'post');
+  assert.equal(g.currentStep().rule, 'isoscelesConverse');
+  assert.equal(solveStep(g).status, 'correct');
+  assert.equal(g.phase, 'clear');
+  assert.equal(g.stars, 3);
+  const proof = PH.buildProof(p);
+  assert.equal(proof.goalOnly, true);
+  assert.deepEqual(proof.stepLines.map((l) => l.equation), ['∠ACB＝∠FAC', '∠ACB＝∠ACF', '∠FAC＝∠ACF']);
+  assert.deepEqual(proof.post.map((l) => l.conclusion), ['△AFCは二等辺三角形']);
+  TYPES.forEach((t) => {
+    const z = new PH.Puzzle(p, t);
+    assert.ok(!z.slots.some((s) => s.id === 'cond'), t);
+    fill(z, z.solution());
+    assert.equal(z.check().status, 'clear', t);
+  });
+});
+
+test('問題番号は、ステージの小さい順に 01・02・03… と振ってある（問題ID・記録はそのまま）', () => {
+  assert.deepEqual(PH.problems.map((p) => p.number), PH.problems.map((_, i) => String(i + 1).padStart(2, '0')));
+  const stages = PH.problems.map((p) => p.stage);
+  assert.deepEqual(stages, stages.slice().sort((a, b) => a - b));
+  assert.equal(P('p07').number, '04');     // 旧 STAGE 4 の問題は STAGE 1 の4問目
+  assert.equal(P('p47').number, '50');
 });

@@ -145,10 +145,10 @@ function result(over) {
 // =====================================================================================
 
 test('30問・8ステージ。STAGE 8「直角三角形を攻略せよ！」は p25〜p30', () => {
-  assert.equal(PH.problems.length, 47);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p47）
+  assert.equal(PH.problems.length, 50);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p47）
   assert.equal(PH.STAGES.length, 10);
   assert.equal(PH.getStage(7).title, '直角三角形を攻略せよ！');
-  assert.deepEqual(PH.stageProblems(7).map((p) => p.id), ['p25', 'p26', 'p27', 'p28', 'p29', 'p30']);
+  assert.deepEqual(PH.stageProblems(7).map((p) => p.id), ['p25', 'p26', 'p49', 'p27', 'p28', 'p29', 'p30']);   // Ver.1.0 で p49（共通な角と斜辺）を3問目に加えた
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
   assert.deepEqual(NEW.map((p) => p.congruence), ['RHS', 'RHA', 'RHA', 'RHS', 'RHA', 'RHA']);
   // 既存の24問は変わらない（直角三角形の合同条件を使わない・データの形もそのまま）
@@ -718,7 +718,7 @@ test('直角三角形のミニ問題（タイプA〜E）：正解が1つに決�
   assert.equal(rhs.answerText, PH.CONDITIONS.RHS.label);
   assert.equal(rha.answerText, PH.CONDITIONS.RHA.label);
   // タイプB：斜辺（直角に向かい合う辺。選択肢の残りは直角をはさむ辺）
-  assert.equal(byType('hypotenuse').length, 18);   // p25〜p30 の12問 ＋ Ver.0.9 の p38・p42 の4問 ＋ Ver.1.0 の p43 の2問
+  assert.equal(byType('hypotenuse').length, 20);   // p25〜p30 の12問 ＋ Ver.0.9 の p38・p42 の4問 ＋ Ver.1.0 の p43・p49 の4問
   byType('hypotenuse').forEach((q) => {
     const p = P(q.sourceId);
     const choices = q.choice.blanks[0].choices;

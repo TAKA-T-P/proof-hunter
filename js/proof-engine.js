@@ -200,6 +200,12 @@
             err = R.checkTransitive(problem, s, (s.dependsOn || []).map(function (d) { return ids[d]; }).filter(Boolean));
           } else if (s.rule === 'segmentSubtraction') {
             err = R.checkSegmentSubtraction(problem, s);
+            // 式を選ぶ形式（choices）なら、正解（先頭）が「EB＝AB－AE、DF＝DC－FC」の形であること
+            if (s.choices) {
+              const want = s.items.map(function (r0, i) { return r0 + '＝' + s.premise[i] + '－' + s.subtract[i]; }).join('、');
+              if (s.choices[0] !== want) errors.push(s.id + ': choices の正解が線分の差の式になっていない: ' + want);
+              if (new Set(s.choices).size !== s.choices.length || s.choices.length < 3) errors.push(s.id + ': choices は異なる3つ以上');
+            }
             const pk = s.premise.map(function (n) { return G().elementKey(problem.figure, n); });
             const dep = (s.dependsOn || []).map(function (d) { return ids[d]; }).filter(Boolean);
             if (!dep.some(function (d) { return factKey(problem, d) === V().equationKey(pk[0], pk[1]); })) errors.push(s.id + ': 前提の等式を導くステップに依存していない');
@@ -216,6 +222,7 @@
           else if (s.rule === 'angleBisector') err = R.checkAngleBisector(problem, s);
           else if (s.rule === 'isoscelesConverseSides') err = R.checkIsoscelesConverseSides(problem, s);
           else if (s.rule === 'angleTransitive') err = R.checkTransitive(problem, s, (s.dependsOn || []).map(function (d) { return ids[d]; }).filter(Boolean));
+          else if (s.rule === 'foldAngles') err = R.checkFold(problem, s);
           else if (s.rule === 'linearPairRightAngle') {
             // 後半のステップ：合同から導いた角の等しさ（最終結論）から、2直線は垂直（p47）
             err = R.checkLinearPair(problem, s);
@@ -234,7 +241,13 @@
           }
           else err = '定理のステップで使えないルール: ' + s.rule;
           if (err) errors.push(s.id + ': ' + err);
-          if (s.rule === 'isoscelesConverse' && (s.stage || 'pre') === 'post') {
+          if (s.rule === 'isoscelesConverse' && (s.stage || 'pre') === 'post' && PH.isGoalOnly(problem)) {
+            // 合同を使わない問題（p50）：前提（2つの角が等しい）は、集めた根拠（ステップで導いた等式）であること
+            const pk = s.premise.map(function (n) { return G().elementKey(problem.figure, n); });
+            const ev = problem.evidence.find(function (e) { const k = e.items.map(function (n) { return G().elementKey(problem.figure, n); }); return V().equationKey(k[0], k[1]) === V().equationKey(pk[0], pk[1]); });
+            if (!ev) errors.push(s.id + ': 前提が集める根拠と一致しない');
+            else if (ev.fromStep && (s.dependsOn || []).indexOf(ev.fromStep) < 0) errors.push(s.id + ': 前提を導くステップに依存していない');
+          } else if (s.rule === 'isoscelesConverse' && (s.stage || 'pre') === 'post') {
             // 前提（2つの角が等しい）は、合同から導いた最終結論であること
             const fk = problem.finalStep && problem.finalStep.items.map(function (n) { return G().elementKey(problem.figure, n); });
             const pk = s.premise.map(function (n) { return G().elementKey(problem.figure, n); });

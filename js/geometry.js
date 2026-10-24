@@ -167,7 +167,8 @@
     const far = add(V, mul(dir, point));
     getElements(figure).segments.forEach(function (s) {
       const x = segmentIntersection(V, far, s.p1, s.p2);
-      if (x) crossing = Math.min(crossing, dist(V, x));
+      // 頂点そのものを通る長い辺（p49 の OA は D を通る）との交わりは数えない
+      if (x && dist(V, x) > 0.5) crossing = Math.min(crossing, dist(V, x));
     });
     return { point: point, crossing: crossing };
   }

@@ -384,7 +384,12 @@
         if (!(problem.hints && problem.hints.congruence && problem.hints.congruence.length)) errors.push('合同条件のヒントがない');
       } else {
         ['triangles', 'congruence', 'finalStep'].forEach(function (k) { if (problem[k]) errors.push('平行四辺形だけの問題に ' + k + ' がある'); });
-        if (!Array.isArray(problem.evidence) || problem.evidence.length) errors.push('平行四辺形だけの問題の evidence は空にする');
+        if (PH.isGoalOnly(problem)) {
+          // Ver.1.0（p50）：合同を使わない問題。根拠はステップで導く等式だけ（後半のステップで結論を導く）
+          if (!problem.evidence.length || problem.evidence.some(function (ev) { return !ev.fromStep; })) errors.push('合同を使わない問題の根拠は、ステップで導く等式にする');
+          if (!PH.proofEngine || !PH.proofEngine.stepsOf(problem, 'post').length) errors.push('結論を導く後半のステップがない');
+          if (!problem.goalPrompt) errors.push('最初の案内（goalPrompt）がない');
+        } else if (!Array.isArray(problem.evidence) || problem.evidence.length) errors.push('平行四辺形だけの問題の evidence は空にする');
       }
 
       // 三角形：点があり、3点が異なり、一直線上にない。結論の表記と対応順が一致

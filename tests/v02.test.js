@@ -42,10 +42,10 @@ test('全問題のデータ検証（図の数値チェック・ID重複・ステ
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
 });
 
-test('47問・10ステージ（STAGE 1 は6問（旧 STAGE 4 の3問をふくむ）、STAGE 2〜4は各3問、STAGE 5 は6問（p35 をふくむ）、STAGE 6 は4問、STAGE 7 は6問、STAGE 8 は3問、STAGE 9 は8問、STAGE 10 は5問）', () => {
-  assert.equal(PH.problems.length, 47);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p47）
+test('50問・10ステージ（STAGE 1 は6問（旧 STAGE 4 の3問をふくむ）、STAGE 2〜4は各3問、STAGE 5 は7問（p35・p48 をふくむ）、STAGE 6 は5問（p50 をふくむ）、STAGE 7 は7問（p49 をふくむ）、STAGE 8 は3問、STAGE 9 は8問、STAGE 10 は5問）', () => {
+  assert.equal(PH.problems.length, 50);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p47）
   assert.equal(PH.STAGES.length, 10);
-  const size = { 1: 6, 5: 6, 6: 4, 7: 6, 8: 3, 9: 8, 10: 5 };
+  const size = { 1: 6, 5: 7, 6: 5, 7: 7, 8: 3, 9: 8, 10: 5 };
   PH.STAGES.forEach((st) => assert.equal(PH.stageProblems(st.id).length, size[st.id] || 3, 'STAGE ' + st.id));
   ['p01', 'p02', 'p03'].forEach((id) => assert.ok(PH.getProblem(id), id + ' が残っている'));
 });

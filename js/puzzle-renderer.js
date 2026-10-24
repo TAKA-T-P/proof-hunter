@@ -720,7 +720,11 @@
     const steps = z.tri ? proof.stepLines.map(function (l) { return self.stepRow(z.preSteps.find(function (x) { return x.id === l.stepId; }), l.no, proof); }).join('') : '';
     const post = z.postSteps.map(function (st) { return self.stepRow(st, '', proof); }).join('');
     this.ref('proof').innerHTML =
-      (z.tri
+      (z.tri && !z.cong
+        // Ver.1.0（p50）：合同を使わない問題は、書き出し → ステップの行 → 後半のステップ（結論）
+        ? intro + '<ol class="pz-lines">' + steps + '</ol>' + (post ? '<ol class="pz-lines pz-post">' + post + '</ol>' : '')
+        : '') +
+      (z.cong
         ? intro +
           '<ol class="pz-lines">' + rows + steps + '</ol>' +
           '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
@@ -768,11 +772,13 @@
     let body;
     if (st.type === 'theorem') {
       body = '<p class="pz-step-lead">' + esc(st.lead || st.premiseLabel + 'より、') + '</p>' + this.blank('st:' + st.id) +
-        '<div class="pz-eqline"><span class="pz-step-eq">' + esc(st.label) + '</span>' + tail + '</div>';
+        '<div class="pz-eqline"><span class="pz-step-eq">' + (st.choices ? 'だから、' : '') + esc(st.label) + '</span>' + tail + '</div>';
     } else if (st.type === 'expression') {
       // 「（△DCEは正三角形）∠ACE＝∠ACD＋∠DCE＝【式】」（□に入る式をカードで選ぶ）
       body = '<p class="pz-step-lead">' + esc(st.note || st.premiseLabel + 'だから、正三角形の1つの角は60°') + '</p>' +
-        '<div class="pz-eqline"><span class="pz-step-eq">' + esc(st.target + '＝' + PH.angleExpr.format(st.parts) + '＝') + '</span>' + this.blank('st:' + st.id) + tail + '</div>';
+        // 「∠ACE＝∠ACD＋∠DCE」のあとで改行し、次の行に「＝【式】……③」
+        '<p class="pz-step-expr">' + esc(st.target + '＝' + PH.angleExpr.format(st.parts)) + '</p>' +
+        '<div class="pz-eqline"><span class="pz-step-eq">＝</span>' + this.blank('st:' + st.id) + tail + '</div>';
     } else if (z.type === 'fill') {
       // おてがる：2つの式の共通部分を選ぶ。結論は自動で表示
       body = '<div class="pz-finalline"><span>' + st.dependsOn.map(numOf).join('と') + 'で同じ部分：</span>' + this.blank('cc:' + st.id) + '</div>' +
@@ -919,7 +925,10 @@
           '<div class="card proof-sheet">' +
             '<h2 class="proof-title">完成した証明</h2>' +
             '<p class="small-note">式や理由をタップすると、図の場所が光るよ</p>' +
-            (z.tri
+            (z.tri && !z.cong
+              ? '<p class="proof-intro">' + esc(intro) + '</p><ol class="proof-lines">' + PH.stepLinesHtml(proof) + '</ol>' + PH.postProofHtml(proof)
+              : '') +
+            (z.cong
               ? '<p class="proof-intro">' + esc(intro) + '</p>' +
                 '<ol class="proof-lines">' + lines + PH.stepLinesHtml(proof) + '</ol>' +
                 '<p class="proof-sum">' + esc(proof.summary) + '</p>' +
