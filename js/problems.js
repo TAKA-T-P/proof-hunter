@@ -2585,14 +2585,14 @@
       conclusionType: 'equalAngle',
       triangles: [['P', 'O', 'Q'], ['P', 'O', 'R']],
       figure: {
-        viewBox: [0, 0, 500, 340],
+        viewBox: [0, 0, 400, 285],
         points: {
-          O: { x: 40,     y: 300,    label: [-16, 18] },
-          A: { x: 317.86, y: 12.26,  label: [10, -6] },
-          B: { x: 470,    y: 300,    label: [12, 18] },
-          Q: { x: 144.2,  y: 192.1,  label: [-20, -8] },
-          R: { x: 190,    y: 300,    label: [4, 22] },
-          P: { x: 316.15, y: 182.78, label: [14, -28] },
+          O: { x: 40,     y: 240,    label: [-16, 18] },
+          A: { x: 248.4,  y: 24.2,   label: [12, -4] },
+          B: { x: 345,    y: 240,    label: [12, 18] },
+          Q: { x: 144.2,  y: 132.1,  label: [-20, -8] },
+          R: { x: 190,    y: 240,    label: [4, 22] },
+          P: { x: 316.15, y: 122.78, label: [14, -28] },
         },
         lines: [['O', 'Q', 'A'], ['O', 'R', 'B']],
         segments: ['OQ', 'QA', 'OR', 'RB', 'OP', 'PQ', 'PR'],
@@ -2600,7 +2600,7 @@
         parallel: [],
         // PQ・PR は実際の作図ではひかない線なので破線。コンパスの跡（Oを中心とする円、Q・Rを中心とする円）をかく
         dashed: ['PQ', 'PR'],
-        rays: [{ from: 'O', through: 'P', extend: 70 }],
+        rays: [{ from: 'O', through: 'P', extend: 45 }],
         compassArcs: [
           { center: 'O', through: 'Q', around: ['Q', 'R'], pad: 12 },
           { center: 'Q', through: 'P', around: ['P'], pad: 14 },
