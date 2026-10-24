@@ -175,10 +175,10 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .howto-art svg { width: 100%; max-height: 200px; }
 .howto-title { margin: 14px 0 4px; color: var(--navy); font-size: 1.3rem; }
 .howto-text { margin: 0 0 12px; min-height: 3.2em; }
-.howto-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 14px; }
+.howto-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 10px; }
 .howto-dots .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
 .howto-dots .dot.on { background: var(--blue); }
-.howto-nav { display: flex; gap: 10px; }
+.howto-nav { display: flex; gap: 10px; margin-bottom: 10px; }   /* Ver.1.0：図の上に置く */
 .howto-nav .btn { flex: 1; }
 .h-tri1, .h-tri { fill: rgba(37,99,235,.12); stroke: var(--ink); stroke-width: 2.5; stroke-linejoin: round; }
 .h-tri2 { fill: rgba(245,179,1,.2); stroke: var(--ink); stroke-width: 2.5; stroke-linejoin: round; }
