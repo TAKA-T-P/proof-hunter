@@ -1328,3 +1328,110 @@ body[data-screen="rank"], body[data-screen="rank-play"] { background: linear-gra
 .pz-quad { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #cbd5e1; }
 .pz-quad:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 .pz-final-no { margin: 0 0 4px; font-size: .85rem; color: #6b7280; }
+
+/* =====================================================================
+   Ver.1.1：証明の間違い探し（js/error-hunt-renderer.js）
+   ===================================================================== */
+
+:root { --teal: #0f766e; --teal-soft: #ccfbf1; }
+
+/* タイトル：4つ目のモードカード。PC は2列×2段 */
+.mode-card.mode-error { border-color: #99f6e4; color: var(--teal); }
+.mode-error .mode-ico { background: var(--teal-soft); }
+@media (min-width: 900px) {
+  .screen-title .title-box { max-width: 780px; }
+  .screen-title .mode-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .screen-title .title-buttons { max-width: 420px; }
+}
+
+/* 問題一覧 */
+.eh-top { max-width: 1100px; margin: 0 auto; }
+.eh-intro .eh-lead { font-weight: 800; color: var(--teal); }
+.eh-review-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 0 12px; text-decoration: none; line-height: 1.2; }
+.eh-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.eh-tab { padding: 6px 12px; border-radius: 99px; border: 2px solid var(--line); background: #fff; color: var(--navy); font-weight: 800; font-size: .85rem; text-decoration: none; }
+.eh-tab[aria-current="page"] { background: var(--teal); border-color: var(--teal); color: #fff; }
+.eh-unit { margin: 0 0 18px; }
+.eh-unit-title { display: flex; align-items: baseline; gap: 10px; margin: 6px 0 8px; font-size: 1.05rem; color: var(--teal); }
+.eh-unit-stat { font-size: .8rem; color: var(--muted); font-weight: 700; }
+
+/* プレイ画面：スマホは図・仮定・結論の下に証明文。PC は左に図、右に証明文 */
+.eh-header { background: var(--teal); }
+.eh-body { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
+.eh-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.eh-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.eh-figure .figure { max-height: 34vh; }
+.eh-statement { padding: 5px 12px; }
+@media (max-width: 899px) and (orientation: portrait) and (min-height: 600px) {
+  /* 証明文を読みながら図を見られるよう、図・仮定・結論を上に固定する（小さい画面では図を小さめに） */
+  .eh-side { position: sticky; top: 40px; z-index: 5; background: var(--bg, #eef4ff); padding: 10px 0 6px; margin-top: -10px; }
+  .eh-figure .figure { max-height: 24vh; }
+  .eh-statement .cond-text { font-size: .9rem; }
+}
+@media (min-width: 900px) {
+  .eh-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: start; }
+  .eh-side { position: sticky; top: 70px; }
+  .eh-figure .figure { max-height: 56vh; }
+}
+.eh-sheet { padding: 10px 12px; }
+.eh-rule { margin: 0 0 8px; font-size: .9rem; color: var(--navy); }
+.eh-rule b { color: var(--red); }
+.eh-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.eh-line {
+  display: block; width: 100%; min-height: 44px; padding: 8px 10px; text-align: left;
+  border: 2px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink);
+  font-size: 1rem; line-height: 1.55; overflow-wrap: anywhere; cursor: pointer;
+}
+button.eh-line:hover { border-color: #93c5fd; }
+.eh-line.is-selected { border-color: var(--blue-600); background: var(--blue-50); box-shadow: 0 0 0 3px rgba(37, 99, 235, .18); }
+.eh-line.is-checked { border-color: #fca5a5; background: var(--red-soft); }
+.eh-line.is-checked::after { content: '確認ずみ'; float: right; margin-left: 6px; font-size: .7rem; font-weight: 800; color: var(--red); }
+.eh-line.kind-intro, .eh-line.kind-conclusion { font-weight: 800; }
+.eh-lead-text { margin-right: 2px; }
+.eh-reason { margin-right: 6px; }
+.eh-chain { margin-right: 6px; font-weight: 800; }
+.eh-text { font-weight: 800; }
+.eh-text.is-cond { color: var(--navy); }
+.eh-no { margin-left: 4px; color: var(--muted); font-weight: 700; white-space: nowrap; }
+.eh-feedback { margin: 0; min-height: 1.4em; font-weight: 800; }
+.eh-feedback.is-ng { color: var(--red); }
+.eh-feedback.is-info { color: var(--muted); }
+.eh-hintbox { margin: 0; padding: 8px 12px; border-radius: 10px; background: #fffbeb; border: 2px solid #fcd34d; color: #713f12; font-weight: 700; }
+.eh-help { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.eh-confirm { position: sticky; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 4; background: var(--red); border-color: var(--red); }
+.eh-confirm:disabled { opacity: .45; }
+
+/* 正解画面 */
+.eh-result-top { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); margin-bottom: 10px; }
+@media (min-width: 700px) { .eh-result-top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+.eh-result-figure { padding: 4px; }
+.eh-result-figure .figure { max-height: 240px; }
+.eh-result-side { display: flex; flex-direction: column; gap: 8px; }
+.eh-banner { padding: 10px; border-radius: 14px; text-align: center; background: linear-gradient(135deg, #f0fdfa, var(--teal-soft)); border: 2px solid #5eead4; }
+.eh-banner.is-revealed { background: #f8fafc; border-color: var(--line); }
+.eh-banner-title { font-size: 1.6rem; font-weight: 900; color: var(--teal); }
+.eh-banner.is-revealed .eh-banner-title { color: var(--navy); font-size: 1.3rem; }
+.eh-banner-stars { font-size: 1.8rem; color: var(--gold); letter-spacing: .08em; }
+.eh-banner-meta { font-size: .85rem; color: var(--muted); font-weight: 700; }
+.eh-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.eh-actions .btn { min-height: 42px; font-size: .9rem; }
+.eh-result-body { display: grid; gap: 10px; }
+@media (min-width: 900px) { .eh-result-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+.eh-fix { padding: 10px 14px; }
+.eh-fix-title { margin: 0 0 8px; font-size: 1.1rem; color: var(--navy); }
+.eh-cat { display: inline-block; margin-left: 6px; padding: 1px 10px; border-radius: 99px; background: var(--teal-soft); color: var(--teal); font-size: .8rem; vertical-align: middle; }
+.eh-fix-row { display: flex; flex-direction: column; gap: 2px; margin: 0 0 8px; padding: 8px 10px; border-radius: 10px; border: 2px solid; }
+.eh-fix-row.is-wrong { border-color: #fca5a5; background: var(--red-soft); }
+.eh-fix-row.is-right { border-color: #86efac; background: #f0fdf4; }
+.eh-fix-label { font-size: .8rem; font-weight: 900; }
+.is-wrong .eh-fix-label { color: var(--red); }
+.is-right .eh-fix-label { color: var(--green); }
+.eh-fix-text { font-weight: 800; overflow-wrap: anywhere; }
+.eh-why-title { margin: 10px 0 4px; font-size: 1rem; }
+.eh-why { margin: 0; line-height: 1.7; }
+.eh-proof-card { padding: 10px 14px; }
+.eh-lines.is-proof .eh-line { cursor: default; min-height: 0; padding: 4px 8px; border-color: transparent; }
+.eh-lines.is-proof .eh-line.is-fixed { border-color: #86efac; background: #f0fdf4; }
+/* 式（根拠・ステップの等式）は途中で折り返さず、まとめて次の行へ（長い角の式だけは枠の中で折り返す） */
+.eh-line.kind-evidence .eh-text, .eh-line.kind-qevidence .eh-text, .eh-line.kind-step .eh-text, .eh-line.kind-final .eh-text, .eh-line.kind-post .eh-text { display: inline-block; max-width: 100%; }
+.eh-line .eh-no { display: inline-block; }

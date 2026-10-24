@@ -32,6 +32,10 @@
  *       lastReview: [ ... ],                   // 直近1回分の誤答・パス（振り返り用。上限あり）
  *       previous: [ { criteriaVersion, best } ],   // 基準が変わる前の最高記録（比べずに残す。最大3件）
  *     }
+ *     errorHunt: {                             // Ver.1.1：証明の間違い探し（ほかのモードの記録とは独立）
+ *       problems: { 'eh-p01-cong': { completed, solvedByUser, bestStars, minMisses, attempts }, ... },
+ *       lastId,                                // 最後に挑戦した問題
+ *     }
  *   }
  *   Ver.0.7 までの rankCertification（コースの記録の形そのもの）は、読みこむときに legacy へ移す（1回だけ。保存すると新しい形になる）。
  *   記録はモードごと・解答レベルごとに別々。古いデータに無い項目は空として読み、過去のプレイ内容は推測で補わない。
@@ -64,6 +68,7 @@
       version: VERSION, problems: {}, puzzleProblems: {}, puzzleLevels: blankLevels(), puzzleLevel: 'easy',
       puzzleMigrated: false, lastProblemId: null, lastPuzzleProblemId: null, lastMode: null, sound: true,
       rankCertification: blankCert(),
+      errorHunt: { problems: {}, lastId: null },
     };
   }
 
@@ -129,6 +134,30 @@
 
   function isObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
 
+  // ---- 証明の間違い探し（Ver.1.1） ----
+  function blankErrorRecord() { return { completed: false, solvedByUser: false, bestStars: 0, minMisses: null, attempts: 0 }; }
+
+  // 1問分の記録を安全な値にそろえる（壊れた値は未挑戦）
+  function cleanErrorRecord(r) {
+    const out = blankErrorRecord();
+    if (!isObj(r)) return out;
+    const stars = Math.round(Number(r.bestStars));
+    out.completed = r.completed === true;
+    out.solvedByUser = out.completed && r.solvedByUser === true;
+    out.bestStars = out.completed && stars >= 1 && stars <= 3 ? stars : 0;
+    out.minMisses = out.solvedByUser && typeof r.minMisses === 'number' && r.minMisses >= 0 ? r.minMisses : null;
+    out.attempts = Math.floor(num(r.attempts, 0));
+    return out;
+  }
+
+  function cleanErrorHunt(r) {
+    const out = { problems: {}, lastId: null };
+    if (!isObj(r)) return out;
+    if (isObj(r.problems)) Object.keys(r.problems).forEach(function (id) { if (isObj(r.problems[id])) out.problems[id] = cleanErrorRecord(r.problems[id]); });
+    out.lastId = typeof r.lastId === 'string' ? r.lastId : null;
+    return out;
+  }
+
   // モードごとの記録の入れ物
   function records(mode) {
     const d = load();
@@ -184,6 +213,7 @@
           data.lastMode = parsed.lastMode === 'puzzle' || parsed.lastMode === 'hunter' ? parsed.lastMode : null;
           data.sound = parsed.sound !== false;
           data.rankCertification = cleanCert(parsed.rankCertification);
+          data.errorHunt = cleanErrorHunt(parsed.errorHunt);     // Ver.1.1。古いデータには無いので空から
           data.version = VERSION;
         }
       }
@@ -308,7 +338,8 @@
     const d = load();
     return !!(d.lastProblemId || d.lastPuzzleProblemId) ||
       Object.keys(d.problems).length > 0 || Object.keys(d.puzzleProblems).length > 0 ||
-      LEVELS.some(function (lv) { return Object.keys(d.puzzleLevels[lv]).length > 0; });
+      LEVELS.some(function (lv) { return Object.keys(d.puzzleLevels[lv]).length > 0; }) ||
+      Object.keys(d.errorHunt.problems).length > 0;
   }
 
   // ---- 段位認定（Ver.0.6。Ver.0.8 からコース別） -------------------------------------------
@@ -368,6 +399,38 @@
     return out;
   }
 
+  // ---- 証明の間違い探し（Ver.1.1） -------------------------------------------------
+
+  function getErrorRecord(id) { return cleanErrorRecord(load().errorHunt.problems[id]); }
+
+  /*
+   * 1問の結果を記録する。result = { stars, misses, solvedByUser }
+   *   最高★は下がらない。正解を確認しただけ（solvedByUser: false）は★1で、あとで自力で正解すれば高い評価に更新できる。
+   *   最少ミスは自力で正解したときだけ。戻り値 { improved, firstTime（初めての記録）, record }
+   */
+  function recordError(id, result) {
+    const d = load();
+    const prev = getErrorRecord(id);
+    const stars = result.solvedByUser ? Math.max(1, Math.min(3, result.stars)) : 1;
+    const next = {
+      completed: true,
+      solvedByUser: prev.solvedByUser || !!result.solvedByUser,
+      bestStars: Math.max(prev.bestStars, stars),
+      minMisses: result.solvedByUser ? (prev.minMisses == null ? result.misses : Math.min(prev.minMisses, result.misses)) : prev.minMisses,
+      attempts: prev.attempts + 1,
+    };
+    d.errorHunt.problems[id] = next;
+    d.errorHunt.lastId = id;
+    save();
+    return { improved: !prev.completed || next.bestStars > prev.bestStars, firstTime: !prev.completed, record: next };
+  }
+
+  // 苦手な問題：まだ自力で正解していない、または★★以下（★★★は対象外）
+  function isErrorReviewTarget(id) {
+    const r = getErrorRecord(id);
+    return !r.solvedByUser || r.bestStars < 3;
+  }
+
   function getSound() { return load().sound !== false; }
   function setSound(on) { load().sound = !!on; save(); }
 
@@ -394,6 +457,9 @@
     getRankLegacy: getRankLegacy,
     recordRank: recordRank,
     RANK_TRACKS: TRACK_IDS,
+    getErrorRecord: getErrorRecord,
+    recordError: recordError,
+    isErrorReviewTarget: isErrorReviewTarget,
     _reset: _reset,
   };
 

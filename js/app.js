@@ -17,6 +17,9 @@
  *   #/rank/<コース>/play     段位認定：プレイ（「このコースに挑戦！」から来たときだけ始まる）。コースは basic / comprehensive
  *   #/rank/<コース>/result  #/rank/<コース>/review  #/rank/<コース>/grades   結果・間違えた問題・段位一覧（コース別）
  *   #/rank/legacy            Ver.0.7 までの段位認定の記録
+ *   #/error                  証明の間違い探し：問題一覧（Ver.1.1）。#/error/category/<単元> は単元だけ
+ *   #/error/review           証明の間違い探し：苦手な問題
+ *   #/error/play/<問題ID>    証明の間違い探し：プレイ（開くたびに新しい状態で開始）
  *   （Ver.0.7 までの #/rank/play などを開いたときは、段位認定のトップへ戻す）
  * 記録・評価はモードごとに別々。証明パズルは、さらに解答レベル（おてがる／スタンダード／チャレンジ）ごとに別々
  * （storage.js の mode 引数：'hunter' / 'puzzle:<レベル>'）。
@@ -51,7 +54,7 @@
     },
   };
 
-  const SCREENS = ['title', 'select', 'howto', 'play', 'puzzle', 'rank'];
+  const SCREENS = ['title', 'select', 'howto', 'play', 'puzzle', 'rank', 'error'];
 
   // 記録の種類：ハンターはそのまま、パズルは選んでいる解答レベルの記録
   function recMode(mode) {
@@ -449,6 +452,7 @@
     PH.play.unmount();
     PH.puzzleView.unmount();
     PH.rankView.unmount();      // プレイ中にほかの画面へ移ったら、その挑戦は記録しない
+    PH.errorView.unmount();
     doc.title = '証明ハンター';
 
     if (name === 'select') {
@@ -462,6 +466,8 @@
       show('select');
     } else if (name === 'rank' && mode === 'hunter') {
       routeRank(parts[1], parts[2]);
+    } else if (name === 'error' && mode === 'hunter') {
+      routeError(parts[1], parts[2]);
     } else if (name === 'howto' && mode === 'hunter') {
       howtoMode = HOWTO[parts[1]] ? parts[1] : null;      // なければメニュー
       howtoPage = 0;
@@ -482,6 +488,34 @@
       renderTitle();
       show('title');
     }
+  }
+
+  // 証明の間違い探しの画面（Ver.1.1）
+  function routeError(sub, arg) {
+    const el = doc.getElementById('screen-error');
+    doc.title = '証明の間違い探し｜証明ハンター';
+    const def = sub === 'play' ? PH.getErrorProblem(arg) : null;
+    if (def) {
+      const list = PH.errorProblems();
+      show('error');
+      doc.body.setAttribute('data-screen', 'error-play');
+      PH.errorView.mount(el, def, {
+        list: function () { go('#/error/category/' + def.unit); },
+        next: function () {
+          const nxt = list[list.indexOf(def) + 1];
+          go(nxt ? '#/error/play/' + nxt.id : '#/error');
+        },
+        source: function () { go(MODES.hunter.play(def.source)); },
+        reload: function () { route(); },
+      });
+      doc.title = '間違い探し' + def.no + '｜証明ハンター';
+      return;
+    }
+    if (sub === 'review') PH.errorView.renderReview(el);
+    else if (sub === 'category' && PH.errorHunt.UNITS.some(function (u) { return u.id === arg; })) PH.errorView.renderTop(el, arg);
+    else if (sub) { go('#/error'); return; }
+    else PH.errorView.renderTop(el, null);
+    show('error');
   }
 
   // 段位認定の画面（Ver.0.8：#/rank/<コース>/<画面>）

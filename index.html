@@ -47,12 +47,19 @@
               <span class="mode-desc">基本・総合の2コース！ 120秒で何問解ける？</span>
             </span>
           </button>
+          <button class="mode-card mode-error" data-go="#/error">
+            <span class="mode-ico" aria-hidden="true">🔎</span>
+            <span class="mode-text">
+              <span class="mode-name">証明の間違い探し</span>
+              <span class="mode-desc">証明文に隠されたミスを見抜け！</span>
+            </span>
+          </button>
         </div>
         <div class="title-buttons">
           <button class="btn btn-gold btn-big" id="btn-continue" hidden>つづきから<span class="cont-sub"></span></button>
         </div>
       </div>
-      <footer class="version">Ver.1.0</footer>
+      <footer class="version">Ver.1.1</footer>
       <p class="copyright">©2026 T.TAKEMOTO / KEC Glows</p>
     </section>
 
@@ -113,6 +120,9 @@
 
     <!-- 段位認定（js/rank-renderer.js が中身を作る） -->
     <section id="screen-rank" class="screen screen-rank" hidden></section>
+
+    <!-- 証明の間違い探し（Ver.1.1。js/error-hunt-renderer.js が中身を作る） -->
+    <section id="screen-error" class="screen screen-error" hidden></section>
   </main>
 
   <!-- ヒント（図形を隠さない下部ポップアップ） -->
@@ -166,6 +176,10 @@
   <script src="js/rank-questions.js"></script>
   <script src="js/rank-game.js"></script>
   <script src="js/rank-renderer.js"></script>
+  <script src="js/error-hunt-data.js"></script>
+  <script src="js/error-hunt-generator.js"></script>
+  <script src="js/error-hunt-game.js"></script>
+  <script src="js/error-hunt-renderer.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
