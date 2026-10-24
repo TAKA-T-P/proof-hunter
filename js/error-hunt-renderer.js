@@ -31,6 +31,18 @@
     '</header>';
   }
 
+  // 問題選択画面の「じっくり練習」「ランダムチャレンジ」の切り替え（ヘッダーのすぐ下に横並び）
+  function modeSwitch(cur) {
+    const tab = function (id, href, ico, label) {
+      return '<a class="eh-mode-tab" href="' + href + '"' + (cur === id ? ' aria-current="page"' : '') + '>' +
+        '<span aria-hidden="true">' + ico + '</span>' + label + '</a>';
+    };
+    return '<nav class="eh-mode-switch" aria-label="遊び方の切り替え">' +
+      tab('practice', '#/error', '📝', 'じっくり練習') +
+      tab('challenge', '#/error/challenge', '🎯', 'ランダムチャレンジ') +
+    '</nav>';
+  }
+
   function card(def, showUnit) {
     const rec = PH.storage.getErrorRecord(def.id);
     const src = PH.getProblem(def.source);
@@ -66,19 +78,12 @@
     const review = all.filter(function (d) { return PH.storage.isErrorReviewTarget(d.id); }).length;
     const units = PH.errorHunt.UNITS.filter(function (u) { return !unit || u.id === unit; });
     el.innerHTML = header('証明の間違い探し', '#/', 'ホーム') +
+      modeSwitch('practice') +
       '<div class="eh-top">' +
         '<div class="stage-intro eh-intro">' +
           '<p class="eh-lead">🔎 証明文の中に間違いが1か所！ よく読んで見つけよう！</p>' +
           '<p class="stage-intro-stat">クリア ' + st.cleared + '/' + st.total + '問 ・ ★ ' + st.stars + '/' + (st.total * 3) + '</p>' +
         '</div>' +
-        // Ver.1.2：ランダム5問チャレンジの入口
-        '<a class="ehc-entry" href="#/error/challenge">' +
-          '<span class="ehc-entry-ico" aria-hidden="true">🎯</span>' +
-          '<span class="ehc-entry-text"><span class="ehc-entry-name">ランダム5問チャレンジ</span>' +
-          '<span class="ehc-entry-desc">基本の合同証明・総合証明　毎回ちがう間違いが出るよ！</span></span>' +
-          '<span class="ehc-entry-go" aria-hidden="true">▶</span>' +
-        '</a>' +
-        '<h2 class="eh-practice-title">じっくり練習（' + st.total + '問）<span class="eh-unit-stat">開くたびに、間違いの場所が変わることがあるよ</span></h2>' +
         '<a class="btn btn-gold eh-review-btn" href="#/error/review">苦手な問題に挑戦！<span class="cont-sub">（' + review + '問）</span></a>' +
         '<nav class="eh-tabs" aria-label="単元">' +
           '<a class="eh-tab" href="#/error"' + (!unit ? ' aria-current="page"' : '') + '>すべて</a>' +
@@ -666,17 +671,10 @@
   function challengeCard(id) {
     const c = CH().course(id);
     const r = PH.storage.getErrorChallenge(id);
-    const pool = CH().pool(id);
-    const variants = pool.reduce(function (n, e) { return n + e.variants.length; }, 0);
-    const played = r.bestScore !== null;
+    // 最高得点・挑戦回数・出題範囲は表示しない（記録は保存し、結果発表で最高得点を表示する）
     return '<div class="card rank-course ehc-course course-' + id + '">' +
       '<h2 class="rank-course-name">' + esc(c.label) + '</h2>' +
       '<p class="rank-course-desc">' + esc(c.desc) + '</p>' +
-      '<div class="rank-best ehc-best">' +
-        '<div class="rank-best-item"><span>最高得点</span><b>' + (played ? r.bestScore + '点' : '未挑戦') + '</b></div>' +
-        '<div class="rank-best-item"><span>挑戦回数</span><b>' + r.playCount + '回</b></div>' +
-        '<div class="rank-best-item"><span>出題範囲</span><b class="ehc-pool">' + pool.length + '問<small>' + variants + '通り</small></b></div>' +
-      '</div>' +
       titleSummary(r) +
       '<button class="btn btn-confirm btn-big ehc-start" data-act="errch-start" data-course="' + id + '">' + esc(c.short) + 'コースに挑戦</button>' +
       '<div class="rank-top-links">' +
@@ -724,7 +722,7 @@
         '<p class="ehc-streak-count">🔥 連続PERFECT <b>' + n + '</b>回</p>' +
         '<p>現在の称号：<b>' + esc(titleName(Math.max(lr.titleLevel, rec.highestTitleLevel))) + '</b></p>' +
         '<p class="ehc-streak-next">' + (nx
-          ? '次の称号「' + esc(nx.title.name) + '」まで、あと <b>' + nx.remaining + '</b>回'
+          ? '次の称号まで、あと <b>' + nx.remaining + '</b>回'      // 未獲得の称号名は伏せる
           : '最高称号に到達！ 連続記録はまだまだ続くよ') + '</p>' +
       '</div>';
   }
@@ -743,7 +741,7 @@
           '<p>獲得した最高称号：<b>' + (r.highestTitleLevel ? esc(titleName(r.highestTitleLevel)) : 'まだなし') + '</b></p>' +
           '<p>現在の連続PERFECT：<b>' + r.currentPerfectStreak + '</b>回 ／ 最高：<b>' + r.bestPerfectStreak + '</b>回</p>' +
           '<p class="rank-next">' + (nx
-            ? '連続PERFECT であと<b class="rank-need">' + nx.remaining + '回</b>で「' + esc(nx.title.name) + '」！'
+            ? '連続PERFECT であと<b class="rank-need">' + nx.remaining + '回</b>で次の称号！'
             : '最高称号「' + esc(titleName(MAX)) + '」の連続記録を更新中！') + '</p>' +
           '<p class="select-note">5問すべて正解（100点）で連続PERFECT が1回ふえ、80点以下で0回にもどるよ。一度獲得した称号は失わない。</p>' +
         '</div>' +
@@ -752,7 +750,8 @@
           const isBest = t.level === r.highestTitleLevel;
           return '<li class="grade-item' + (got ? ' is-got' : '') + (isBest ? ' is-best' : '') + (t.level === MAX ? ' is-top' : '') + '">' +
             '<span class="grade-ico" aria-hidden="true">' + (got ? (t.level === MAX ? '👑' : '🏅') : '・') + '</span>' +
-            '<span class="grade-name">' + esc(t.name) + (isBest ? '<span class="ehc-title-mark">現在の最高称号</span>' : '') + '</span>' +
+            // 未獲得の称号は名前を伏せる（必要な連続回数は見せて目標にする）
+            '<span class="grade-name">' + (got ? esc(t.name) : '？？？') + (isBest ? '<span class="ehc-title-mark">現在の最高称号</span>' : '') + '</span>' +
             '<span class="grade-min">' + t.need + '回連続' + (t.level === MAX ? '以上' : '') + '　' + (got ? '<b class="ehc-got">獲得済み</b>' : '未獲得') + '</span>' +
           '</li>';
         }).join('') + '</ol>' +
@@ -761,13 +760,14 @@
   }
 
   function renderChallengeTop(el) {
-    el.innerHTML = header('ランダム5問チャレンジ', '#/error', '間違い探し') +
+    el.innerHTML = header('証明の間違い探し', '#/', 'ホーム') +
+      modeSwitch('challenge') +
       '<div class="rank-top ehc-top">' +
         '<div class="card rank-hero ehc-hero">' +
           '<div class="rank-hero-ico" aria-hidden="true">🎯</div>' +
           '<p class="rank-hero-tag">証明の間違い探し</p>' +
           '<p class="rank-hero-lead">5問の証明に隠れた間違いを見抜け！</p>' +
-          '<p class="ehc-rules">1問20点・100点満点 ／ 解答は1問1回 ／ ヒントなし・制限時間なし</p>' +
+          '<p class="ehc-rules">解答は1問1回 ／ ヒントなし・制限時間なし</p>' +
         '</div>' +
         '<div class="rank-courses">' + CH().ORDER.map(challengeCard).join('') + '</div>' +
       '</div>';

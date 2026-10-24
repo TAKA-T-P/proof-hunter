@@ -1428,19 +1428,18 @@ button.eh-line:hover { border-color: #93c5fd; }
    Ver.1.2：間違い探しのランダム5問チャレンジ・開発者用の確認画面
    ===================================================================== */
 
-/* 間違い探しトップ：チャレンジの入口・じっくり練習の見出し */
-.ehc-entry {
-  display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 12px 14px; border-radius: 16px;
-  background: linear-gradient(135deg, #115e59, var(--teal)); color: #fff; text-decoration: none;
-  box-shadow: 0 4px 12px rgba(15, 118, 110, .25);
+/* 間違い探しの問題選択：「じっくり練習」「ランダムチャレンジ」の切り替え（ヘッダーのすぐ下・横並び） */
+.eh-mode-switch {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px; max-width: 560px; margin: 0 auto 12px; padding: 4px;
+  border-radius: 14px; background: #fff; border: 2px solid #99f6e4;
 }
-.ehc-entry:hover, .ehc-entry:focus-visible { filter: brightness(1.06); }
-.ehc-entry-ico { flex: none; font-size: 2rem; line-height: 1; }
-.ehc-entry-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ehc-entry-name { font-size: 1.15rem; font-weight: 900; }
-.ehc-entry-desc { font-size: .8rem; opacity: .92; }
-.ehc-entry-go { flex: none; font-size: 1.1rem; }
-.eh-practice-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 4px 0 8px; font-size: 1.05rem; color: var(--teal); }
+.eh-mode-tab {
+  display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 6px 8px; border-radius: 10px;
+  color: var(--teal); font-weight: 900; font-size: 1rem; text-decoration: none; white-space: nowrap;
+}
+.eh-mode-tab:hover { background: #f0fdfa; }
+.eh-mode-tab[aria-current="page"] { background: var(--teal); color: #fff; box-shadow: 0 2px 6px rgba(15, 118, 110, .3); }
+@media (max-width: 360px) { .eh-mode-tab { font-size: .88rem; gap: 3px; } }
 
 /* コースの色（緑・ティール系） */
 .ehc-course.course-basic, .ehc-tag.course-basic, .ehc-result-card.course-basic { --course: var(--teal); }
@@ -1449,9 +1448,6 @@ button.eh-line:hover { border-color: #93c5fd; }
 .ehc-hero .rank-hero-tag { background: var(--teal); }
 .ehc-hero .rank-hero-lead { color: #134e4a; }
 .ehc-rules { margin: 0; font-size: .82rem; color: var(--muted); font-weight: 700; }
-.ehc-best .rank-best-item { background: #f0fdfa; border-color: #99f6e4; }
-.ehc-best .rank-best-item b { color: #134e4a; }
-.ehc-best .rank-best-item b.ehc-pool small { display: block; font-size: .72rem; color: var(--muted); }
 .ehc-start { background: var(--course); border-color: var(--course); }
 
 /* プレイ画面：ヘッダーの問題番号・得点 */

@@ -76,10 +76,7 @@
           '<div class="rank-hero-ico" aria-hidden="true">⏱️</div>' +
           '<p class="rank-hero-tag">120秒チャレンジ</p>' +
           '<p class="rank-hero-lead">120秒で何問解ける？ コースを選んで、目指せ皆伝！</p>' +
-          '<div class="rank-top-links">' +
-            '<button class="btn" data-go="#/howto/rank">あそびかた</button>' +
-            (legacy ? '<button class="btn" data-go="#/rank/legacy">Ver.0.7までの記録を見る</button>' : '') +
-          '</div>' +
+          (legacy ? '<div class="rank-top-links"><button class="btn" data-go="#/rank/legacy">Ver.0.7までの記録を見る</button></div>' : '') +
         '</div>' +
         '<div class="rank-courses">' + T().ORDER.map(courseCard).join('') + '</div>' +
       '</div>';
