@@ -722,8 +722,8 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .howto-menu-cards .mode-card { border-color: var(--line); box-shadow: 0 3px 10px rgba(15, 23, 42, .12); }
 .howto-item.howto-puzzle { color: var(--purple); }
 .howto-item.howto-puzzle .mode-ico { background: var(--purple-soft); }
-.howto-item.howto-advanced { color: #047857; }
-.howto-item.howto-advanced .mode-ico { background: #d1fae5; }
+.howto-small-row { display: flex; gap: 10px; }
+.howto-small { flex: 1; min-width: 0; padding: 10px 4px; font-size: clamp(.74rem, 3.4vw, .9rem); white-space: nowrap; font-weight: 800; color: #047857; border-color: var(--line); }
 .howto-item.howto-rank { color: var(--gold-deep); }
 .howto-item.howto-rank .mode-ico { background: #fde68a; }
 .howto-lab { width: 100%; margin-top: 18px; min-height: 48px; border: 2px solid var(--line); background: #fff; color: var(--navy); font-weight: 900; }
@@ -1092,9 +1092,6 @@ body[data-screen="rank"], body[data-screen="rank-play"] { background: linear-gra
 .rank-best-item b { font-size: 1.15rem; color: #78350f; }
 .rank-top-links { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .rank-top-links .btn { flex: 1 1 8em; }
-.rank-rules { padding: 10px 16px; }
-.rank-rules h2 { margin: 0 0 4px; font-size: 1rem; color: #78350f; }
-.rank-rules ul { margin: 0; padding-left: 1.2em; line-height: 1.6; font-size: .9rem; }
 
 /* 段位一覧 */
 .rank-now { padding: 10px 14px; }

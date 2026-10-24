@@ -4,7 +4,7 @@
  * 進行と判定は PH.RankGame（rank-game.js）が持ち、この画面は操作を渡して描画するだけにする。
  * 残り時間は performance.now() と開始時刻の差から毎回計算する（タイマーの呼び出し回数は数えない）。
  * Ver.0.8：コース（基本の合同証明 basic / 総合証明 comprehensive。js/rank-tracks.js）ごとに記録・画面を分ける。
- *   #/rank                    トップ（2つのコースのカード・ルール）
+ *   #/rank                    トップ（2つのコースのカード）
  *   #/rank/<コース>/play      プレイ（「このコースに挑戦！」から来たときだけ始める。再読み込みでは再開しない）
  *   #/rank/<コース>/result    結果（そのコースの直近の挑戦）
  *   #/rank/<コース>/review    間違えた問題の振り返り（そのコースの直近1回分）
@@ -82,18 +82,6 @@
           '</div>' +
         '</div>' +
         '<div class="rank-courses">' + T().ORDER.map(courseCard).join('') + '</div>' +
-        '<div class="card rank-rules">' +
-          '<h2>ルール</h2>' +
-          '<ul>' +
-            '<li><b>基本の合同証明</b>は、3つの合同条件・仮定・共通な辺や角・対頂角・平行線の角・合同な図形の性質の問題。<b>総合証明</b>は、それに二等辺三角形・正三角形・角の式（三段論法）・直角三角形などが加わるよ。</li>' +
-            '<li>2つのコースの段位・記録は別々。どちらのコースからでも挑戦できるよ。</li>' +
-            '<li>制限時間は <b>120秒</b>。時間内なら何問でも挑戦できるよ。</li>' +
-            '<li><b>1〜10問目</b>はセレクトゾーン（選択式）。<b>11問目から</b>はチャレンジゾーン（記号の入力もあるよ）。</li>' +
-            '<li><b>正解数</b>で段位が決まるよ（10級〜皆伝の21段階）。</li>' +
-            '<li>まちがい・パスは<b>制限時間が減る</b>よ。1回目は −4秒、2回目は −8秒、3回目は −12秒…と、だんだん重くなるよ。</li>' +
-            '<li>途中でやめると記録は残らないよ。一時停止はできないよ。</li>' +
-          '</ul>' +
-        '</div>' +
       '</div>';
   }
 
@@ -249,7 +237,7 @@
     this.track = trackOf(track).id;
     this.game = new PH.RankGame({ track: this.track, onFinish: this.onFinish.bind(this) });
     this.kp = null;
-    this.locked = false;       // 正解・不正解の表示中は操作しない（時間は進む）
+    this.locked = false;       // 正解・不正解の表示中は操作しない（Ver.1.0 から、その間は時間も止まる）
     this.warned = false;
     this.timers = [];
     this.build();
@@ -423,6 +411,7 @@
     const ok = r.status === 'correct';
     PH.sound.play(ok ? 'rankOk' : 'rankNg');
     this.locked = true;
+    this.game.pause(now());          // ○× を表示している間は、残り時間を減らさない
     const mark = this.ref('mark');
     mark.textContent = ok ? '○' : r.status === 'pass' ? 'パス' : '×';
     mark.className = 'rq-mark show ' + (ok ? 'is-ok' : 'is-ng');
@@ -434,6 +423,7 @@
     const self = this;
     this.later(function () {
       self.locked = false;
+      self.game.resume(now());
       if (self.game.state !== 'play') return;
       self.renderQuestion();
       if (r.zoneEnter) self.zone();

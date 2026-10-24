@@ -30,7 +30,7 @@
     // カテゴリごとの出題の重み（Ver.0.7 で追加した「定理・三段論法」は、既存のバランスを崩さないよう半分）
     // Ver.0.8：コース（基本・総合）ごとの重みは js/rank-tracks.js の categoryWeights。これはコースを指定しないときの値
     categoryWeights: { eq: 1, reason: 1, cond: 1, corr: 1, final: 1, theorem: 0.5, right: 0.5, para: 0.5, quad: 0.5 },
-    feedbackMs: 300,             // 正解・不正解の表示時間
+    feedbackMs: 500,             // 正解・不正解の表示時間（Ver.1.0 で 0.3秒 → 0.5秒。表示中は残り時間が減らない）
     // 誤答（パスをふくむ）のペナルティ：n 回目の誤答で制限時間を 4×n 秒へらす（4秒、8秒、12秒…とだんだん重くなる）
     penaltyStepMs: 4000,
     missWeight: 0,               // 正解数からの減点はしない（有効正解数 ＝ 正解数）

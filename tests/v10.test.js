@@ -807,3 +807,22 @@ test('問題番号は、ステージの小さい順に 01・02・03… と振っ
   assert.equal(P('p07').number, '04');     // 旧 STAGE 4 の問題は STAGE 1 の4問目
   assert.equal(P('p47').number, '50');
 });
+
+test('段位認定：○×の表示は0.5秒で、その間は残り時間が減らない（pause・resume）', () => {
+  assert.equal(CFG.feedbackMs, 500);
+  const g = new PH.RankGame({ seed: 3, track: 'comprehensive' });
+  g.start(0);
+  assert.equal(g.timeLeft(10000), 110000);
+  g.pause(10000);
+  assert.equal(g.isPaused(), true);
+  assert.equal(g.timeLeft(10500), 110000);      // 表示中は減らない
+  g.tick(200000);                                // 止まっている間は時間切れにならない
+  assert.equal(g.state, 'play');
+  g.resume(10500);
+  assert.equal(g.timeLeft(11500), 109000);
+  // 止めた時間は120秒にふくめない（合計の経過時間で判定）
+  g.pause(20000); g.resume(30000);
+  assert.equal(g.timeLeft(30000), 100500);
+  g.tick(130400); assert.equal(g.state, 'play');
+  g.tick(130500); assert.equal(g.state, 'over');
+});

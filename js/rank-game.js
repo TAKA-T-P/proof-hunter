@@ -12,6 +12,7 @@
  *   g.submit(now, inputValue?)        … 解答を確定して判定（記号入力は文字列を渡す）
  *   g.pass(now)                       … パス（ミス1回）
  *   g.tick(now)                       … 時間切れなら終了（終了処理は1回だけ）
+ *   g.pause(now) / g.resume(now)      … 計測の一時停止と再開（正解・不正解の ○× を表示している間。Ver.1.0）
  *   g.abort()                         … 途中終了（記録しない）
  *   g.result                          … 終了後の結果
  */
@@ -214,9 +215,26 @@
     return true;
   };
 
+  // 経過時間（○× の表示中など、止めていた時間はふくめない）
   RankGame.prototype.elapsed = function (now) {
-    return this.startAt == null ? 0 : Math.max(0, now - this.startAt);
+    if (this.startAt == null) return 0;
+    const paused = (this.pausedMs || 0) + (this.pauseAt != null ? Math.max(0, now - this.pauseAt) : 0);
+    return Math.max(0, now - this.startAt - paused);
   };
+
+  // 計測の一時停止・再開（Ver.1.0：○× を表示している間は時間を減らさない）
+  RankGame.prototype.pause = function (now) {
+    if (this.state !== 'play' || this.pauseAt != null) return false;
+    this.pauseAt = now;
+    return true;
+  };
+  RankGame.prototype.resume = function (now) {
+    if (this.pauseAt == null) return false;
+    this.pausedMs = (this.pausedMs || 0) + Math.max(0, now - this.pauseAt);
+    this.pauseAt = null;
+    return true;
+  };
+  RankGame.prototype.isPaused = function () { return this.pauseAt != null; };
 
   RankGame.prototype.timeLeft = function (now) {
     if (this.startAt == null) return this.limit();

@@ -12,7 +12,7 @@
  *   #/puzzle/review          証明パズル：苦手な問題
  *   #/puzzle/play/<id>       証明パズル：プレイ
  *   #/howto                  あそびかた：メニュー（Ver.1.0）
- *   #/howto/<hunter|puzzle|advanced|rank>  あそびかたの説明（ハンター／パズル／STAGE 5以降について／段位認定）
+ *   #/howto/<hunter|puzzle|hunter5|puzzle5|rank>  あそびかたの説明（ハンター／パズル／ハンター：STAGE5～／証明パズル：STAGE5～／段位認定）
  *   #/rank                   段位認定：トップ（Ver.0.6。Ver.0.8 から2つのコースを選ぶ）
  *   #/rank/<コース>/play     段位認定：プレイ（「このコースに挑戦！」から来たときだけ始まる）。コースは basic / comprehensive
  *   #/rank/<コース>/result  #/rank/<コース>/review  #/rank/<コース>/grades   結果・間違えた問題・段位一覧（コース別）
@@ -353,11 +353,11 @@
       },
     ],
   };
-  // Ver.1.0：STAGE 5 以降の内容（ハンター・パズル）は「STAGE 5以降について」に分ける
+  // Ver.1.0：STAGE 5 以降の内容は「ハンター：STAGE5～」「証明パズル：STAGE5～」に分ける
   (function () {
     const adv = function (p) { return /STAGE (5|6|7|8|9|1\d)/.test(p.title); };
-    HOWTO.advanced = HOWTO.hunter.filter(adv).map(function (p) { return Object.assign({}, p, { title: 'ハンター：' + p.title }); })
-      .concat(HOWTO.puzzle.filter(adv).map(function (p) { return Object.assign({}, p, { title: 'パズル：' + p.title }); }));
+    HOWTO.hunter5 = HOWTO.hunter.filter(adv);
+    HOWTO.puzzle5 = HOWTO.puzzle.filter(adv);
     HOWTO.hunter = HOWTO.hunter.filter(function (p) { return !adv(p); });
     HOWTO.puzzle = HOWTO.puzzle.filter(function (p) { return !adv(p); });
   })();
@@ -365,7 +365,9 @@
   const HOWTO_MENU = [
     { id: 'hunter', ico: '🔍', name: 'ハンターモード', desc: '図をタップして、根拠を見つける遊び方', start: '#/select' },
     { id: 'puzzle', ico: '🧩', name: '証明パズル', desc: 'カードで証明文を完成させる遊び方・3つのレベル', start: '#/puzzle' },
-    { id: 'advanced', ico: '🏆', name: 'STAGE 5以降について', desc: '合同から結論・多段階証明・直角三角形・平行四辺形・ひし形と長方形', start: '#/select' },
+    // small … 説明・アイコンなしの小さいボタン（となり合うものは横に並べる）
+    { id: 'hunter5', name: 'ハンター：STAGE5～', small: true, start: '#/select' },
+    { id: 'puzzle5', name: '証明パズル：STAGE5～', small: true, start: '#/puzzle' },
     { id: 'rank', ico: '⏱️', name: '段位認定', desc: '120秒のミニ問題・2つのコース・段位', start: '#/rank' },
   ];
   const LAB_URL = 'https://taka-t-p.github.io/math-app-portal/';   // KEC数学科ラボ
@@ -373,7 +375,13 @@
   let howtoPage = 0;
 
   function renderHowtoMenu() {
-    $('#howto-menu-cards').innerHTML = HOWTO_MENU.map(function (m) {
+    $('#howto-menu-cards').innerHTML = HOWTO_MENU.map(function (m, i) {
+      if (m.small) {
+        const prev = HOWTO_MENU[i - 1], next = HOWTO_MENU[i + 1];
+        return (prev && prev.small ? '' : '<div class="howto-small-row">') +
+          '<button class="btn howto-small howto-' + m.id + '" data-go="#/howto/' + m.id + '">' + m.name + '</button>' +
+          (next && next.small ? '' : '</div>');
+      }
       return '<button class="mode-card howto-item howto-' + m.id + '" data-go="#/howto/' + m.id + '">' +
         '<span class="mode-ico" aria-hidden="true">' + m.ico + '</span>' +
         '<span class="mode-text"><span class="mode-name">' + m.name + '</span><span class="mode-desc">' + m.desc + '</span></span></button>';
@@ -389,7 +397,7 @@
     const pages = HOWTO[howtoMode];
     const page = pages[howtoPage];
     const item = HOWTO_MENU.find(function (m) { return m.id === howtoMode; });
-    $('#howto-mode').textContent = item.ico + ' ' + item.name;
+    $('#howto-mode').textContent = item.ico ? item.ico + ' ' + item.name : item.name;
     $('#howto-art').innerHTML = page.art;
     $('#howto-title').textContent = (howtoPage + 1) + '. ' + page.title;
     $('#howto-text').textContent = page.text;
