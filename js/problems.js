@@ -1527,7 +1527,7 @@
       reasons: ['given', 'common', 'vertical', 'proved'],
       proofSteps: [
         { id: 's1', type: 'theorem', stage: 'pre', rule: 'isoscelesBaseAngles', premise: ['AB', 'AC'], premiseLabel: 'AB＝AC',
-          items: ['∠ABC', '∠ACB'], label: '∠ABC＝∠ACB', short: '底角が等しい', dependsOn: [] },
+          items: ['∠ABC', '∠ACB'], label: '∠ABC＝∠ACB', short: '∠ABC＝∠ACB', dependsOn: [] },
       ],
       evidence: [
         { id: 'e1', items: ['BD', 'CE'], reason: 'given', label: 'BD＝CE', mark: 1 },
@@ -1602,7 +1602,7 @@
       reasons: ['given', 'common', 'vertical', 'proved'],
       proofSteps: [
         { id: 's1', type: 'theorem', stage: 'pre', rule: 'isoscelesBaseAngles', premise: ['AB', 'AC'], premiseLabel: 'AB＝AC',
-          items: ['∠ABC', '∠ACB'], label: '∠ABC＝∠ACB', short: '底角が等しい', dependsOn: [] },
+          items: ['∠ABC', '∠ACB'], label: '∠ABC＝∠ACB', short: '∠ABC＝∠ACB', dependsOn: [] },
         { id: 's2', type: 'theorem', stage: 'post', rule: 'isoscelesConverse', premise: ['∠DBC', '∠DCB'], premiseLabel: '∠DCB＝∠DBC',
           triangle: 'DBC', label: '△DBCは二等辺三角形', short: '二等辺三角形になる', dependsOn: ['final'] },
       ],
@@ -1690,13 +1690,13 @@
       extraTruths: [],
       proofSteps: [
         { id: 's1', type: 'theorem', rule: 'parallelAlternateAngles', quad: 'ABCD', lines: ['AD', 'BC'], premiseLabel: 'AD∥BC',
-          lead: '四角形ABCDは長方形で AD∥BC だから、', items: ['∠ACB', '∠FAC'], label: '∠ACB＝∠FAC', short: '平行線の錯角', dependsOn: [],
+          lead: '四角形ABCDは長方形で AD∥BC だから、', items: ['∠ACB', '∠FAC'], label: '∠ACB＝∠FAC', short: '∠ACB＝∠FAC', dependsOn: [],
           proofText: 'AD∥BCより、平行線の錯角は等しいから、' },
         { id: 's2', type: 'theorem', rule: 'foldAngles', items: ['∠ACB', '∠ACF'], premiseLabel: 'ACで折り返した',
-          lead: '対角線ACで折り返したので、', label: '∠ACB＝∠ACF', short: '折り返した角', dependsOn: [],
+          lead: '対角線ACで折り返したので、', label: '∠ACB＝∠ACF', short: '∠ACB＝∠ACF', dependsOn: [],
           proofText: 'ACで折り返したので、' },
         { id: 's3', type: 'theorem', rule: 'angleTransitive', premiseLabel: '∠ACB＝∠FAC、∠ACB＝∠ACF',
-          lead: '∠ACB＝∠FAC、∠ACB＝∠ACF だから、', items: ['∠FAC', '∠ACF'], label: '∠FAC＝∠ACF', short: '角をつなぐ', dependsOn: ['s1', 's2'],
+          lead: '∠ACB＝∠FAC、∠ACB＝∠ACF だから、', items: ['∠FAC', '∠ACF'], label: '∠FAC＝∠ACF', short: '∠FAC＝∠ACF', dependsOn: ['s1', 's2'],
           proofText: '{s1}、{s2}より、' },
         { id: 's4', type: 'theorem', stage: 'post', rule: 'isoscelesConverse', premise: ['∠FAC', '∠ACF'], triangle: 'FAC', premiseLabel: '∠FAC＝∠ACF',
           label: '△AFCは二等辺三角形', short: '二等辺三角形', dependsOn: ['s3'] },
@@ -2084,7 +2084,7 @@
       reasons: ['given', 'common', 'perpendicular', 'proved'],
       proofSteps: [
         { id: 's1', type: 'theorem', stage: 'pre', rule: 'isoscelesBaseAngles', premise: ['AB', 'AC'], premiseLabel: 'AB＝AC',
-          items: ['∠ABC', '∠ACB'], label: '∠ABC＝∠ACB', short: '底角が等しい', dependsOn: [] },
+          items: ['∠ABC', '∠ACB'], label: '∠ABC＝∠ACB', short: '∠ABC＝∠ACB', dependsOn: [] },
       ],
       evidence: [
         { id: 'e1', role: 'right', items: ['∠BEC', '∠CDB'], reason: 'perpendicular', label: '∠BEC＝∠CDB', mark: 'right' },
@@ -2754,10 +2754,10 @@
       evidence: [],
       proofSteps: [
         { id: 's1', type: 'theorem', rule: 'parallelogramDiagonalsBisect', quad: 'ABCD', premiseLabel: '四角形ABCDは平行四辺形',
-          lead: '四角形ABCDは平行四辺形だから、', items: ['OB', 'OD'], label: 'OB＝OD', short: '対角線の性質', dependsOn: [],
+          lead: '四角形ABCDは平行四辺形だから、', items: ['OB', 'OD'], label: 'OB＝OD', short: 'OB＝OD', dependsOn: [],
           proofText: '平行四辺形の対角線はそれぞれの中点で交わるから、' },
         { id: 's2', type: 'theorem', rule: 'halfSegments', premise: ['OB', 'OD'], premiseLabel: 'OB＝OD',
-          lead: 'OB＝OD で、E、Fはそれぞれ OB、OD の中点だから、', items: ['OE', 'OF'], label: 'OE＝OF', short: '中点で半分', dependsOn: ['s1'],
+          lead: 'OB＝OD で、E、Fはそれぞれ OB、OD の中点だから、', items: ['OE', 'OF'], label: 'OE＝OF', short: 'OE＝OF', dependsOn: ['s1'],
           proofText: '仮定より OE＝1/2OB、OF＝1/2OD であるから、{s1}より、' },
       ],
       parallelogram: {
@@ -3035,22 +3035,22 @@
       evidence: [],
       proofSteps: [
         { id: 's1', type: 'theorem', rule: 'parallelogramOppositeSidesParallel', quad: 'ABCD', premiseLabel: '四角形ABCDは平行四辺形',
-          lead: '四角形ABCDは平行四辺形だから、', items: ['AD', 'BC'], rel: 'parallel', label: 'AD∥BC', short: 'ABCDの対辺（平行）', dependsOn: [],
+          lead: '四角形ABCDは平行四辺形だから、', items: ['AD', 'BC'], rel: 'parallel', label: 'AD∥BC', short: 'AD∥BC', dependsOn: [],
           proofText: '平行四辺形ABCDの対辺は平行だから、' },
         { id: 's2', type: 'theorem', rule: 'parallelogramOppositeSidesParallel', quad: 'BEFC', premiseLabel: '四角形BEFCは平行四辺形',
-          lead: '四角形BEFCは平行四辺形だから、', items: ['BC', 'EF'], rel: 'parallel', label: 'BC∥EF', short: 'BEFCの対辺（平行）', dependsOn: [],
+          lead: '四角形BEFCは平行四辺形だから、', items: ['BC', 'EF'], rel: 'parallel', label: 'BC∥EF', short: 'BC∥EF', dependsOn: [],
           proofText: '平行四辺形BEFCの対辺は平行だから、' },
         { id: 's3', type: 'theorem', rule: 'parallelTransitive', premiseLabel: 'AD∥BC、BC∥EF',
-          lead: 'AD∥BC、BC∥EF だから、', items: ['AD', 'EF'], rel: 'parallel', label: 'AD∥EF', short: '平行をつなぐ', dependsOn: ['s1', 's2'],
+          lead: 'AD∥BC、BC∥EF だから、', items: ['AD', 'EF'], rel: 'parallel', label: 'AD∥EF', short: 'AD∥EF', dependsOn: ['s1', 's2'],
           proofText: '{s1}、{s2}より、' },
         { id: 's4', type: 'theorem', rule: 'parallelogramOppositeSidesEqual', quad: 'ABCD', premiseLabel: '四角形ABCDは平行四辺形',
-          lead: '四角形ABCDは平行四辺形だから、', items: ['AD', 'BC'], label: 'AD＝BC', short: 'ABCDの対辺（長さ）', dependsOn: [],
+          lead: '四角形ABCDは平行四辺形だから、', items: ['AD', 'BC'], label: 'AD＝BC', short: 'AD＝BC', dependsOn: [],
           proofText: '平行四辺形ABCDの対辺は等しいから、' },
         { id: 's5', type: 'theorem', rule: 'parallelogramOppositeSidesEqual', quad: 'BEFC', premiseLabel: '四角形BEFCは平行四辺形',
-          lead: '四角形BEFCは平行四辺形だから、', items: ['BC', 'EF'], label: 'BC＝EF', short: 'BEFCの対辺（長さ）', dependsOn: [],
+          lead: '四角形BEFCは平行四辺形だから、', items: ['BC', 'EF'], label: 'BC＝EF', short: 'BC＝EF', dependsOn: [],
           proofText: '平行四辺形BEFCの対辺は等しいから、' },
         { id: 's6', type: 'theorem', rule: 'equalTransitive', premiseLabel: 'AD＝BC、BC＝EF',
-          lead: 'AD＝BC、BC＝EF だから、', items: ['AD', 'EF'], label: 'AD＝EF', short: '長さをつなぐ', dependsOn: ['s4', 's5'],
+          lead: 'AD＝BC、BC＝EF だから、', items: ['AD', 'EF'], label: 'AD＝EF', short: 'AD＝EF', dependsOn: ['s4', 's5'],
           proofText: '{s4}、{s5}より、' },
       ],
       parallelogram: {
@@ -3122,13 +3122,13 @@
       evidence: [],
       proofSteps: [
         { id: 's1', type: 'theorem', rule: 'parallelogramOppositeSidesEqual', quad: 'ABCD', premiseLabel: '四角形ABCDは平行四辺形',
-          lead: '四角形ABCDは平行四辺形だから、', items: ['AB', 'DC'], label: 'AB＝DC', short: '対辺の長さ', dependsOn: [],
+          lead: '四角形ABCDは平行四辺形だから、', items: ['AB', 'DC'], label: 'AB＝DC', short: 'AB＝DC', dependsOn: [],
           proofText: '平行四辺形の対辺は等しいから、' },
         { id: 's2', type: 'theorem', rule: 'segmentSubtraction', premise: ['AB', 'DC'], subtract: ['AE', 'FC'], premiseLabel: 'AB＝DC、AE＝FC',
           // 理由ではなく、EB・DF をほかの線分の長さで表す式を選ぶ（choices の先頭が正解）
           lead: 'AB＝DC、AE＝FC で、', choiceNote: 'EB と DF を、ほかの線分の長さで表すと？',
           choices: ['EB＝AB－AE、DF＝DC－FC', 'EB＝AB＋AE、DF＝DC＋FC', 'EB＝AE－AB、DF＝FC－DC'],
-          items: ['EB', 'DF'], label: 'EB＝DF', short: '長さの差', dependsOn: ['s1'],
+          items: ['EB', 'DF'], label: 'EB＝DF', short: 'EB＝DF', dependsOn: ['s1'],
           proofText: '仮定より AE＝FC、また EB＝AB－AE、DF＝DC－FC だから、{s1}より、' },
       ],
       parallelogram: {
@@ -3435,7 +3435,7 @@
           premiseLabel: '∠A＝90°',
           // 書き出しには理由（隣り合う角の和）を書かない（答えになるため）
           lead: '仮定より ∠A＝90° で、',
-          items: ['∠DAB', '∠ABC'], label: '∠DAB＝∠ABC＝90°', short: '隣り合う角の和', dependsOn: [],
+          items: ['∠DAB', '∠ABC'], label: '∠DAB＝∠ABC＝90°', short: '∠DAB＝∠ABC＝90°', dependsOn: [],
           proofText: '平行四辺形の隣り合う角の和は180°だから ∠A＋∠B＝180°。仮定より ∠A＝90° なので ∠B＝90°。よって、' },
       ],
       parallelogram: {
