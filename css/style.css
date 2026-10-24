@@ -565,7 +565,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 
 /* PC・タブレット（スマホの縦・横画面以外）の正解画面：タイトルバー・図・結果カードを固定し、証明文・解説だけスクロール */
 @media (min-width: 900px) and (min-height: 500px), (orientation: landscape) and (min-height: 500px) {
-  body.has-result[data-screen="play"], body.has-result[data-screen="puzzle"] { overflow: hidden; }
+  body.has-result[data-screen="play"], body.has-result[data-screen="puzzle"], body.has-result[data-screen="error-play"] { overflow: hidden; }
   .screen-play.is-result {
     height: 100vh; height: 100dvh; padding-bottom: 0;
     display: flex; flex-direction: column; overflow: hidden;
@@ -729,6 +729,10 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .howto-small { flex: 1; min-width: 0; padding: 10px 4px; font-size: clamp(.74rem, 3.4vw, .9rem); white-space: nowrap; font-weight: 800; color: #047857; border-color: var(--line); }
 .howto-item.howto-rank { color: var(--gold-deep); }
 .howto-item.howto-rank .mode-ico { background: #fde68a; }
+.howto-item.howto-error { color: #0f766e; }
+.howto-item.howto-error .mode-ico { background: #ccfbf1; }
+.h-ok { fill: #f0fdf4; stroke: #86efac; stroke-width: 2; }      /* あそびかた（間違い探し）：正しい行・間違いの行 */
+.h-ng { fill: #fef2f2; stroke: #fca5a5; stroke-width: 2; }
 .howto-lab { width: 100%; margin-top: 18px; min-height: 48px; border: 2px solid var(--line); background: #fff; color: var(--navy); font-weight: 900; }
 .lab-modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .55); }
 .lab-modal-box { width: 100%; max-width: 360px; padding: 20px 16px 16px; text-align: center; }
@@ -1396,22 +1400,11 @@ button.eh-line:hover { border-color: #93c5fd; }
 .eh-confirm { background: var(--red); border-color: var(--red); color: #fff; }
 .eh-confirm:disabled { opacity: .45; }
 
-/* 正解画面 */
-.eh-result-top { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); margin-bottom: 10px; }
-@media (min-width: 700px) { .eh-result-top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
-.eh-result-figure { padding: 4px; }
-.eh-result-figure .figure { max-height: 240px; }
-.eh-result-side { display: flex; flex-direction: column; gap: 8px; }
-.eh-banner { padding: 10px; border-radius: 14px; text-align: center; background: linear-gradient(135deg, #f0fdfa, var(--teal-soft)); border: 2px solid #5eead4; }
-.eh-banner.is-revealed { background: #f8fafc; border-color: var(--line); }
-.eh-banner-title { font-size: 1.6rem; font-weight: 900; color: var(--teal); }
-.eh-banner.is-revealed .eh-banner-title { color: var(--navy); font-size: 1.3rem; }
-.eh-banner-stars { font-size: 1.8rem; color: var(--gold); letter-spacing: .08em; }
-.eh-banner-meta { font-size: .85rem; color: var(--muted); font-weight: 700; }
-.eh-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.eh-actions .btn { min-height: 42px; font-size: .9rem; }
-.eh-result-body { display: grid; gap: 10px; }
-@media (min-width: 900px) { .eh-result-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+/* 正解画面：証明パズル・ハンターと同じ .result-top（固定）・.result-scroll（スクロール）。結果カードは緑系 */
+.result-banner.is-error { background: linear-gradient(135deg, #115e59, var(--teal)); }
+.result-banner.is-error.is-revealed { background: linear-gradient(135deg, #334155, #64748b); }
+.result-banner.is-error .result-title { white-space: nowrap; }
+.eh-result .result-body { margin-top: 2px; }
 .eh-fix { padding: 10px 14px; }
 .eh-fix-title { margin: 0 0 8px; font-size: 1.1rem; color: var(--navy); }
 .eh-cat { display: inline-block; margin-left: 6px; padding: 1px 10px; border-radius: 99px; background: var(--teal-soft); color: var(--teal); font-size: .8rem; vertical-align: middle; }

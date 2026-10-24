@@ -12,7 +12,7 @@
  *   #/puzzle/review          証明パズル：苦手な問題
  *   #/puzzle/play/<id>       証明パズル：プレイ
  *   #/howto                  あそびかた：メニュー（Ver.1.0）
- *   #/howto/<hunter|puzzle|hunter5|puzzle5|rank>  あそびかたの説明（ハンター／パズル／ハンター：STAGE5～／証明パズル：STAGE5～／段位認定）
+ *   #/howto/<hunter|puzzle|hunter5|puzzle5|rank|error>  あそびかたの説明（ハンター／パズル／ハンター：STAGE5～／証明パズル：STAGE5～／段位認定／証明の間違い探し）
  *   #/rank                   段位認定：トップ（Ver.0.6。Ver.0.8 から2つのコースを選ぶ）
  *   #/rank/<コース>/play     段位認定：プレイ（「このコースに挑戦！」から来たときだけ始まる）。コースは basic / comprehensive
  *   #/rank/<コース>/result  #/rank/<コース>/review  #/rank/<コース>/grades   結果・間違えた問題・段位一覧（コース別）
@@ -355,6 +355,34 @@
         art: '<svg viewBox="0 0 200 120"><circle cx="100" cy="55" r="34" class="h-paper"/><text x="100" y="66" class="h-star">皆伝</text><text x="100" y="112" class="h-btxt">10級 → 初段 → 皆伝</text></svg>',
       },
     ],
+    // Ver.1.1：証明の間違い探し
+    error: [
+      {
+        title: '証明文に隠れたミスを見抜け！',
+        text: '証明の間違い探しは、間違いを1か所ふくむ証明文を読んで、その間違いを見つけるゲーム！ 図・仮定・結論と見比べながら、1行ずつ確かめよう。制限時間はないよ。',
+        art: '<svg viewBox="0 0 200 120"><rect x="22" y="10" width="110" height="100" rx="8" class="h-paper"/><line x1="36" y1="32" x2="118" y2="32" class="h-rule"/><line x1="36" y1="52" x2="118" y2="52" class="h-rule"/><line x1="36" y1="72" x2="104" y2="72" class="h-rule"/><line x1="36" y1="92" x2="112" y2="92" class="h-rule"/><circle cx="140" cy="62" r="24" class="h-lens"/><line x1="157" y1="79" x2="180" y2="102" class="h-handle"/></svg>',
+      },
+      {
+        title: 'あやしい行をタップ！',
+        text: '間違っていると思う行をタップして選び、「ここが間違い！」で判定。タップしただけでは判定しないので、選び直しても大丈夫。図をタップすると、大きな図に印をつけて考えられるよ。',
+        art: '<svg viewBox="0 0 200 120"><rect x="14" y="6" width="172" height="24" rx="7" class="h-btn"/><text x="100" y="23" class="h-btxt">仮定より AB＝CB</text><rect x="14" y="36" width="172" height="24" rx="7" class="h-btn h-on"/><text x="100" y="53" class="h-btxt">3組の辺が等しいので</text><rect x="44" y="70" width="112" height="24" rx="7" class="h-btn h-on h-confirm"/><text x="100" y="87" class="h-btxt">ここが間違い！</text><text x="150" y="116" class="h-finger">👆</text></svg>',
+      },
+      {
+        title: '最初に論理がくずれる行が答え',
+        text: '等式・理由・合同条件・三角形の頂点の順番・使う順番（まだ証明していないことを使っていないか）・図形の性質や条件をチェックしよう。間違いが後の行に影響するときは、それまでの行を正しいとしたとき、最初におかしくなる行が答えだよ。',
+        art: '<svg viewBox="0 0 200 120"><rect x="14" y="8" width="172" height="26" rx="7" class="h-ok"/><text x="100" y="26" class="h-btxt">○ 仮定より AB＝DE</text><rect x="14" y="42" width="172" height="26" rx="7" class="h-ng"/><text x="100" y="60" class="h-btxt">✖ 錯角より ∠B＝∠E</text><rect x="14" y="76" width="172" height="26" rx="7" class="h-btn"/><text x="100" y="94" class="h-btxt">…合同条件…</text></svg>',
+      },
+      {
+        title: '3回まちがえたら、ヒント',
+        text: 'まちがえた行は赤くなるよ（同じ行をもう一度選んでもミスは増えない）。3回まちがえると「ヒントを見る」「正解を確認する」が出るよ。1回目で正解なら★★★、2回目なら★★。ヒントを使うと最高★★、正解を確認したら★。',
+        art: '<svg viewBox="0 0 200 120"><rect x="14" y="12" width="82" height="34" rx="9" class="h-btn"/><text x="55" y="34" class="h-btxt">💡 ヒント</text><rect x="104" y="12" width="82" height="34" rx="9" class="h-btn"/><text x="145" y="34" class="h-btxt">正解を確認</text><text x="100" y="86" class="h-star">★★★</text><text x="100" y="110" class="h-btxt">1回目で正解！</text></svg>',
+      },
+      {
+        title: '正しい証明を確認しよう',
+        text: '正解すると、何が間違っていて、なぜ間違いなのか、正しくはどう書くのかが分かるよ。最後に正しい証明全文を読んで、ノートで証明を書くときの見直しに生かそう！',
+        art: '<svg viewBox="0 0 200 120"><rect x="14" y="10" width="172" height="40" rx="8" class="h-ng"/><text x="100" y="35" class="h-btxt">✖ 間違い：…</text><rect x="14" y="62" width="172" height="40" rx="8" class="h-ok"/><text x="100" y="87" class="h-btxt">○ 正しくは：…</text></svg>',
+      },
+    ],
   };
   // Ver.1.0：STAGE 5 以降の内容は「ハンター：STAGE5～」「証明パズル：STAGE5～」に分ける
   (function () {
@@ -372,6 +400,7 @@
     { id: 'hunter5', name: 'ハンター：STAGE5～', small: true, start: '#/select' },
     { id: 'puzzle5', name: '証明パズル：STAGE5～', small: true, start: '#/puzzle' },
     { id: 'rank', ico: '⏱️', name: '段位認定', desc: '120秒のミニ問題・2つのコース・段位', start: '#/rank' },
+    { id: 'error', ico: '🔎', name: '証明の間違い探し', desc: '証明文の中の間違いを1か所見つける遊び方', start: '#/error' },
   ];
   const LAB_URL = 'https://taka-t-p.github.io/math-app-portal/';   // KEC数学科ラボ
   let howtoMode = null;

@@ -131,7 +131,7 @@
     this.root.removeEventListener('click', this.onClick);
     doc.removeEventListener('keydown', this.onKey);
     root.removeEventListener('resize', this.onResize);
-    this.root.classList.remove('screen-play', 'eh-playing');
+    this.root.classList.remove('screen-play', 'eh-playing', 'is-result');
     this.timers.forEach(function (t) { root.clearTimeout(t); });
     const ov = doc.getElementById('success-overlay');
     if (ov) { ov.classList.remove('show'); ov.hidden = true; }
@@ -174,7 +174,7 @@
           '<button class="btn btn-big eh-confirm" data-act="confirm" data-ref="confirm">ここが間違い！</button>' +
         '</div>' +
       '</div>' +
-      '<div class="eh-result" data-ref="result" hidden></div>' +
+      '<div class="result eh-result" data-ref="result" hidden></div>' +
       // 図に印をつけるウィンドウ（証明パズルと同じ。閉じると、つけた印が問題の図に反映される）
       '<div class="pz-modal" data-ref="markModal" role="dialog" aria-modal="true" aria-label="図に印をつける" hidden>' +
         '<div class="card pz-modal-box">' +
@@ -326,10 +326,11 @@
     this.ref('body').hidden = done;
     this.ref('result').hidden = !done;
     doc.body.classList.toggle('has-result', done);
-    // プレイ中は証明パズルと同じ画面の形（スマホ縦画面は図を固定）。正解画面はふつうにスクロールする
-    this.root.classList.toggle('screen-play', !done);
+    // 証明パズルと同じ画面の形。プレイ中は図・仮定・結論、正解画面は図・結果・ボタンを固定し、証明文・解説だけスクロール
+    this.root.classList.add('screen-play');
     this.root.classList.toggle('eh-playing', !done);
-    doc.body.setAttribute('data-screen', done ? 'error' : 'error-play');
+    this.root.classList.toggle('is-result', done);
+    doc.body.setAttribute('data-screen', 'error-play');
     this.root.querySelectorAll('.head-hint').forEach(function (b) { b.disabled = done; });
     if (done) { if (!this.resultBuilt) this.buildResult(); return; }
     const wrong = g.wrongIds;
@@ -437,25 +438,27 @@
     const list = PH.errorProblems();
     const hasNext = list.indexOf(this.def) < list.length - 1;
     const stars = g.stars();
+    // 証明パズル・ハンターの正解画面と同じ形：上（図・結果・ボタン）は固定、下（解説・正しい証明）だけスクロール
     this.ref('result').innerHTML =
-      '<div class="eh-result-top">' +
-        '<div class="card eh-result-figure"><svg class="figure mini" data-ref="miniSvg" aria-label="問題の図"></svg></div>' +
-        '<div class="eh-result-side">' +
-          '<div class="eh-banner' + (g.solved ? '' : ' is-revealed') + '">' +
-            '<div class="eh-banner-title">' + (g.solved ? '間違い発見！' : '正解を確認しよう') + '</div>' +
-            '<div class="eh-banner-stars" aria-label="評価 星' + stars + 'つ">' + starsText(stars) + '</div>' +
-            '<div class="eh-banner-meta">ミス ' + g.misses + '回' + (g.hintUsed ? '・ヒントあり' : '') + (g.solved ? '' : '・正解を確認') + '</div>' +
+      '<div class="result-top">' +
+        '<div class="card result-figure"><svg class="figure mini" data-ref="miniSvg" aria-label="問題の図"></svg></div>' +
+        '<div class="result-side">' +
+          '<div class="result-banner is-error' + (g.solved ? '' : ' is-revealed') + '">' +
+            '<div class="result-title">' + (g.solved ? '間違い発見！' : '正解を確認') + '</div>' +
+            '<div class="result-stars" aria-label="評価 星' + stars + 'つ">' + starsText(stars) + '</div>' +
+            '<div class="result-meta"><span>ミス ' + g.misses + '回</span>' + (g.hintUsed ? '<span class="sep">・</span><span>ヒントあり</span>' : '') + '</div>' +
             (this.saved && this.saved.improved && !this.saved.firstTime && g.solved ? '<span class="best">ベスト更新！</span>' : '') +
           '</div>' +
-          '<div class="eh-actions">' +
-            '<button class="btn" data-act="retry">↺ もう一度挑戦</button>' +
+          '<div class="result-actions">' +
+            '<button class="btn" data-act="retry">↺ もう一度</button>' +
             (hasNext ? '<button class="btn btn-primary" data-act="next">次の問題 ▶</button>' : '') +
             '<button class="btn" data-act="list">問題一覧へ</button>' +
             '<button class="btn" data-act="source">元の問題を解く</button>' +
           '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="eh-result-body">' +
+      '<div class="result-scroll" data-ref="resultScroll">' +
+      '<div class="result-body">' +
         '<div class="card eh-fix">' +
           '<h2 class="eh-fix-title">どこが間違い？ <span class="eh-cat">' + esc(E.CATEGORIES[this.def.category].label) + '</span></h2>' +
           '<div class="eh-fix-row is-wrong"><span class="eh-fix-label">✖ 間違い</span><span class="eh-fix-text">' + esc(E.stepText(b.wrong)) + '</span></div>' +
@@ -469,8 +472,9 @@
             return '<li><div class="eh-line kind-' + s.kind + (s.id === b.target ? ' is-fixed' : '') + '">' + stepHtml(s) + '</div></li>';
           }).join('') + '</ol>' +
         '</div>' +
+      '</div>' +
       '</div>';
-    PH.renderer.render(this.ref('miniSvg'), this.problem, { interactive: false });
+    PH.renderer.render(this.ref('miniSvg'), this.problem, { interactive: false, userMarks: this.userMarks });
     this.resultBuilt = true;
   };
 
