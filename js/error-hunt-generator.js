@@ -43,7 +43,23 @@
   ];
 
   // 証明する四角形の、特別な平行四辺形としての性質（証明する前には使えない）
-  const TYPE_PROPERTIES = { rhombus: ['rhombusSides', 'rhombusAngles'], rectangle: ['rectangleSides', 'rectangleAngles'] };
+  // Ver.1.2：平行四辺形であることを証明する問題で、その四角形の平行四辺形の性質を使う（循環論法）も加えた
+  const TYPE_PROPERTIES = {
+    rhombus: ['rhombusSides', 'rhombusAngles'], rectangle: ['rectangleSides', 'rectangleAngles'],
+    parallelogram: ['parallelogramSides', 'parallelogramParallel', 'parallelogramAngles', 'parallelogramDiagonals'],
+  };
+
+  // 証明する四角形の性質として使えない理由（平行四辺形の問題で、別の平行四辺形の性質を正しく使っている問題（p41 など）は対象外）
+  function typeProperties(problem) {
+    const list = TYPE_PROPERTIES[PH.quadType(problem)] || [];
+    if (PH.quadType(problem) !== 'parallelogram') return list;
+    const usesOther = problem.parallelogram.evidence.some(function (ev) { return list.indexOf(ev.reason) >= 0; }) ||
+      (problem.proofSteps || []).length > 0 || /平行四辺形/.test(problem.given.join(''));
+    return usesOther ? [] : list;
+  }
+
+  // 「仮定より」の言いかえになりうる理由（誤りの理由には使わない）
+  const GIVEN_RESTATEMENTS = ['midpoint', 'construction', 'perpendicular'];
 
   function condTail(label) { return (/(平行|直角)$/.test(label) ? 'な' : '') + 'ので、'; }
 
@@ -115,7 +131,9 @@
     const ev = evidenceOf(problem, step);
     const base = ev ? PH.REASONS[ev.reason].proof : '';
     const prefix = base && step.reason.slice(-base.length) === base ? step.reason.slice(0, -base.length) : '';
-    return prefix + PH.REASONS[m.reason].proof;
+    // 理由のあとの補足「（AB∥DC）」も残す（Ver.1.2）
+    const note = base && step.reason.indexOf(base + '（') === 0 ? step.reason.slice(base.length) : '';
+    return prefix + PH.REASONS[m.reason].proof + note;
   }
 
   function bodyText(problem, step, m) {
@@ -185,6 +203,8 @@
 
     const ev = (step.kind === 'evidence' || step.kind === 'qevidence') ? evidenceOf(problem, step) : null;
     const reasonWrongForEvidence = function () {
+      // Ver.1.2：仮定の言いかえ（「中点だから」「作図より」「垂直な2直線がつくる角だから」）は、仮定の内容しだいで正しい理由になる
+      if (ev.reason === 'given' && GIVEN_RESTATEMENTS.indexOf(m.reason) >= 0) { err('仮定の言いかえで、正しい理由にもなりうる'); return; }
       if (step.kind === 'evidence') {
         const st = PH.validation.checkEvidence(problem, keysOf(problem, ev.items), m.reason, []).status;
         if (st !== 'wrong-reason') err('その理由でも正しくなってしまう（' + st + '）');
@@ -241,7 +261,7 @@
           if (!(PH.REASONS[m.reason] || {}).finalOnly) err('合同を証明したあとの理由ではない');
         } else {
           // 証明する四角形の、特別な平行四辺形としての性質を先に使う
-          if ((TYPE_PROPERTIES[PH.quadType(problem)] || []).indexOf(m.reason) < 0) err('証明する四角形の性質ではない');
+          if (typeProperties(problem).indexOf(m.reason) < 0) err('証明する四角形の性質ではない');
         }
         reasonWrongForEvidence();
         break;

@@ -35,6 +35,17 @@
  *     errorHunt: {                             // Ver.1.1：証明の間違い探し（ほかのモードの記録とは独立）
  *       problems: { 'eh-p01-cong': { completed, solvedByUser, bestStars, minMisses, attempts }, ... },
  *       lastId,                                // 最後に挑戦した問題
+ *       challenge: {                           // Ver.1.2：ランダム5問チャレンジ（コースごとに完全に独立。段位認定の記録とも別）
+ *         basic: <チャレンジの記録>, comprehensive: <チャレンジの記録>,
+ *       },
+ *     }
+ *     <チャレンジの記録> = {
+ *       bestScore,                             // 最高得点（0〜100）。null は未挑戦（0点と区別する）
+ *       playCount,                             // 挑戦回数（5問を最後まで終えた回数。途中終了は数えない）
+ *       lastResult: { score, correct, wrong, total, seed, completedAt, newBest,
+ *                     items: [{ no, baseId, variantId, category, target, selected, correct }] } | null,   // 直近1回（振り返り用）
+ *       recentVariants: { <ベース問題ID>: [バリエーションID（新しい順・最大3つ）] },   // 同じ間違いが続かないようにする少量の履歴
+ *       lastBases: [ベース問題ID],              // 直近のチャレンジで出題したベース問題
  *     }
  *   }
  *   Ver.0.7 までの rankCertification（コースの記録の形そのもの）は、読みこむときに legacy へ移す（1回だけ。保存すると新しい形になる）。
@@ -68,7 +79,7 @@
       version: VERSION, problems: {}, puzzleProblems: {}, puzzleLevels: blankLevels(), puzzleLevel: 'easy',
       puzzleMigrated: false, lastProblemId: null, lastPuzzleProblemId: null, lastMode: null, sound: true,
       rankCertification: blankCert(),
-      errorHunt: { problems: {}, lastId: null },
+      errorHunt: blankErrorHunt(),
     };
   }
 
@@ -150,11 +161,58 @@
     return out;
   }
 
+  function blankErrorHunt() { return { problems: {}, lastId: null, challenge: blankChallenges() }; }
+
   function cleanErrorHunt(r) {
-    const out = { problems: {}, lastId: null };
+    const out = blankErrorHunt();
     if (!isObj(r)) return out;
     if (isObj(r.problems)) Object.keys(r.problems).forEach(function (id) { if (isObj(r.problems[id])) out.problems[id] = cleanErrorRecord(r.problems[id]); });
     out.lastId = typeof r.lastId === 'string' ? r.lastId : null;
+    const ch = isObj(r.challenge) ? r.challenge : {};
+    CHALLENGE_IDS.forEach(function (id) { out.challenge[id] = cleanChallenge(ch[id]); });
+    return out;
+  }
+
+  // ---- ランダム5問チャレンジ（Ver.1.2。コース basic / comprehensive） ----
+  const CHALLENGE_IDS = ['basic', 'comprehensive'];
+  const RECENT_KEEP = 3;
+
+  function blankChallenge() { return { bestScore: null, playCount: 0, lastResult: null, recentVariants: {}, lastBases: [] }; }
+  function blankChallenges() {
+    const out = {};
+    CHALLENGE_IDS.forEach(function (id) { out[id] = blankChallenge(); });
+    return out;
+  }
+
+  function strList(v, max) { return Array.isArray(v) ? v.filter(function (x) { return typeof x === 'string'; }).slice(0, max) : []; }
+  function score100(v) { return typeof v === 'number' && isFinite(v) && v >= 0 && v <= 100 ? Math.round(v) : null; }
+
+  // チャレンジの記録を安全な値にそろえる（壊れた値は未挑戦）
+  function cleanChallenge(r) {
+    const out = blankChallenge();
+    if (!isObj(r)) return out;
+    out.bestScore = score100(r.bestScore);
+    out.playCount = Math.floor(num(r.playCount, 0));
+    if (isObj(r.lastResult) && score100(r.lastResult.score) !== null && Array.isArray(r.lastResult.items)) {
+      const lr = r.lastResult;
+      out.lastResult = {
+        score: score100(lr.score), correct: Math.floor(num(lr.correct, 0)), wrong: Math.floor(num(lr.wrong, 0)), total: Math.floor(num(lr.total, 0)),
+        seed: typeof lr.seed === 'number' ? lr.seed : null, completedAt: typeof lr.completedAt === 'string' ? lr.completedAt : null, newBest: lr.newBest === true,
+        items: lr.items.filter(function (it) { return isObj(it) && typeof it.baseId === 'string' && typeof it.variantId === 'string'; }).slice(0, 10).map(function (it) {
+          return {
+            no: Math.floor(num(it.no, 0)), baseId: it.baseId, variantId: it.variantId, category: typeof it.category === 'string' ? it.category : null,
+            target: typeof it.target === 'string' ? it.target : null, selected: typeof it.selected === 'string' ? it.selected : null, correct: it.correct === true,
+          };
+        }),
+      };
+    }
+    if (isObj(r.recentVariants)) {
+      Object.keys(r.recentVariants).forEach(function (id) {
+        const l = strList(r.recentVariants[id], RECENT_KEEP);
+        if (l.length) out.recentVariants[id] = l;
+      });
+    }
+    out.lastBases = strList(r.lastBases, 10);
     return out;
   }
 
@@ -431,6 +489,53 @@
     return !r.solvedByUser || r.bestStars < 3;
   }
 
+  // ---- ランダム5問チャレンジ（Ver.1.2） ---------------------------------------------
+
+  function challengeId(id) { return CHALLENGE_IDS.indexOf(id) >= 0 ? id : null; }
+
+  // コースの記録（コピー）。知らないコースは未挑戦の記録
+  function getErrorChallenge(course) {
+    const id = challengeId(course);
+    return id ? cleanChallenge(JSON.parse(JSON.stringify(load().errorHunt.challenge[id]))) : blankChallenge();
+  }
+
+  // 抽選に使う履歴（そのコースだけ。じっくり練習・ほかのコースとは混ぜない）
+  function getErrorChallengeHistory(course) {
+    const r = getErrorChallenge(course);
+    return { recentVariants: r.recentVariants, lastBases: r.lastBases };
+  }
+
+  /*
+   * チャレンジの結果を記録する（5問を最後まで終えたときだけ。途中終了では呼ばない）。
+   *   result = ChallengeSession#result()。そのコース以外・段位認定・じっくり練習の記録は変えない。
+   *   戻り値 { newBest（自己ベスト更新。初挑戦は false）, firstTime, bestScore }
+   */
+  function recordErrorChallenge(course, result) {
+    const id = challengeId(course || (result && result.course));
+    if (!id || !result) return null;
+    const c = load().errorHunt.challenge[id];
+    const score = score100(result.score) || 0;
+    const firstTime = c.bestScore === null;
+    const newBest = !firstTime && score > c.bestScore;
+    c.bestScore = firstTime ? score : Math.max(c.bestScore, score);
+    c.playCount++;
+    const items = (result.items || []).slice(0, 10);
+    c.lastResult = {
+      score: score, correct: result.correct, wrong: result.wrong, total: result.total, seed: result.seed,
+      completedAt: new Date().toISOString(), newBest: newBest,
+      items: items.map(function (it) {
+        return { no: it.no, baseId: it.baseId, variantId: it.variantId, category: it.category, target: it.target, selected: it.selected, correct: it.correct === true };
+      }),
+    };
+    items.forEach(function (it) {
+      const prev = c.recentVariants[it.baseId] || [];
+      c.recentVariants[it.baseId] = [it.variantId].concat(prev.filter(function (v) { return v !== it.variantId; })).slice(0, RECENT_KEEP);
+    });
+    c.lastBases = items.map(function (it) { return it.baseId; });
+    save();
+    return { newBest: newBest, firstTime: firstTime, bestScore: c.bestScore };
+  }
+
   function getSound() { return load().sound !== false; }
   function setSound(on) { load().sound = !!on; save(); }
 
@@ -460,6 +565,10 @@
     getErrorRecord: getErrorRecord,
     recordError: recordError,
     isErrorReviewTarget: isErrorReviewTarget,
+    ERROR_CHALLENGE_IDS: CHALLENGE_IDS,
+    getErrorChallenge: getErrorChallenge,
+    getErrorChallengeHistory: getErrorChallengeHistory,
+    recordErrorChallenge: recordErrorChallenge,
     _reset: _reset,
   };
 

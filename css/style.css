@@ -1423,3 +1423,123 @@ button.eh-line:hover { border-color: #93c5fd; }
 /* 式（根拠・ステップの等式）は途中で折り返さず、まとめて次の行へ（長い角の式だけは枠の中で折り返す） */
 .eh-line.kind-evidence .eh-text, .eh-line.kind-qevidence .eh-text, .eh-line.kind-step .eh-text, .eh-line.kind-final .eh-text, .eh-line.kind-post .eh-text { display: inline-block; max-width: 100%; }
 .eh-line .eh-no { display: inline-block; }
+
+/* =====================================================================
+   Ver.1.2：間違い探しのランダム5問チャレンジ・開発者用の確認画面
+   ===================================================================== */
+
+/* 間違い探しトップ：チャレンジの入口・じっくり練習の見出し */
+.ehc-entry {
+  display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 12px 14px; border-radius: 16px;
+  background: linear-gradient(135deg, #115e59, var(--teal)); color: #fff; text-decoration: none;
+  box-shadow: 0 4px 12px rgba(15, 118, 110, .25);
+}
+.ehc-entry:hover, .ehc-entry:focus-visible { filter: brightness(1.06); }
+.ehc-entry-ico { flex: none; font-size: 2rem; line-height: 1; }
+.ehc-entry-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ehc-entry-name { font-size: 1.15rem; font-weight: 900; }
+.ehc-entry-desc { font-size: .8rem; opacity: .92; }
+.ehc-entry-go { flex: none; font-size: 1.1rem; }
+.eh-practice-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 4px 0 8px; font-size: 1.05rem; color: var(--teal); }
+
+/* コースの色（緑・ティール系） */
+.ehc-course.course-basic, .ehc-tag.course-basic, .ehc-result-card.course-basic { --course: var(--teal); }
+.ehc-course.course-comprehensive, .ehc-tag.course-comprehensive, .ehc-result-card.course-comprehensive { --course: #15803d; }
+.ehc-hero { border-color: #99f6e4; }
+.ehc-hero .rank-hero-tag { background: var(--teal); }
+.ehc-hero .rank-hero-lead { color: #134e4a; }
+.ehc-rules { margin: 0; font-size: .82rem; color: var(--muted); font-weight: 700; }
+.ehc-best .rank-best-item { background: #f0fdfa; border-color: #99f6e4; }
+.ehc-best .rank-best-item b { color: #134e4a; }
+.ehc-best .rank-best-item b.ehc-pool small { display: block; font-size: .72rem; color: var(--muted); }
+.ehc-start { background: var(--course); border-color: var(--course); }
+
+/* プレイ画面：ヘッダーの問題番号・得点 */
+.ehc-status { display: flex; flex-direction: column; align-items: flex-end; gap: 0; color: #fff; font-size: .78rem; font-weight: 800; line-height: 1.3; white-space: nowrap; }
+.ehc-status b { font-size: 1.05rem; }
+.ehc-feedback.is-ok { color: var(--green); }
+.ehc-next { width: 100%; }
+.eh-line.is-judged-ok { border-color: var(--green); background: var(--green-soft); box-shadow: 0 0 0 3px rgba(5, 150, 105, .18); }
+.eh-line.is-judged-ng { border-color: var(--red); background: var(--red-soft); box-shadow: 0 0 0 3px rgba(220, 38, 38, .15); }
+button.eh-line:disabled { cursor: default; opacity: 1; color: var(--ink); }
+.ehc-judge {
+  position: fixed; left: 50%; top: 42%; z-index: 60; transform: translate(-50%, -50%); pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; animation: ehc-pop .25s ease-out;
+}
+.ehc-judge[hidden] { display: none; }
+.ehc-judge-mark { font-size: 9rem; line-height: 1; font-weight: 900; text-shadow: 0 2px 10px rgba(255, 255, 255, .9); }
+.ehc-judge-pt { margin-top: 4px; padding: 2px 14px; border-radius: 99px; color: #fff; font-weight: 900; font-size: 1.2rem; }
+.ehc-judge.is-ok .ehc-judge-mark { color: var(--green); }
+.ehc-judge.is-ok .ehc-judge-pt { background: var(--green); }
+.ehc-judge.is-ng .ehc-judge-mark { color: var(--red); }
+.ehc-judge.is-ng .ehc-judge-pt { background: var(--red); }
+@keyframes ehc-pop { from { transform: translate(-50%, -50%) scale(.6); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+
+/* 結果発表 */
+.ehc-result-card { padding: 16px; text-align: center; display: flex; flex-direction: column; gap: 6px; border-top: 6px solid var(--course); }
+.ehc-result-card p { margin: 0; }
+.ehc-result-label { font-weight: 900; color: var(--muted); }
+.ehc-result-score { font-weight: 900; color: var(--course); }
+.ehc-result-score b { font-size: 3.4rem; line-height: 1.1; }
+.ehc-result-score span { font-size: 1rem; color: var(--muted); }
+.ehc-result-msg { font-size: 1.2rem; font-weight: 900; color: #134e4a; }
+.ehc-newbest { align-self: center; padding: 2px 14px; border-radius: 99px; background: var(--gold-soft); border: 2px solid #fcd34d; color: #92400e; font-weight: 900; }
+.ehc-result-count { font-weight: 800; }
+.ehc-result-best { font-size: .88rem; color: var(--muted); }
+.ehc-marks { list-style: none; margin: 4px 0; padding: 0; display: flex; justify-content: center; gap: 6px; }
+.ehc-marks li { display: flex; flex-direction: column; align-items: center; min-width: 46px; padding: 4px 6px; border-radius: 10px; border: 2px solid; font-size: .75rem; font-weight: 800; }
+.ehc-marks li b { font-size: 1.3rem; line-height: 1.1; }
+.ehc-marks li.is-ok { border-color: #86efac; background: #f0fdf4; color: var(--green); }
+.ehc-marks li.is-ng { border-color: #fca5a5; background: var(--red-soft); color: var(--red); }
+.ehc-result-actions { display: grid; gap: 8px; }
+
+/* 振り返り */
+.ehc-review { max-width: 760px; margin: 0 auto; }
+.ehc-rv-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.ehc-rv { padding: 12px 14px; border-left: 6px solid; }
+.ehc-rv.is-ok { border-left-color: var(--green); }
+.ehc-rv.is-ng { border-left-color: var(--red); }
+.ehc-rv-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.ehc-rv-head .rank-course-tag { margin: 0 0 0 auto; }
+.ehc-rv-no { font-size: 1.2rem; font-weight: 900; color: var(--navy); }
+.ehc-rv-mark { font-weight: 900; }
+.is-ok .ehc-rv-mark { color: var(--green); }
+.is-ng .ehc-rv-mark { color: var(--red); }
+.ehc-rv-src { margin: 4px 0 8px; font-size: .88rem; font-weight: 700; color: var(--muted); }
+.ehc-rv-body { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 6px; }
+.ehc-rv-fig { flex: none; width: 140px; }
+.ehc-rv-fig .figure.mini { width: 100%; max-height: 130px; }
+.ehc-rv-cond p { margin: 0 0 4px; font-size: .88rem; }
+.ehc-rv-sub { margin: 6px 0 4px; font-size: .95rem; color: var(--teal); }
+.eh-lines.is-proof .eh-line.is-answer { border-color: #facc15; background: #fefce8; }
+.eh-lines.is-proof .eh-line.is-mine { border-color: #fca5a5; background: var(--red-soft); }
+.eh-fix-row.is-mine { border-color: #cbd5e1; background: #f8fafc; }
+.is-mine .eh-fix-label { color: var(--navy); }
+.ehc-rv-proof { margin-top: 6px; }
+.ehc-rv-proof summary, .ehd details summary { cursor: pointer; font-weight: 800; color: var(--teal); padding: 4px 0; }
+
+/* 開発者用 */
+.ehd { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.ehd-summary { padding: 12px 14px; }
+.ehd-summary p { margin: 0 0 4px; }
+.ehd-ok { color: var(--green); }
+.ehd-ng { color: var(--red); }
+.ehd-errors { max-height: 200px; overflow: auto; font-size: .75rem; background: var(--red-soft); padding: 6px; }
+.ehd-filters { padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.ehd-filters label { display: flex; flex-direction: column; font-size: .78rem; font-weight: 800; color: var(--muted); }
+.ehd-filters select { min-height: 36px; font-size: .9rem; max-width: 100%; }
+.ehd-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.ehd-item { padding: 10px 12px; }
+.ehd-key { margin: 0 0 6px; overflow-wrap: anywhere; }
+.ehd-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.ehd-table th, .ehd-table td { border: 1px solid var(--line); padding: 3px 6px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.ehd-table th { width: 9em; background: #f8fafc; white-space: nowrap; }
+.ehd-proofs { display: grid; gap: 8px; }
+.ehd-proofs h4 { margin: 4px 0; }
+@media (min-width: 900px) { .ehd-proofs { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 420px) {
+  .ehc-rv-body { flex-direction: column; }
+  .ehc-rv-fig { width: 100%; }
+  .ehc-judge-mark { font-size: 7rem; }
+}
+.ehc-result-actions .btn-confirm { background: var(--teal); border-color: var(--teal); }

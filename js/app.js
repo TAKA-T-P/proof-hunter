@@ -19,7 +19,11 @@
  *   #/rank/legacy            Ver.0.7 までの段位認定の記録
  *   #/error                  証明の間違い探し：問題一覧（Ver.1.1）。#/error/category/<単元> は単元だけ
  *   #/error/review           証明の間違い探し：苦手な問題
- *   #/error/play/<問題ID>    証明の間違い探し：プレイ（開くたびに新しい状態で開始）
+ *   #/error/play/<問題ID>    証明の間違い探し：プレイ（開くたびに新しい状態で開始。Ver.1.2：誤りバリエーションも開くたびに選ぶ）
+ *   #/error/challenge        ランダム5問チャレンジ：コースを選ぶ（Ver.1.2）
+ *   #/error/challenge/<コース>/play    プレイ（「〜コースに挑戦」から来たときだけ始まる）。コースは basic / comprehensive
+ *   #/error/challenge/<コース>/result  #/error/challenge/<コース>/review   結果発表・振り返り（コース別）
+ *   #/error/dev              開発者用：誤りバリエーションの確認（生徒の画面からはリンクしない）
  *   （Ver.0.7 までの #/rank/play などを開いたときは、段位認定のトップへ戻す）
  * 記録・評価はモードごとに別々。証明パズルは、さらに解答レベル（おてがる／スタンダード／チャレンジ）ごとに別々
  * （storage.js の mode 引数：'hunter' / 'puzzle:<レベル>'）。
@@ -382,6 +386,12 @@
         text: '正解すると、何が間違っていて、なぜ間違いなのか、正しくはどう書くのかが分かるよ。最後に正しい証明全文を読んで、ノートで証明を書くときの見直しに生かそう！',
         art: '<svg viewBox="0 0 200 120"><rect x="14" y="10" width="172" height="40" rx="8" class="h-ng"/><text x="100" y="35" class="h-btxt">✖ 間違い：…</text><rect x="14" y="62" width="172" height="40" rx="8" class="h-ok"/><text x="100" y="87" class="h-btxt">○ 正しくは：…</text></svg>',
       },
+      // Ver.1.2：ランダム5問チャレンジ
+      {
+        title: 'ランダム5問チャレンジ',
+        text: '「基本の合同証明」か「総合証明」を選んで、5問に挑戦！ 解答は1問1回だけ、ヒントはなし。正解20点で100点満点だよ。同じ証明でも、間違いの場所は毎回変わるよ。終わったら、振り返りで正解の行と解説を確認しよう！',
+        art: '<svg viewBox="0 0 200 120"><rect x="10" y="14" width="85" height="60" rx="10" class="h-btn h-on"/><text x="52" y="40" class="h-btxt">基本の</text><text x="52" y="60" class="h-btxt">合同証明</text><rect x="105" y="14" width="85" height="60" rx="10" class="h-btn"/><text x="147" y="40" class="h-btxt">総合</text><text x="147" y="60" class="h-btxt">証明</text><text x="100" y="104" class="h-star">100点満点！</text></svg>',
+      },
     ],
   };
   // Ver.1.0：STAGE 5 以降の内容は「ハンター：STAGE5～」「証明パズル：STAGE5～」に分ける
@@ -496,7 +506,7 @@
     } else if (name === 'rank' && mode === 'hunter') {
       routeRank(parts[1], parts[2]);
     } else if (name === 'error' && mode === 'hunter') {
-      routeError(parts[1], parts[2]);
+      routeError(parts[1], parts[2], parts[3]);
     } else if (name === 'howto' && mode === 'hunter') {
       howtoMode = HOWTO[parts[1]] ? parts[1] : null;      // なければメニュー
       howtoPage = 0;
@@ -520,15 +530,22 @@
   }
 
   // 証明の間違い探しの画面（Ver.1.1）
-  function routeError(sub, arg) {
+  function routeError(sub, arg, page) {
     const el = doc.getElementById('screen-error');
     doc.title = '証明の間違い探し｜証明ハンター';
+    if (sub === 'challenge') { routeErrorChallenge(el, arg, page); return; }
+    if (sub === 'dev') {       // 開発者用：誤りバリエーションの確認（生徒の画面からはリンクしない）
+      PH.errorView.renderDev(el);
+      show('error');
+      return;
+    }
     const def = sub === 'play' ? PH.getErrorProblem(arg) : null;
     if (def) {
       const list = PH.errorProblems();
       show('error');
       doc.body.setAttribute('data-screen', 'error-play');
-      PH.errorView.mount(el, def, {
+      // Ver.1.2：開くたびに誤りバリエーションを選ぶ（★評価はベース問題単位）。画面の再描画では変えない
+      PH.errorView.mount(el, PH.errorVariants.practice(def.id), {
         list: function () { go('#/error/category/' + def.unit); },
         next: function () {
           const nxt = list[list.indexOf(def) + 1];
@@ -544,6 +561,32 @@
     else if (sub === 'category' && PH.errorHunt.UNITS.some(function (u) { return u.id === arg; })) PH.errorView.renderTop(el, arg);
     else if (sub) { go('#/error'); return; }
     else PH.errorView.renderTop(el, null);
+    show('error');
+  }
+
+  // ランダム5問チャレンジ（Ver.1.2：#/error/challenge/<コース>/<画面>）
+  function routeErrorChallenge(el, course, page) {
+    doc.title = 'ランダム5問チャレンジ｜証明ハンター';
+    if (!course) {
+      PH.errorView.renderChallengeTop(el);
+      show('error');
+      return;
+    }
+    // 知らないコース・画面は、コースを選ぶ画面へ戻す
+    if (!PH.errorChallenge.isCourse(course) || ['play', 'result', 'review'].indexOf(page) < 0) { go('#/error/challenge'); return; }
+    if (page === 'play') {
+      show('error');
+      const ok = PH.errorView.mountChallenge(el, course, {
+        top: function () { go('#/error/challenge'); },
+        result: function () { go('#/error/challenge/' + course + '/result'); },
+      });
+      if (!ok) { go('#/error/challenge'); return; }     // 再読み込み・直接のURLでは途中の挑戦を再開しない
+      doc.body.setAttribute('data-screen', 'error-play');
+      doc.title = '間違い探しチャレンジ（' + PH.errorChallenge.course(course).label + '）｜証明ハンター';
+      return;
+    }
+    if (page === 'result') PH.errorView.renderChallengeResult(el, course);
+    else PH.errorView.renderChallengeReview(el, course);
     show('error');
   }
 
@@ -580,7 +623,7 @@
     PH.sound.setEnabled(PH.storage.getSound());
 
     doc.addEventListener('click', function (e) {
-      const t = e.target.closest('[data-go],[data-level],[data-sound-toggle],[data-act="rank-start"],#btn-continue,#howto-prev,#howto-next,#hint-close,#tri-close,#howto-lab,#lab-yes,#lab-no');
+      const t = e.target.closest('[data-go],[data-level],[data-sound-toggle],[data-act="rank-start"],[data-act="errch-start"],#btn-continue,#howto-prev,#howto-next,#hint-close,#tri-close,#howto-lab,#lab-yes,#lab-no');
       if (!t) return;
       // あそびかたのメニュー：KEC数学科ラボへ（確認してから移動）
       if (t.id === 'howto-lab' || t.id === 'lab-no') {
@@ -598,6 +641,17 @@
         PH.sound.play('tap');
         PH.rankView.requestStart(track);
         go('#/rank/' + track + '/play');
+        return;
+      }
+      // Ver.1.2：間違い探しのランダム5問チャレンジを始める（「〜に挑戦」「もう一度挑戦」）
+      if (t.getAttribute('data-act') === 'errch-start') {
+        const course = t.getAttribute('data-course');
+        if (!PH.errorChallenge.isCourse(course)) return;
+        PH.sound.play('tap');
+        PH.errorView.requestStart(course);
+        const to = '#/error/challenge/' + course + '/play';
+        if (location.hash === to) route();
+        else go(to);
         return;
       }
       if (t.hasAttribute('data-level')) {
