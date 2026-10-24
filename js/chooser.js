@@ -55,6 +55,8 @@
     el.classList.toggle('is-text', !!opts.textOptions);
     // 選択肢が4つ以上なら2列に並べる（1列に並べると、△BDM のような文字がボタンからはみ出す）
     el.classList.toggle('is-many', opts.options.filter(function (o) { return !o.wide; }).length > 3);
+    // 長い文字の選択肢が3つ横に並ぶとき（解答レベル3つ）は、さらに小さい文字にする（「スタンダード」がはみ出さないように）
+    el.classList.toggle('is-three', !!opts.textOptions && opts.options.filter(function (o) { return !o.wide; }).length === 3);
     const msg = el.querySelector('.chooser-message');
     msg.textContent = opts.message || '';
     msg.hidden = !opts.message;
