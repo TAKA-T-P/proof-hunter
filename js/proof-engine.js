@@ -216,6 +216,15 @@
           else if (s.rule === 'angleBisector') err = R.checkAngleBisector(problem, s);
           else if (s.rule === 'isoscelesConverseSides') err = R.checkIsoscelesConverseSides(problem, s);
           else if (s.rule === 'angleTransitive') err = R.checkTransitive(problem, s, (s.dependsOn || []).map(function (d) { return ids[d]; }).filter(Boolean));
+          else if (s.rule === 'linearPairRightAngle') {
+            // 後半のステップ：合同から導いた角の等しさ（最終結論）から、2直線は垂直（p47）
+            err = R.checkLinearPair(problem, s);
+            const fk = problem.finalStep && problem.finalStep.items.map(function (n) { return G().elementKey(problem.figure, n); });
+            const pk = s.premise.map(function (n) { return G().elementKey(problem.figure, n); });
+            if (!fk || V().equationKey(fk[0], fk[1]) !== V().equationKey(pk[0], pk[1])) errors.push(s.id + ': 前提が最終結論と一致しない');
+            if ((s.dependsOn || []).indexOf('final') < 0) errors.push(s.id + ': 最終結論のあとに解くステップなのに dependsOn に final がない');
+            if (s.label !== (s.lines || []).join('⊥')) errors.push(s.id + ': label が垂直の関係と一致しない');
+          }
           else if (s.rule === 'halfSegments') {
             err = R.checkHalfSegments(problem, s);
             // 前提（等しい2つの線分）は、依存するステップの結論であること

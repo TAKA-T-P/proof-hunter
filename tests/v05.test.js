@@ -28,8 +28,8 @@ const geo = PH.geometry;
 const KP = PH.mathKeypad;
 const k = (p, n) => geo.elementKey(p.figure, n);
 // STAGE 6（Ver.0.5）の5問。STAGE 7（多段階証明）は v07.test.js で確かめる
-const NEW = TRI.filter((p) => PH.hasFinalStep(p) && p.stage === 6);
-const LEGACY = TRI.filter((p) => !PH.hasFinalStep(p) && p.stage <= 7);
+const NEW = TRI.filter((p) => PH.hasFinalStep(p) && p.stage === 5);
+const LEGACY = TRI.filter((p) => !PH.hasFinalStep(p) && p.stage <= 6);
 const TYPES = ['fill', 'build', 'challenge'];
 
 // 対応を保ったまま頂点を同時に並べ替えた表記（6通り）と、左右を交換した表記（さらに6通り）
@@ -107,11 +107,11 @@ function withFakeStorage(initial, fn) {
 // ---- 問題データ ---------------------------------------------------------------
 
 test('STAGE 6 は p16〜p20 で、結論が辺・角の等しさ', () => {
-  assert.equal(PH.problems.length, 48);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p48）
-  const st6 = PH.getStage(6);
+  assert.equal(PH.problems.length, 47);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p47）
+  const st6 = PH.getStage(5);
   assert.equal(st6.title, '合同から結論を導け！');
   // Ver.0.9 で p35（結論が平行。後半のステップで「錯角が等しいから平行」）が STAGE 6 に加わった（v09.test.js で確かめる）
-  assert.deepEqual(PH.stageProblems(6).map((p) => p.id), ['p16', 'p17', 'p18', 'p19', 'p20', 'p35']);
+  assert.deepEqual(PH.stageProblems(5).map((p) => p.id), ['p16', 'p17', 'p18', 'p19', 'p20', 'p35']);
   assert.deepEqual(NEW.map((p) => p.id), ['p16', 'p17', 'p18', 'p19', 'p20']);
   assert.deepEqual(NEW.map((p) => PH.conclusionType(p)), ['equalAngle', 'equalSide', 'equalSide', 'equalSide', 'equalAngle']);
   // 既存の15問は三角形の合同のまま（conclusionType がなければ triangleCongruence）
@@ -700,7 +700,7 @@ test('保存：Ver.0.4 の記録を保ち、新しい問題は未クリアで始
       ['easy', 'standard', 'challenge'].forEach((lv) => assert.equal(S.getProblem(p.id, 'puzzle:' + lv).cleared, false));
     });
     // STAGE 6 の集計と復習（Ver.0.9 で p35 が加わり6問）
-    let st = S.stageStats(6);
+    let st = S.stageStats(5);
     assert.equal(st.total, 6);
     assert.equal(st.cleared, 0);
     assert.equal(st.maxStars, 18);
@@ -715,7 +715,7 @@ test('保存：Ver.0.4 の記録を保ち、新しい問題は未クリアで始
     const r = S.recordClear('p18', 3, 0, 'puzzle:challenge');
     assert.deepEqual(r.lowered, ['easy', 'standard']);
     assert.equal(S.getProblem('p18', 'puzzle:easy').bestStars, 3);
-    st = S.stageStats(6, 'puzzle:standard');
+    st = S.stageStats(5, 'puzzle:standard');
     assert.equal(st.cleared, 1);
     // 既存の記録は変わらない
     assert.equal(S.getProblem('p01').bestStars, 3);

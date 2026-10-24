@@ -659,7 +659,7 @@
     if (status === 'ng') cls.push('is-ng');
     if (status === 'ok') cls.push('is-ok');
     const k = kindOf(s);
-    let text = card ? card.text : PLACEHOLDER[s.input ? (s.inputKind === 'tri' ? 'tri' : k === 'final' ? 'finalInput' : k === 'cmr' ? 'cmrInput' : k === 'qeq' ? 'qinput' : 'input') : k];
+    let text = card ? card.text : s.expr ? '式を選ぶ' : PLACEHOLDER[s.input ? (s.inputKind === 'tri' ? 'tri' : k === 'final' ? 'finalInput' : k === 'cmr' ? 'cmrInput' : k === 'qeq' ? 'qinput' : 'input') : k];
     const draft = s.input && this.drafts[slotId];
     if (draft && draft.kind && !draft.isEmpty() && draft.value() !== z.inputs[slotId]) {
       cls.push('is-draft');
@@ -770,8 +770,9 @@
       body = '<p class="pz-step-lead">' + esc(st.lead || st.premiseLabel + 'より、') + '</p>' + this.blank('st:' + st.id) +
         '<div class="pz-eqline"><span class="pz-step-eq">' + esc(st.label) + '</span>' + tail + '</div>';
     } else if (st.type === 'expression') {
-      body = '<div class="pz-finalline">' + this.blank('st:' + st.id) + '<span>（' + esc(st.premiseLabel) + '）、</span></div>' +
-        '<div class="pz-eqline"><span class="pz-step-eq">' + esc(st.label) + '</span>' + tail + '</div>';
+      // 「（△DCEは正三角形）∠ACE＝∠ACD＋∠DCE＝【式】」（□に入る式をカードで選ぶ）
+      body = '<p class="pz-step-lead">' + esc(st.note || st.premiseLabel + 'だから、正三角形の1つの角は60°') + '</p>' +
+        '<div class="pz-eqline"><span class="pz-step-eq">' + esc(st.target + '＝' + PH.angleExpr.format(st.parts) + '＝') + '</span>' + this.blank('st:' + st.id) + tail + '</div>';
     } else if (z.type === 'fill') {
       // おてがる：2つの式の共通部分を選ぶ。結論は自動で表示
       body = '<div class="pz-finalline"><span>' + st.dependsOn.map(numOf).join('と') + 'で同じ部分：</span>' + this.blank('cc:' + st.id) + '</div>' +
@@ -787,7 +788,7 @@
     const z = this.puzzle;
     const s = z.slot(z.active);
     const current = z.placed[z.active];
-    const kindName = KIND_NAME[kindOf(s)];
+    const kindName = s.expr ? '式' : KIND_NAME[kindOf(s)];
     this.ref('tray').hidden = !this.trayOpen;
     this.root.classList.toggle('tray-open', this.trayOpen);
     const box = this.ref('cards');

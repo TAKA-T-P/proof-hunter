@@ -33,7 +33,7 @@ const E = PH.angleExpr;
 const R = PH.proofRules;
 const k = (p, n) => geo.elementKey(p.figure, n);
 // STAGE 7 の多段階証明（STAGE 8 の p27・p30 も proofSteps を持つが、直角三角形の欄があるので v08.test.js で確かめる）
-const MULTI = TRI.filter((p) => p.proofSteps && p.stage === 7);
+const MULTI = TRI.filter((p) => p.proofSteps && p.stage === 6);
 const TYPES = ['fill', 'build', 'challenge'];
 
 function fill(z, placement) {
@@ -110,13 +110,13 @@ function solveHunter(p) {
 // ---- 問題データ ---------------------------------------------------------------------
 
 test('STAGE 7「証明をつなげろ！」は p21〜p24 の多段階証明', () => {
-  assert.equal(PH.problems.length, 48);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p48）
-  assert.equal(PH.getStage(7).title, '証明をつなげろ！');
-  assert.deepEqual(PH.stageProblems(7).map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
+  assert.equal(PH.problems.length, 47);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p47）
+  assert.equal(PH.getStage(6).title, '証明をつなげろ！');
+  assert.deepEqual(PH.stageProblems(6).map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
   assert.deepEqual(MULTI.map((p) => p.id), ['p21', 'p22', 'p23', 'p24']);
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
   // p01〜p20 は proofSteps を持たない（従来の形式）
-  TRI.filter((p) => p.stage <= 6).forEach((p) => assert.equal(p.proofSteps, undefined, p.id));
+  TRI.filter((p) => p.stage <= 5).forEach((p) => assert.equal(p.proofSteps, undefined, p.id));
 });
 
 test('新しい4問の仮定・推論ステップ・結論（教材の模範解答どおり）', () => {
@@ -416,7 +416,7 @@ test('パズル：ステップの誤答のメッセージ（理由・同じ式�
   z = new PH.Puzzle(p, 'challenge');
   fill(z, Object.assign({}, z.solution(), { 'st:s1': z.cards['srule:s1'].find((c) => !c.correct).id }));
   r = z.check();
-  assert.ok(r.result.messages.some((m) => /どんな角の関係を使って/.test(m.text)));
+  assert.ok(r.result.messages.some((m) => /角の大きさ（60°・90°）と、＋・－/.test(m.text)));
   // チャレンジ：導ける等式は入力（左右の入れかえ・角の別表記も正解）
   z = new PH.Puzzle(p, 'challenge');
   fill(z, Object.assign({}, z.solution(), { 'cr:s3': '∠DCB=∠ECA' }));
@@ -486,7 +486,7 @@ test('段位認定：定理・三段論法のミニ問題（1か所解答・正�
 // ---- 21-5 回帰 -----------------------------------------------------------------------
 
 test('回帰：p01〜p20 はステップの段階がなく、従来どおりの流れ・証明文・パズルの空欄', () => {
-  TRI.filter((p) => p.stage <= 6).forEach((p) => {
+  TRI.filter((p) => p.stage <= 5).forEach((p) => {
     const g = new PH.Game(p);
     assert.equal(g.engine, null, p.id);
     assert.equal(g.phase, PH.hasFinalStep(p) ? 'triangle' : 'collect', p.id);
@@ -538,8 +538,8 @@ test('回帰：Ver.0.6 の保存データを引き継ぎ、STAGE 7 は未クリ�
     // Ver.0.8：Ver.0.7 までの段位認定は「過去の記録」として残し、新しいコースは未認定から
     assert.equal(S.getRankLegacy().best.rankName, '四段');
     assert.equal(S.getRank('basic').best, null);
-    assert.equal(S.stageStats(7).cleared, 0);
-    assert.equal(S.stageStats(7).total, 4);
+    assert.equal(S.stageStats(6).cleared, 0);
+    assert.equal(S.stageStats(6).total, 4);
     S.recordClear('p23', 3, 0, 'puzzle:challenge');
     assert.equal(S.getProblem('p23', 'puzzle:easy').bestStars, 3);          // 上位レベルの★★★の反映
     assert.equal(S.getProblem('p23').cleared, false);                       // ハンターとは独立

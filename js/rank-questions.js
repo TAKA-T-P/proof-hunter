@@ -50,6 +50,8 @@
     rhombusSides: 'ひし形の4辺はすべて等しくなります（ひし形だと分かっているときだけ使えます）。',
     rhombusAngles: 'ひし形は平行四辺形なので、対角は等しくなります。',
     midpoint: '中点で分けた2つの線分の長さは等しくなります。',
+    rectangleSides: '長方形の対辺は等しくなります（長方形は平行四辺形）。',
+    rectangleAngles: '長方形の4つの角はすべて90°で等しくなります。',
   };
   // 理由の誤答の候補（もっともらしい順）
   const REASON_POOL = ['given', 'common', 'vertical', 'alternate', 'corresponding', 'commonAngle'];
@@ -828,7 +830,7 @@
    *   classify で最も特別な種類を求め、前提より特別になる（新しく言える）組だけを出題する。
    *   選択肢は ひし形・長方形・正方形（ただの四角形が前提のときは 平行四辺形 もふくむ）の3つ。正解は1つに決まる
    *   （ほかの選択肢は「この条件だけでは必ずそうなるとはいえない」か「より一般的な分類」）。
-   * 生成元の問題：p44（AB＝AD）・p45（角の二等分線）・p46（∠A＝90°）・p47（中点と MB＝MC）・p48（AC＝DB）と、成立条件の表
+   * 生成元の問題：p44（AB＝AD）・p45（∠A＝90°）と、成立条件の表
    */
   const QC_ATOM_TEXT = {
     adjacentSidesEqual: ['AB＝AD', 'AB＝BC'],
@@ -837,24 +839,16 @@
     diagonalsPerpendicular: ['AC⊥BD'],
     allSidesEqual: ['AB＝BC＝CD＝DA'],
     allAnglesEqual: ['∠A＝∠B＝∠C＝∠D'],
-    // 問題から：平行四辺形で、対角線が角の二等分線（p45）→ となり合う2辺が等しい／辺の中点から等しい距離（p47）→ 1つの角が直角
-    bisector: ['対角線ACが∠BADの二等分線'],
-    midpointEqual: ['辺ADの中点Mについて MB＝MC'],
   };
-  // 問題で証明した、性質の言いかえ（平行四辺形が前提）
-  const QC_DERIVED = {
-    bisector: { gives: 'adjacentSidesEqual', source: 'p45', note: '対角線ACが∠BADの二等分線なので、△ABCは二等辺三角形になり AB＝BC（問題45）' },
-    midpointEqual: { gives: 'oneRightAngle', source: 'p47', note: '△ABM≡△DCM から ∠A＝∠D。隣り合う角の和は180°なので ∠A＝90°（問題47）' },
-  };
+  // 問題で証明した、性質の言いかえ（平行四辺形が前提。今はなし）
+  const QC_DERIVED = {};
   const QC_CASES = [
     { base: 'parallelogram', atoms: ['adjacentSidesEqual'], v: 0, source: 'p44' },
     { base: 'parallelogram', atoms: ['adjacentSidesEqual'], v: 1 },
-    { base: 'parallelogram', atoms: ['bisector'], source: 'p45' },
     { base: 'parallelogram', atoms: ['diagonalsPerpendicular'] },
-    { base: 'parallelogram', atoms: ['oneRightAngle'], v: 0, source: 'p46' },
+    { base: 'parallelogram', atoms: ['oneRightAngle'], v: 0, source: 'p45' },
     { base: 'parallelogram', atoms: ['oneRightAngle'], v: 1 },
-    { base: 'parallelogram', atoms: ['diagonalsEqual'], source: 'p48' },
-    { base: 'parallelogram', atoms: ['midpointEqual'], source: 'p47' },
+    { base: 'parallelogram', atoms: ['diagonalsEqual'] },
     { base: 'parallelogram', atoms: ['adjacentSidesEqual', 'oneRightAngle'] },
     { base: 'parallelogram', atoms: ['diagonalsEqual', 'diagonalsPerpendicular'] },
     { base: 'rectangle', atoms: ['adjacentSidesEqual'], v: 1 },

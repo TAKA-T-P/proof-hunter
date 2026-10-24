@@ -31,6 +31,7 @@
  *   angleTransitive      同じ角に等しい2つの角は等しい（∠BAC＝∠CAD、∠CAD＝∠ACB → ∠BAC＝∠ACB）
  *   isoscelesConverseSides  2つの角が等しい三角形は二等辺三角形で、その2辺が等しい（∠BAC＝∠ACB → AB＝BC）
  *   segmentMidpoint      中点で分けた2つの線分は等しい（根拠の理由 midpoint）
+ *   linearPairRightAngle 一直線をつくる2つの角が等しければ、どちらも90°で2直線は垂直（∠AOB＝∠AOD → AC⊥BD。p47 の後半のステップ）
  *   rhombusDefinition ほか6つ … ひし形・長方形になるための条件（PH.SPECIAL_CONDITIONS）
  * 合同（三角形の合同・対応する辺・角）は既存の validation.js のしくみを使う（名前が重ならないよう、ここでは
  * 'triangleCongruence' は合同条件の判定、'correspondingSides'・'correspondingAngles' は PH.REASONS の既存の理由を指す）。
@@ -85,6 +86,7 @@
     angleTransitive: { label: '同じ角に等しい2つの角は等しいから', short: '角をつなぐ' },
     isoscelesConverseSides: { label: '2つの角が等しい三角形は二等辺三角形だから', short: '二等辺三角形の2辺' },
     segmentMidpoint: { label: '中点だから', short: '中点', reason: 'midpoint' },
+    linearPairRightAngle: { label: '一直線をつくる2つの角が等しいから（どちらも90°）', short: '90°を導く' },
     rhombusDefinition: { label: '4つの辺がすべて等しい', short: 'ひし形の定義', condition: 'rhombusDefinition' },
     rhombusAdjacentEqual: { label: '平行四辺形で、となり合う2辺が等しい', short: 'ひし形の条件', condition: 'rhombusAdjacentEqual' },
     rhombusDiagonalPerpendicular: { label: '平行四辺形で、対角線が垂直に交わる', short: 'ひし形の条件', condition: 'rhombusDiagonalPerpendicular' },
@@ -116,6 +118,7 @@
     angleBisector: ['対頂角は等しいから', '平行線の錯角は等しいから'],
     angleTransitive: ['共通な角だから', '対頂角は等しいから'],
     isoscelesConverseSides: ['二等辺三角形の底角は等しいから', '平行四辺形の対辺は等しいから'],
+    linearPairRightAngle: ['対頂角は等しいから', '三角形の内角の和は180°だから'],
   };
 
   // ---- データの確認（図と仮定から、そのルールで本当に言えるか） ---------------------------
@@ -310,6 +313,25 @@
   }
 
   /*
+   * Ver.1.0：一直線をつくる2つの角（linearPairRightAngle）。premise の2つの角は頂点と1本の半直線を共有し、
+   *   残りの2本の半直線は反対向き（一直線）。2つの角が等しければどちらも90°で、step.lines の2直線は垂直
+   */
+  function checkLinearPair(problem, step) {
+    const fig = problem.figure;
+    const a = clean(step.premise[0]), b = clean(step.premise[1]);
+    if (a.length !== 3 || b.length !== 3 || a[1] !== b[1]) return '2つの角の頂点が同じではない';
+    const V0 = a[1];
+    const common = [a[0], a[2]].find(function (x) { return b.indexOf(x) >= 0 && x !== V0; });
+    if (!common) return '2つの角が半直線を共有していない';
+    const X = a[0] === common ? a[2] : a[0], Y = b[0] === common ? b[2] : b[0];
+    if (!PH.quadrilateral.isBetween(fig, X, V0, Y)) return '残りの2本の半直線が一直線になっていない';
+    const L = PH.quadrilateral.lineKey;
+    const lk = (step.lines || []).map(function (s) { return L(fig, s); }).sort().join('|');
+    if (lk !== [L(fig, V0 + common), L(fig, X + Y)].sort().join('|')) return '垂直な2直線が、2つの角をつくる直線になっていない';
+    return near(V().measure(fig, step.premise[0]).value, 90) && near(V().measure(fig, step.premise[1]).value, 90) ? null : '2つの角が図の上で90°でない';
+  }
+
+  /*
    * Ver.0.9：等しい線分の半分（halfSegments）。premise の2つの線分が等しく、items の線分がそれぞれの「端点と中点」を結ぶ
    *   例 p36 s2：OB＝OD、E は OB の中点・F は OD の中点 → OE＝OF。中点は problem.midpoints（仮定）
    */
@@ -410,6 +432,7 @@
     checkParallelAlternate: checkParallelAlternate,
     checkAngleBisector: checkAngleBisector,
     checkIsoscelesConverseSides: checkIsoscelesConverseSides,
+    checkLinearPair: checkLinearPair,
     knownParallelogram: knownParallelogram,
     knownAngles: knownAngles,
   };

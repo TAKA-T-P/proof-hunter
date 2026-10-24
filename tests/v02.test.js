@@ -42,10 +42,10 @@ test('全問題のデータ検証（図の数値チェック・ID重複・ステ
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
 });
 
-test('48問・11ステージ（STAGE 1〜5は各3問、STAGE 6 は6問（p35 をふくむ）、STAGE 7 は4問、STAGE 8 は6問、STAGE 9 は3問、STAGE 10 は8問、STAGE 11 は6問）', () => {
-  assert.equal(PH.problems.length, 48);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p48）
-  assert.equal(PH.STAGES.length, 11);
-  const size = { 6: 6, 7: 4, 8: 6, 9: 3, 10: 8, 11: 6 };
+test('47問・10ステージ（STAGE 1 は6問（旧 STAGE 4 の3問をふくむ）、STAGE 2〜4は各3問、STAGE 5 は6問（p35 をふくむ）、STAGE 6 は4問、STAGE 7 は6問、STAGE 8 は3問、STAGE 9 は8問、STAGE 10 は5問）', () => {
+  assert.equal(PH.problems.length, 47);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p47）
+  assert.equal(PH.STAGES.length, 10);
+  const size = { 1: 6, 5: 6, 6: 4, 7: 6, 8: 3, 9: 8, 10: 5 };
   PH.STAGES.forEach((st) => assert.equal(PH.stageProblems(st.id).length, size[st.id] || 3, 'STAGE ' + st.id));
   ['p01', 'p02', 'p03'].forEach((id) => assert.ok(PH.getProblem(id), id + ' が残っている'));
 });
@@ -61,7 +61,8 @@ test('問題はステージ順に並び、ステージ内の次の問題をた�
   const stages = TRI.map((p) => p.stage);
   assert.deepEqual(stages, stages.slice().sort((a, b) => a - b));
   const s1 = PH.stageProblems(1).map((p) => p.id);
-  assert.deepEqual(s1, ['p01', 'p04', 'p06']);
+  assert.deepEqual(s1, ['p01', 'p04', 'p06', 'p07', 'p11', 'p12']);   // 旧 STAGE 4（p07・p11・p12）を STAGE 1 へ移した
+  assert.ok(PH.stageProblems(1).every((p) => p.difficulty === 1));
 });
 
 // ---- 全問題の正誤判定 ----------------------------------------------------------
@@ -216,10 +217,10 @@ test('Ver.0.1 の保存データを引き継ぎ、ステージのクリア数・
     assert.equal(PH.storage.getLastProblem(), 'p02');
     assert.equal(PH.storage.getSound(), false);
     const s1 = PH.storage.stageStats(1);
-    assert.equal(s1.total, 3);
+    assert.equal(s1.total, 6);
     assert.equal(s1.cleared, 1);
     assert.equal(s1.stars, 3);
-    assert.equal(s1.maxStars, 9);
+    assert.equal(s1.maxStars, 18);
     assert.equal(s1.complete, false);
     assert.equal(PH.storage.stageStats(2).stars, 2);
     // 保存すると旧データを残したまま version が付く
@@ -247,6 +248,7 @@ test('復習対象：未クリアと★・★★の問題。★★★は外れ�
     // 評価は下がらない（★★★のあとに★でクリアしても復習対象に戻らない）
     PH.storage.recordClear('p04', 1, 5);
     assert.ok(!PH.storage.isReviewTarget('p04'));
+    ['p07', 'p11', 'p12'].forEach((id) => PH.storage.recordClear(id, 3, 0));
     assert.equal(PH.storage.stageStats(1).complete, true);
   });
 });

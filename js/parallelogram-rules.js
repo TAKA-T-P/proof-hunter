@@ -53,7 +53,7 @@
   function targetType(p) { return PH.quadType(p) || 'parallelogram'; }
   function isSpecial(p) { return isQuad(p) && targetType(p) !== 'parallelogram'; }
   // ひし形・長方形の性質の理由 → その性質をもつ種類（Ver.1.0）
-  const SPECIAL_PROPERTY_REASONS = { rhombusSides: 'rhombus', rhombusAngles: 'rhombus' };
+  const SPECIAL_PROPERTY_REASONS = { rhombusSides: 'rhombus', rhombusAngles: 'rhombus', rectangleSides: 'rectangle', rectangleAngles: 'rectangle' };
 
   // 仮定で平行四辺形と分かっている四角形（ひし形・長方形・正方形と書かれた四角形もふくむ。包含関係）
   function knownParallelogramList(p) {
@@ -264,6 +264,8 @@
       if (r.all.some(function (a) { return a.condition === conditionId; }) || (part(p).alternatives || []).indexOf(conditionId) >= 0) {
         return { ok: false, status: 'alternative', miss: false };
       }
+      // より特別な種類（正方形）の条件：集めた根拠からは言えない
+      if (c.type !== targetType(p)) return { ok: false, status: 'too-specific', miss: true, type: c.type };
       return { ok: false, status: 'wrong-condition', miss: true };
     }
     if (r.all.some(function (a) { return a.condition === conditionId; })) return { ok: true, status: 'correct', condition: conditionId };
@@ -353,6 +355,22 @@
     return { status: 'wrong-equation' };
   }
 
+  /*
+   * 2つの要素（要素キー）が、どちらも証明する四角形の辺・角・対角線（とその半分）か。
+   * 正しいが今回は使わない関係のうち、四角形の外の辺・角をふくむもの（p40 の AD∥BC。AD∥EF を導く途中で使う関係）は、
+   * 「今回の証明では使わない」ではなく「まずは四角形の辺や角から選ぼう」と案内する
+   */
+  function isTargetRelation(p, keys) {
+    if (!isQuad(p) || !keys || keys.length !== 2) return true;
+    const fig = p.figure;
+    const quad = p.targetQuadrilateral;
+    const names = Q().sides(quad).concat(Q().angles(quad), Q().diagonals(quad));
+    (Q().diagonalHalves(fig, quad) || []).forEach(function (pr) { names.push(pr[0], pr[1]); });
+    const own = {};
+    names.forEach(function (n) { try { own[G().elementKey(fig, n)] = true; } catch (e) { /* 図にない角 */ } });
+    return keys.every(function (k) { return !!own[k]; });
+  }
+
   // 正しいが平行四辺形の根拠には使わない関係：仮定の等式・平行、合同の根拠（三角形の部分がある問題）
   function extraFacts(p) {
     const out = [];
@@ -398,7 +416,7 @@
     }
     const st = otherStatus(p, key);
     if (st.status === 'target-property') return out(isTargetPropertyReason(p, reasonId) ? 'property-unproved' : 'wrong-equation', true);
-    if (st.status === 'known') return st.reasons.indexOf(reasonId) >= 0 ? out('irrelevant', false) : out('wrong-reason', true);
+    if (st.status === 'known') return st.reasons.indexOf(reasonId) >= 0 ? out('irrelevant', false, { outsideQuad: !isTargetRelation(p, keys) }) : out('wrong-reason', true);
     return out('wrong-equation', true);
   }
 
@@ -440,6 +458,8 @@
         const key = factKey(fig, ev.items, 'eq');
         const ok = S().knownOfType(p, t).some(function (q) {
           if (ev.reason === 'rhombusAngles') return propertyFacts(fig, q).some(function (f) { return f.key === key && f.reason === 'parallelogramAngles'; });
+          if (ev.reason === 'rectangleSides') return propertyFacts(fig, q).some(function (f) { return f.key === key && f.reason === 'parallelogramSides'; });
+          if (ev.reason === 'rectangleAngles') return specialPropertyFacts(fig, q, 'rectangle').some(function (f) { return f.key === key && G().isAngleName(f.items[0]); });
           return specialPropertyFacts(fig, q, t).some(function (f) { return f.key === key && f.reason === ev.reason; });
         });
         if (!ok) errors.push(ev.id + ': 仮定の' + S().typeName(t) + 'の性質になっていない');
@@ -618,6 +638,7 @@
     knownParallelogramList: knownParallelogramList,
     specialPropertyFacts: specialPropertyFacts,
     isTargetPropertyReason: isTargetPropertyReason,
+    isTargetRelation: isTargetRelation,
     givenFacts: givenFacts,
     conditionLabel: conditionLabel,
     holdsSpecial: holdsSpecial,

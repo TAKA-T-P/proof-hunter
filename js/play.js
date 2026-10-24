@@ -380,7 +380,7 @@
       duplicate: 'この根拠はもう見つけているよ！',
       'not-explain': '等しい' + what + 'は見つけられたね！ それは、理由を1つ選ぶだけで言える関係だよ。下の「等しい理由」から選ぼう。',
       'wrong-role': r.evidence && wrongRoleText(p, r),
-      irrelevant: 'たしかに等しいね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！',
+      irrelevant: r.outsideQuad ? quadFirstText(p) : 'たしかに等しいね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！',
       'from-conclusion': PH.hasCongruence(p) ? 'それは' + PH.congruenceText(p) + 'が証明できたら言えることだよ！ まだ根拠には使えないよ。' : '',
       outside: PH.hasCongruence(p) ? outsideText(g) : '',
       'target-property': targetPropertyText(p),
@@ -427,6 +427,7 @@
     } else {
       this.say(s.type === 'compare'
         ? '2つの式の右辺が同じなら、左辺どうしが等しいね。等しくなる2つの角をもう一度選ぼう。'
+        : s.type === 'expression' ? 'その式で合っているかな？ 角の大きさ（60°・90°）と、＋・－をもう一度確かめよう。'
         : 'その理由で言えるかな？ どんな図形の性質・角の関係を使ったか、もう一度考えよう。', 'ng');
       PH.sound.play(r.miss ? 'wrong' : 'soft');
       this.shake = true;
@@ -844,7 +845,7 @@
         break;
       case 'irrelevant':
         PH.sound.play('soft');
-        this.say('たしかに言える関係だね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！', 'info');
+        this.say(r.outsideQuad ? quadFirstText(p) : 'たしかに言える関係だね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！', 'info');
         break;
       case 'property-unproved':
         this.say(targetPropertyText(p), 'ng');
@@ -885,6 +886,8 @@
         ? '平行な辺と長さが等しい辺は、同じ1組の対辺かな？ 集めた根拠をもう一度確認しよう！'
         : r.status === 'wrong-type'
           ? 'それは' + PH.QUAD_TYPE_NAMES[r.type] + 'になるための条件だよ！ 今回証明するのは' + tname + 'だね。'
+        : r.status === 'too-specific'
+          ? 'それは' + PH.QUAD_TYPE_NAMES[r.type] + 'になるための条件だよ！ 集めた根拠で分かったことを、もう一度確認しよう。'
           : '集めた根拠と成立条件の関係を確認しよう！ どの辺・角・対角線についての関係かな？', 'ng');
     }
     this.render();
@@ -1125,7 +1128,9 @@
     const ph = g.phase === 'step' ? (g.explainPart === 'quad' ? 'qcollect' : 'collect') : g.phase;
     const now = ORDER.indexOf(ph);
     const qlabel = PH.quadTypeName(this.problem) + 'の根拠';
-    let steps = [['triangle', '三角形'], ['collect', '合同の根拠'], ['congruence', '合同条件'], ['final', '角の等しさ'], ['qcollect', qlabel], ['qcondition', '成立条件']];
+    // 合同から導く結論は、辺の等しさ（p42 の BE＝DF）か角の等しさ（p35・p47・p48）
+    const fsLabel = this.problem.finalStep && this.problem.finalStep.relationType === 'side' ? '辺の等しさ' : '角の等しさ';
+    let steps = [['triangle', '三角形'], ['collect', '合同の根拠'], ['congruence', '合同条件'], ['final', fsLabel], ['qcollect', qlabel], ['qcondition', '成立条件']];
     if (!PH.hasLemma(this.problem)) steps = steps.slice(4);
     const items = steps.map(function (st) {
       const i = ORDER.indexOf(st[0]);
@@ -1184,9 +1189,11 @@
       }
     } else {
       const lead = s.type === 'expression'
-        ? '<p class="step-premise">' + esc(s.note || s.premiseLabel + 'だから、正三角形の1つの角は60°') + '</p><p class="step-expr">' + esc(s.label) + '</p><p class="panel-note">この式は、何を使って導いたかな？</p>'
+        ? '<p class="step-premise">' + esc(s.note || s.premiseLabel + 'だから、正三角形の1つの角は60°') + '</p>' +
+          '<p class="step-expr">' + esc(s.target + '＝' + PH.angleExpr.format(s.parts) + '＝') + '<span class="expr-blank">' + esc(g.stepChoice ? g.stepOptions(s).find(function (o) { return o.id === g.stepChoice; }).text : '？') + '</span></p>' +
+          '<p class="panel-note">角の大きさを使って表すと、□に入る式はどれかな？</p>'
         : '<p class="step-premise">' + esc(s.lead || s.premiseLabel + 'より、') + '</p><p class="panel-note">理由を選ぼう</p>';
-      html += lead + '<div class="choices reasons step-opts" role="group" aria-label="理由">' + g.stepOptions(s).map(function (o) {
+      html += lead + '<div class="choices reasons step-opts" role="group" aria-label="' + (s.type === 'expression' ? '式' : '理由') + '">' + g.stepOptions(s).map(function (o) {
         return '<button class="choice" data-step-opt="' + o.id + '" aria-pressed="' + (g.stepChoice === o.id) + '">' + esc(o.text) + '</button>';
       }).join('') + '</div>' +
         (s.type === 'theorem' ? '<p class="step-concl">' + esc(s.label) + '</p>' : '');
@@ -1329,7 +1336,11 @@
     const final = g.phase === 'final';
     if (final) {
       const fw = this.problem.finalStep.relationType === 'angle' ? '角' : '辺';
-      if (n === 0) note = PH.congruenceText(this.problem) + ' が証明できた！ 結論 <b>' + esc(this.problem.conclusion) + '</b> になる2つの' + fw + 'を選ぼう。';
+      // 四角形の問題（p42・p47・p48）は、合同から導いた等しさを四角形の根拠に使う（結論そのものではない）
+      if (n === 0) note = PH.isQuadProblem(this.problem)
+        ? PH.congruenceText(this.problem) + ' が証明できた！ <b>' + esc(PH.quadrilateral.name(this.problem.targetQuadrilateral)) + '</b>が' + esc(PH.quadTypeName(this.problem)) +
+          'であることを示すのに使う、合同な図形の対応する' + fw + 'で等しい2つの' + fw + 'を選ぼう。'
+        : PH.congruenceText(this.problem) + ' が証明できた！ 結論 <b>' + esc(this.problem.conclusion) + '</b> になる2つの' + fw + 'を選ぼう。';
       else if (n === 1) note = '2つ目の' + what + 'をタップしよう。';
       else if (!g.reason) note = 'その2つが等しい理由を選ぼう。';
       else note = '「証明を完成する」を押そう！';
@@ -1348,7 +1359,8 @@
     }
     // Ver.0.8：直角三角形の問題は、今集めている欄（直角・斜辺・他の1辺・鋭角）を見出しに出す
     const RT = PH.rightTriangle;
-    const roleNow = !final && g.isRight() ? g.role : null;
+    // 直角三角形の欄は、三角形の合同の根拠を集めているときだけ（四角形の根拠を集める段階では出さない。p42）
+    const roleNow = g.phase === 'collect' && g.isRight() ? g.role : null;
     let head = final ? '⭐ 結論を導こう！' : qc ? '▱ ' + PH.quadTypeName(this.problem) + 'の根拠をさがそう' : g.mode === 'angle' ? '∠ 等しい角をさがそう' : '／ 等しい辺をさがそう';
     if (roleNow) {
       head = roleNow === 'right' ? '📐 直角を確かめよう' : '📐 ' + RT.ROLE_LABEL[roleNow] + 'をさがそう';
@@ -1398,7 +1410,8 @@
     const self = this;
     const total = g.total();
     let html = '';
-    if (g.isRight()) {
+    // 四角形の根拠を集める段階（p42）は、直角三角形の欄ではなく四角形の根拠の欄にする
+    if (g.isRight() && g.part !== 'quad') {
       // Ver.0.8：直角三角形の根拠の欄（直角 → 斜辺 → 他の1辺／鋭角）。空いている欄はタップで選べる
       const RT = PH.rightTriangle;
       g.roles.forEach(function (role) {
@@ -1441,6 +1454,9 @@
     const facts = this.ref('facts');
     if (facts) facts.innerHTML = this.factsHtml();
     slots.classList.toggle('complete', foundList.length === total);
+    slots.classList.remove('slots-role');
+    const note = this.root.querySelector('.slots-note');
+    if (note && g.part === 'quad') note.textContent = '見つけた根拠をタップすると、図の場所が光るよ';
     this.newSlot = null;
   };
 
@@ -1553,6 +1569,11 @@
       '<p class="proof-cond"><strong>' + esc(q.condition) + '</strong>' + (/(平行|直角)$/.test(q.condition) ? 'な' : '') + 'ので、</p>' +
       '<p class="proof-concl proof-goal">' + esc(q.conclusion) + '</p>' +
       '</div>';
+  }
+
+  // 正しいが、証明する四角形の外の辺・角をふくむ関係を根拠にしようとしたとき（p40 の AD∥BC。AD∥EF を説明するときに使う）
+  function quadFirstText(p) {
+    return 'たしかに言える関係だね！ でも、まずは' + PH.quadrilateral.name(p.targetQuadrilateral) + 'の辺や角から選んでね！';
   }
 
   // 証明する四角形の性質を、平行四辺形と分かる前に使ったときのメッセージ

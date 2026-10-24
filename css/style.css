@@ -1045,6 +1045,7 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .step-tab[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-50); color: var(--navy); }
 .step-premise { margin: 4px 0 0; font-weight: 800; }
 .step-expr { margin: 2px 0; padding: 4px 10px; border-radius: 10px; background: #fffbeb; border: 2px solid #fde68a; font-size: 1.1rem; font-weight: 900; text-align: center; }
+.expr-blank { display: inline-block; min-width: 3.5em; margin-left: 2px; padding: 0 6px; border-bottom: 3px solid var(--gold); color: var(--blue-600); }
 .step-concl { margin: 6px 0 0; font-size: 1.25rem; font-weight: 900; text-align: center; color: var(--navy); }
 .step-opts .choice { text-align: left; }
 .cmp-exprs { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }

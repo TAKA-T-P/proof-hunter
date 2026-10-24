@@ -12,7 +12,7 @@
  *   #/puzzle/review          証明パズル：苦手な問題
  *   #/puzzle/play/<id>       証明パズル：プレイ
  *   #/howto                  あそびかた：メニュー（Ver.1.0）
- *   #/howto/<hunter|puzzle|advanced|rank>  あそびかたの説明（ハンター／パズル／STAGE 6以降について／段位認定）
+ *   #/howto/<hunter|puzzle|advanced|rank>  あそびかたの説明（ハンター／パズル／STAGE 5以降について／段位認定）
  *   #/rank                   段位認定：トップ（Ver.0.6。Ver.0.8 から2つのコースを選ぶ）
  *   #/rank/<コース>/play     段位認定：プレイ（「このコースに挑戦！」から来たときだけ始まる）。コースは basic / comprehensive
  *   #/rank/<コース>/result  #/rank/<コース>/review  #/rank/<コース>/grades   結果・間違えた問題・段位一覧（コース別）
@@ -238,28 +238,28 @@
         art: '<svg viewBox="0 0 200 120"><rect x="8" y="30" width="58" height="56" rx="8" class="h-slot"/><rect x="71" y="30" width="58" height="56" rx="8" class="h-slot"/><rect x="134" y="30" width="58" height="56" rx="8" class="h-slot"/><text x="37" y="63" class="h-stxt">AB＝CB</text><text x="100" y="63" class="h-stxt">AD＝CD</text><text x="163" y="63" class="h-stxt">BD＝BD</text></svg>',
       },
       {
-        title: '合同から結論を導こう！（STAGE 6）',
+        title: '合同から結論を導こう！（STAGE 5）',
         text: '結論が「AC＝BD」のような問題では、①証明する2つの三角形をタップして「決定」、②根拠を3つ、③合同条件、④「合同な図形の対応する辺（角）は等しい」で結論を導くよ。',
         art: '<svg viewBox="0 0 200 120"><polygon points="20,100 60,20 95,100" class="h-tri1"/><polygon points="105,100 140,20 180,100" class="h-tri2"/><text x="60" y="80" class="h-btxt">1</text><text x="140" y="80" class="h-btxt">2</text><text x="100" y="114" class="h-btxt">A↔D・B↔E・C↔F</text></svg>',
       },
       {
-        title: '新しい根拠を導こう！（STAGE 7）',
+        title: '新しい根拠を導こう！（STAGE 6）',
         text: '理由を1つ選ぶだけでは言えない根拠（∠ACE＝∠BCD など）は、2つの角を選んで「詳しい理由を説明する」！ 定理の理由を選んだり、∠ACE＝∠ACD＋60°、∠BCD＝∠ACD＋60° の右辺（同じ部分）をタップして ∠ACE＝∠BCD を導いたりすると、根拠に登録されるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="28" class="h-btxt">∠ACE</text><rect x="110" y="10" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="28" class="h-btxt" style="font-size:11px">∠ACD＋60°</text><rect x="10" y="46" width="80" height="26" rx="8" class="h-btn"/><text x="50" y="64" class="h-btxt">∠BCD</text><rect x="110" y="46" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="64" class="h-btxt" style="font-size:11px">∠ACD＋60°</text><text x="100" y="104" class="h-btxt">→ ∠ACE＝∠BCD</text></svg>',
       },
       {
-        title: '直角三角形の証明（STAGE 8）',
+        title: '直角三角形の証明（STAGE 7）',
         text: '直角三角形の問題では、根拠の欄が「直角」「斜辺」「他の1辺（または鋭角）」になるよ。まず2つの直角をタップして、90°と言える理由（仮定・垂直・正方形の角）を選ぼう。斜辺は直角に向かい合う辺だよ。欄をタップすると、集める根拠を切りかえられるよ。',
         art: '<svg viewBox="0 0 200 120"><polygon points="20,100 20,30 90,100" class="h-tri1"/><polyline points="20,88 32,88 32,100" class="h-rule"/><line x1="20" y1="30" x2="90" y2="100" class="h-sel"/><text x="70" y="58" class="h-txt">斜辺</text><rect x="110" y="16" width="80" height="24" rx="8" class="h-btn h-on"/><text x="150" y="33" class="h-btxt">直角</text><rect x="110" y="48" width="80" height="24" rx="8" class="h-btn"/><text x="150" y="65" class="h-btxt">斜辺</text><rect x="110" y="80" width="80" height="24" rx="8" class="h-btn"/><text x="150" y="97" class="h-btxt">他の1辺</text></svg>',
       },
       {
-        title: '平行四辺形（STAGE 9・10）',
-        text: 'STAGE 9 では、平行四辺形の性質（対辺は等しい・対辺は平行・対角線はそれぞれの中点で交わる）を三角形の合同の根拠に使うよ。STAGE 10 の、結論が「四角形ABCDは平行四辺形」の問題では、平行四辺形になるための根拠（2つ）を集めて、5つの成立条件から選ぶよ。平行を示すときは、2つの辺を選んでから「＝⇔∥」で ∥ に切りかえよう。「平行四辺形の対辺は等しい」などの性質は、平行四辺形だと分かっている四角形にしか使えないよ。図の右の「四角形確認」で、対辺・対角・対角線を確認できるよ。',
+        title: '平行四辺形（STAGE 8・9）',
+        text: 'STAGE 8 では、平行四辺形の性質（対辺は等しい・対辺は平行・対角線はそれぞれの中点で交わる）を三角形の合同の根拠に使うよ。STAGE 9 の、結論が「四角形ABCDは平行四辺形」の問題では、平行四辺形になるための根拠（2つ）を集めて、5つの成立条件から選ぶよ。平行を示すときは、2つの辺を選んでから「＝⇔∥」で ∥ に切りかえよう。「平行四辺形の対辺は等しい」などの性質は、平行四辺形だと分かっている四角形にしか使えないよ。図の右の「四角形確認」で、対辺・対角・対角線を確認できるよ。',
         art: '<svg viewBox="0 0 200 120"><polygon points="50,20 20,100 150,100 180,20" class="h-tri1"/><line x1="50" y1="20" x2="180" y2="20" class="h-sel"/><line x1="20" y1="100" x2="150" y2="100" class="h-sel"/><text x="115" y="14" class="h-btxt">∥</text><text x="85" y="115" class="h-btxt">∥</text><rect x="62" y="44" width="76" height="26" rx="8" class="h-btn h-on"/><text x="100" y="62" class="h-btxt">＝⇔∥</text></svg>',
       },
       {
-        title: '特別な平行四辺形（STAGE 11）',
-        text: 'ひし形・長方形になることを証明する問題では、根拠を集めると「AB＝BC＝CD＝DA」（4つの辺がすべて等しい）などがまとめて表示されるよ。ひし形・長方形になるための6つの条件から、正しいものを選ぼう。「ひし形の4辺は等しい」などの性質は、ひし形だと分かっている四角形にしか使えないよ。三角形の合同を使う問題は、合同を示したあとも続けて、長方形であることまで証明しよう。',
+        title: '特別な平行四辺形（STAGE 10）',
+        text: 'ひし形・長方形になることを証明する問題では、根拠を集めると「AB＝BC＝CD＝DA」（4つの辺がすべて等しい）などがまとめて表示されるよ。成立条件は「4つの辺がすべて等しい」「4つの角がすべて等しい」「4つの辺と角がすべて等しい」から選ぼう。「ひし形の4辺は等しい」などの性質は、ひし形だと分かっている四角形にしか使えないよ。',
         art: '<svg viewBox="0 0 200 120"><polygon points="60,15 25,95 115,95 150,15" class="h-tri1"/><rect x="128" y="40" width="64" height="26" rx="8" class="h-btn h-on"/><text x="160" y="58" class="h-btxt">ひし形</text><text x="88" y="114" class="h-btxt">AB＝BC＝CD＝DA</text></svg>',
       },
       {
@@ -295,27 +295,27 @@
         art: '<svg viewBox="0 0 200 120"><rect x="14" y="8" width="118" height="28" rx="8" class="h-paper"/><text x="73" y="28" class="h-kp-disp">AB＝C＿</text><rect x="138" y="8" width="48" height="28" rx="8" class="h-btn"/><text x="162" y="27" class="h-btxt">辺⇔角</text><rect x="20" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="37" y="64" class="h-btxt">A</text><rect x="62" y="46" width="34" height="26" rx="6" class="h-btn"/><text x="79" y="64" class="h-btxt">B</text><rect x="104" y="46" width="34" height="26" rx="6" class="h-btn h-on"/><text x="121" y="64" class="h-btxt">C</text><rect x="146" y="46" width="34" height="26" rx="6" class="h-btn h-on"/><text x="163" y="64" class="h-btxt">D</text><rect x="20" y="80" width="40" height="26" rx="6" class="h-btn"/><text x="40" y="98" class="h-btxt">←</text><rect x="66" y="80" width="40" height="26" rx="6" class="h-btn"/><text x="86" y="98" class="h-btxt">消す</text><rect x="112" y="80" width="68" height="26" rx="6" class="h-btn h-on h-confirm"/><text x="146" y="98" class="h-btxt">決定</text></svg>',
       },
       {
-        title: '合同から結論を導く問題（STAGE 6）',
+        title: '合同から結論を導く問題（STAGE 5）',
         text: '最初に「△＿と△＿において」の三角形を、頂点の対応がそろうように答えよう（チャレンジは △ABC と △DEF のようにキーパッドで入力）。最後に「合同な図形の対応する辺（角）は等しいから」で結論を答えるよ。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="14" width="80" height="26" rx="8" class="h-btn h-on"/><text x="50" y="32" class="h-btxt">△ABC</text><text x="100" y="32" class="h-btxt">と</text><rect x="110" y="14" width="80" height="26" rx="8" class="h-btn h-on"/><text x="150" y="32" class="h-btxt">△DEF</text><rect x="15" y="56" width="170" height="24" rx="8" class="h-btn"/><text x="100" y="73" class="h-btxt">対応する辺は等しいから</text><rect x="55" y="88" width="90" height="24" rx="8" class="h-btn h-on"/><text x="100" y="105" class="h-btxt">AC＝DF</text></svg>',
       },
       {
-        title: '証明をつなげる問題（STAGE 7）',
+        title: '証明をつなげる問題（STAGE 6）',
         text: '定理の理由（二等辺三角形の底角・角の和・角の差）をカードで選び、2つの式を比べて新しい等式を導くよ。おてがるは2つの式の共通部分を選ぶだけ、スタンダードは比べる式と導ける等式を選び、チャレンジは導ける等式をキーパッドで入力しよう。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="180" height="24" rx="8" class="h-btn h-on"/><text x="100" y="27" class="h-btxt" style="font-size:11px">二等辺三角形の底角は等しいから</text><rect x="10" y="44" width="80" height="24" rx="8" class="h-btn"/><text x="50" y="61" class="h-btxt">③と④</text><text x="105" y="61" class="h-btxt">より、</text><rect x="40" y="78" width="120" height="24" rx="8" class="h-btn h-on"/><text x="100" y="95" class="h-btxt">∠ACE＝∠BCD</text></svg>',
       },
       {
-        title: '直角三角形の証明（STAGE 8）',
+        title: '直角三角形の証明（STAGE 7）',
         text: '直角の行（∠ABC＝∠DEF＝90°）は最初から表示されているよ。スタンダード・チャレンジでは、90°と言える理由を選ぼう。「斜辺」の行には直角に向かい合う辺の等式を、「他の1辺」「鋭角」の行にはそれ以外の等式を入れて、5つの合同条件から選ぼう。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="40" height="24" rx="6" class="h-btn h-on"/><text x="30" y="27" class="h-btxt">直角</text><text x="120" y="27" class="h-btxt">∠ABC＝∠DEF＝90°</text><rect x="10" y="46" width="40" height="24" rx="6" class="h-btn"/><text x="30" y="63" class="h-btxt">斜辺</text><rect x="70" y="46" width="110" height="24" rx="8" class="h-btn h-on"/><text x="125" y="63" class="h-btxt">AC＝DF</text><rect x="10" y="82" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="99" class="h-btxt" style="font-size:11px">斜辺と他の1辺がそれぞれ等しい</text></svg>',
       },
       {
-        title: '平行四辺形の証明（STAGE 10）',
+        title: '平行四辺形の証明（STAGE 9）',
         text: '平行四辺形の根拠の行には、等しい辺・角や平行な辺（AD∥BC）を入れ、最後に「平行四辺形になるための条件」のカードを選ぼう。チャレンジでは、キーパッドの「辺⇔角⇔∥」で平行も入力できるよ（入力の種類は、その行に合わせて最初から設定されているよ）。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="80" height="24" rx="8" class="h-btn"/><text x="50" y="27" class="h-btxt">仮定より</text><rect x="100" y="10" width="90" height="24" rx="8" class="h-btn h-on"/><text x="145" y="27" class="h-btxt">AD∥BC</text><rect x="100" y="44" width="90" height="24" rx="8" class="h-btn h-on"/><text x="145" y="61" class="h-btxt">AD＝BC</text><rect x="10" y="82" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="99" class="h-btxt" style="font-size:10px">1組の対辺が平行で、その長さが等しい</text></svg>',
       },
       {
-        title: 'ひし形・長方形の証明（STAGE 11）',
+        title: 'ひし形・長方形の証明（STAGE 10）',
         text: '根拠の行を埋めると、「∠A＝∠B＝∠C＝∠D」のような4つの辺・角の関係は表示済みだよ。最後に、ひし形・長方形になるための条件のカードを選ぼう（キーパッドで「ひし形」と入力する必要はないよ）。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="10" width="180" height="24" rx="8" class="h-btn"/><text x="100" y="27" class="h-btxt">∠A＝∠B＝∠C＝∠D</text><rect x="10" y="48" width="180" height="24" rx="8" class="h-btn h-on"/><text x="100" y="65" class="h-btxt">4つの角がすべて等しい</text><text x="100" y="100" class="h-btxt">ので、長方形である。</text></svg>',
       },
@@ -353,9 +353,9 @@
       },
     ],
   };
-  // Ver.1.0：STAGE 6 以降の内容（ハンター・パズル）は「STAGE 6以降について」に分ける
+  // Ver.1.0：STAGE 5 以降の内容（ハンター・パズル）は「STAGE 5以降について」に分ける
   (function () {
-    const adv = function (p) { return /STAGE (6|7|8|9|1\d)/.test(p.title); };
+    const adv = function (p) { return /STAGE (5|6|7|8|9|1\d)/.test(p.title); };
     HOWTO.advanced = HOWTO.hunter.filter(adv).map(function (p) { return Object.assign({}, p, { title: 'ハンター：' + p.title }); })
       .concat(HOWTO.puzzle.filter(adv).map(function (p) { return Object.assign({}, p, { title: 'パズル：' + p.title }); }));
     HOWTO.hunter = HOWTO.hunter.filter(function (p) { return !adv(p); });
@@ -365,7 +365,7 @@
   const HOWTO_MENU = [
     { id: 'hunter', ico: '🔍', name: 'ハンターモード', desc: '図をタップして、根拠を見つける遊び方', start: '#/select' },
     { id: 'puzzle', ico: '🧩', name: '証明パズル', desc: 'カードで証明文を完成させる遊び方・3つのレベル', start: '#/puzzle' },
-    { id: 'advanced', ico: '🏆', name: 'STAGE 6以降について', desc: '合同から結論・多段階証明・直角三角形・平行四辺形・ひし形と長方形', start: '#/select' },
+    { id: 'advanced', ico: '🏆', name: 'STAGE 5以降について', desc: '合同から結論・多段階証明・直角三角形・平行四辺形・ひし形と長方形', start: '#/select' },
     { id: 'rank', ico: '⏱️', name: '段位認定', desc: '120秒のミニ問題・2つのコース・段位', start: '#/rank' },
   ];
   const LAB_URL = 'https://taka-t-p.github.io/math-app-portal/';   // KEC数学科ラボ

@@ -145,14 +145,14 @@ function result(over) {
 // =====================================================================================
 
 test('30問・8ステージ。STAGE 8「直角三角形を攻略せよ！」は p25〜p30', () => {
-  assert.equal(PH.problems.length, 48);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p48）
-  assert.equal(PH.STAGES.length, 11);
-  assert.equal(PH.getStage(8).title, '直角三角形を攻略せよ！');
-  assert.deepEqual(PH.stageProblems(8).map((p) => p.id), ['p25', 'p26', 'p27', 'p28', 'p29', 'p30']);
+  assert.equal(PH.problems.length, 47);   // Ver.0.9：STAGE 9（p37〜p39）・STAGE 10（p31〜p34・p36・p40〜p42）、p35 は STAGE 6。Ver.1.0：STAGE 11（p43〜p47）
+  assert.equal(PH.STAGES.length, 10);
+  assert.equal(PH.getStage(7).title, '直角三角形を攻略せよ！');
+  assert.deepEqual(PH.stageProblems(7).map((p) => p.id), ['p25', 'p26', 'p27', 'p28', 'p29', 'p30']);
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
   assert.deepEqual(NEW.map((p) => p.congruence), ['RHS', 'RHA', 'RHA', 'RHS', 'RHA', 'RHA']);
   // 既存の24問は変わらない（直角三角形の合同条件を使わない・データの形もそのまま）
-  TRI.filter((p) => p.stage <= 7).forEach((p) => {
+  TRI.filter((p) => p.stage <= 6).forEach((p) => {
     assert.ok(['SSS', 'SAS', 'ASA'].includes(p.congruence), p.id);
     assert.ok(!p.evidence.some((ev) => ev.role), p.id);
   });
@@ -163,7 +163,7 @@ test('合同条件は5つ。RHA・RHS は直角三角形の合同条件で、中
   assert.equal(PH.CONDITIONS.RHS.label, '直角三角形の斜辺と他の1辺がそれぞれ等しい');
   assert.deepEqual(PH.CONDITION_ORDER, ['SSS', 'SAS', 'ASA']);
   assert.deepEqual(PH.RIGHT_CONDITION_ORDER, ['SSS', 'SAS', 'ASA', 'RHA', 'RHS']);
-  TRI.forEach((p) => assert.equal(PH.conditionOrder(p).length, p.stage === 8 ? 5 : 3, p.id));
+  TRI.forEach((p) => assert.equal(PH.conditionOrder(p).length, p.stage === 7 ? 5 : 3, p.id));
 });
 
 // =====================================================================================
@@ -266,7 +266,7 @@ test('直角三角形でない（直角の根拠がない）場合は RHS・RHA 
     assert.ok(!['RHS', 'RHA'].includes(val.deriveCondition(p, noRight)), p.id);
   });
   // 通常の問題の根拠からは RHS・RHA にならない
-  TRI.filter((p) => p.stage <= 7).forEach((p) => assert.ok(!PH.CONDITIONS[val.deriveCondition(p, p.evidence)].right, p.id));
+  TRI.filter((p) => p.stage <= 6).forEach((p) => assert.ok(!PH.CONDITIONS[val.deriveCondition(p, p.evidence)].right, p.id));
   // 直角の根拠が2つ（直角が2組）も不成立
   const p26 = P('p26');
   assert.equal(RT.derive(p26, [evOf(p26, 'right'), evOf(p26, 'right'), evOf(p26, 'hypotenuse')]), null);
@@ -316,7 +316,7 @@ test('未証明の直角や辺・角の等しさは利用できない', () => {
 // =====================================================================================
 
 test('SSS・SAS・ASA は従来どおり判定され、通常の問題の合同条件の選択肢は3つのまま', () => {
-  TRI.filter((p) => p.stage <= 7).forEach((p) => {
+  TRI.filter((p) => p.stage <= 6).forEach((p) => {
     assert.equal(val.deriveCondition(p, p.evidence), p.congruence, p.id);
     const g = new PH.Game(p);
     assert.deepEqual(g.conditionOptions(), ['SSS', 'SAS', 'ASA']);

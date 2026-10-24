@@ -206,7 +206,8 @@
     proof.stepLines.forEach(function (l) { no[l.stepId] = l.no; });
     z.preSteps.concat(z.postSteps).forEach(function (st) {
       if (st.type !== 'compare') {
-        z.cards['srule:' + st.id] = PH.stepOptions(p, st).map(function (o) {
+        // 角の式のステップは「∠ACE＝∠ACD＋∠DCE＝□」の□に入る式のカード（理由のカードではない）
+        z.cards['srule:' + st.id] = (st.type === 'expression' ? PH.expressionOptions(p, st) : PH.stepOptions(p, st)).map(function (o) {
           return { id: 'sr:' + st.id + ':' + o.id, kind: 'srule:' + st.id, text: o.text, correct: o.id === 'a' };
         });
         return;
@@ -467,6 +468,7 @@
    *             チャレンジ   cp ＋ { id: 'cr:<id>', input: true }（導ける等式をキーパッドで入力）
    */
   Puzzle.prototype.stepSlots = function (st) {
+    if (st.type === 'expression') return [{ id: 'st:' + st.id, kind: 'srule:' + st.id, step: st.id, expr: true, label: st.short + '（式）' }];
     if (st.type !== 'compare') return [{ id: 'st:' + st.id, kind: 'srule:' + st.id, step: st.id, label: st.short + '（理由）' }];
     if (this.type === 'fill') return [{ id: 'cc:' + st.id, kind: 'cmc:' + st.id, step: st.id, label: '2つの式の共通部分' }];
     return [
@@ -780,7 +782,7 @@
         r.ok = !!c && c.correct;
         r.ngSlot = ids[0];
         r.sig = c ? c.id : '';
-        r.message = st.type === 'expression' ? 'この式は、どんな角の関係を使って導いたかな？ 理由をもう一度考えよう。'
+        r.message = st.type === 'expression' ? 'その式で合っているかな？ 角の大きさ（60°・90°）と、＋・－をもう一度確かめよう。'
           : 'その理由で言えるかな？ どんな図形の性質を使うか、もう一度考えよう。';
         return r;
       }
@@ -1008,7 +1010,10 @@
             fail(eqId, sig, QMSG.targetProperty, label);
             break;
           case 'irrelevant':
-            fail(eqId, sig, 'たしかに言える関係だけれど、今回の証明では使わない関係だよ。', label);
+            // 四角形の外の辺・角をふくむ関係（p40 の AD∥BC）は、四角形の辺・角から選ぶよう案内する
+            fail(eqId, sig, PH.parallelogram.isTargetRelation(p, r.eqCard.items.map(function (n) { return G().elementKey(p.figure, n); }))
+              ? 'たしかに言える関係だけれど、今回の証明では使わない関係だよ。'
+              : 'たしかに言える関係だね！ でも、まずは' + PH.quadrilateral.name(p.targetQuadrilateral) + 'の辺や角から選んでね！', label);
             break;
           default:
             fail(eqId, sig, QMSG.wrongEquation, label);
@@ -1018,7 +1023,8 @@
       if (qc.status === 'ok') slotStatus.pcond = 'ok';
       else if (qc.status === 'alternative') note('pcond', QMSG.alternative, '成立条件');      // ミスに数えない
       else fail('pcond', 'pcond:' + qc.card.id + ':' + qc.rows.map(function (r) { return r.eqCard.id; }).join(','),
-        qc.status === 'mixed-pair' ? QMSG.mixed : qc.status === 'wrong-type' ? QMSG.wrongType(qc.type) : QMSG.cond, '成立条件');
+        qc.status === 'mixed-pair' ? QMSG.mixed : qc.status === 'wrong-type' ? QMSG.wrongType(qc.type)
+          : qc.status === 'too-specific' ? 'それは' + PH.QUAD_TYPE_NAMES[qc.type] + 'になるための条件だよ！ 集めた根拠で分かったことを、もう一度確認しよう。' : QMSG.cond, '成立条件');
     }
 
     this.misses += newMisses;

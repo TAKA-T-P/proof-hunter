@@ -1,5 +1,5 @@
 // 証明ハンター Ver.1.0 のテスト（STAGE 11「特別な平行四辺形」・ひし形／長方形／正方形の分類・段位認定の「四角形の分類」）
-//   p43 ひし形と直角三角形の合同（RHA）／ p44・p45 ひし形になることの証明／ p46〜p48 長方形になることの証明（p47・p48 は合同を経由）
+//   p43 ひし形と直角三角形の合同（RHA）／ p44 ひし形になることの証明／ p45 長方形になることの証明
 // 実行: npm test
 'use strict';
 const test = require('node:test');
@@ -35,8 +35,9 @@ const TR = PH.rankTracks;
 const CFG = PH.rank.config;
 const k = (p, n) => geo.elementKey(p.figure, n);
 const P = (id) => PH.getProblem(id);
-const NEW_IDS = ['p43', 'p44', 'p45', 'p46', 'p47', 'p48'];
-const SPECIAL_IDS = ['p44', 'p45', 'p46', 'p47', 'p48'];        // 結論がひし形・長方形
+const NEW_IDS = ['p43', 'p44', 'p45'];
+const SPECIAL_IDS = ['p44', 'p45'];
+const DIAG_IDS = ['p46', 'p47'];                              // 長方形・ひし形の対角線の性質を、指定した三角形の合同で証明する        // 結論がひし形・長方形
 const TYPES = ['fill', 'build', 'challenge'];
 const ABCD = ['A', 'B', 'C', 'D'];
 const OLD = PH.problems.filter((p) => Number(p.id.slice(1)) <= 42);
@@ -192,7 +193,7 @@ test('平行四辺形であることの前提を確認する：対角線が等�
   assert.equal(S.classify(null, ['oneRightAngle']), null);
   assert.equal(S.classify(null, ['diagonalsEqual', 'diagonalsPerpendicular']), null);
   // 図の事実による判定（ハンター・パズル）：前提の平行四辺形がなければ「平行四辺形で…」の条件は成り立たない
-  const fig = P('p48').figure;
+  const fig = P('p45').figure;
   const facts = [{ id: 'd', items: ['AC', 'BD'] }, { id: 'r', items: ['∠DAB'], rel: 'right' }];
   const none = S.deriveSpecialCondition({ figure: fig, vertices: ABCD, knownTypes: [] }, facts).map((a) => a.condition);
   assert.deepEqual(none, []);
@@ -220,7 +221,7 @@ test('推論ルールの追加（IDの衝突がない）', () => {
   // 既存の平行四辺形の5つの成立条件・ルールはそのまま
   assert.deepEqual(PH.PARALLELOGRAM_CONDITION_ORDER, ['PP_PARALLEL_PAIRS', 'PP_EQUAL_SIDES', 'PP_EQUAL_ANGLES', 'PP_BISECT_DIAGONALS', 'PP_PARALLEL_EQUAL_PAIR']);
   assert.deepEqual(PH.quadConditionOrder(P('p31')), PH.PARALLELOGRAM_CONDITION_ORDER);
-  assert.deepEqual(PH.quadConditionOrder(P('p44')), S.PROOF_CONDITION_ORDER);
+  assert.deepEqual(PH.quadConditionOrder(P('p44')), ['rhombusDefinition', 'rectangleDefinition', 'squareDefinition']);
 });
 
 test('証明済み事実（quadrilateralType）：包含関係で使えるが、証明していない種類へは変換しない', () => {
@@ -247,22 +248,25 @@ test('証明済み事実（quadrilateralType）：包含関係で使えるが、
 // 21-2 新規6問
 // =====================================================================================
 
-test('48問・11ステージ。STAGE 11「特別な平行四辺形」は p43〜p48', () => {
-  assert.equal(PH.problems.length, 48);
-  assert.equal(PH.STAGES.length, 11);
-  const st = PH.getStage(11);
+test('47問・10ステージ。STAGE 10「特別な平行四辺形」は p43〜p47', () => {
+  assert.equal(PH.problems.length, 47);
+  assert.equal(PH.STAGES.length, 10);
+  const st = PH.getStage(10);
   assert.equal(st.title, '特別な平行四辺形');
   assert.equal(st.theme, 'ひし形・長方形の性質を使い、証明を完成させよう！');
-  assert.deepEqual(PH.stageProblems(11).map((p) => p.id), NEW_IDS);
-  assert.deepEqual(NEW_IDS.map((id) => P(id).difficulty), [2, 1, 2, 1, 3, 3]);
+  assert.deepEqual(PH.stageProblems(10).map((p) => p.id), NEW_IDS.concat(DIAG_IDS));
+  assert.deepEqual(NEW_IDS.concat(DIAG_IDS).map((id) => P(id).difficulty), [2, 1, 1, 2, 3]);
+  assert.deepEqual(NEW_IDS.concat(DIAG_IDS).map((id) => P(id).title), ['ひし形と直角三角形の合同', '隣り合う2辺が等しい平行四辺形', '1つの直角から長方形へ', '長方形の対角線の長さ', 'ひし形の対角線は垂直']);
   assert.deepEqual(val.verifyAll(PH.problems, PH.STAGES), []);
+  // 証明方法が複数あり複雑な問題（はじめの p45 角の二等分線・p47 中点と合同・p48 対角線と合同）は削除した
+  assert.equal(P('p48'), null);
 });
 
-test('p43〜p48 の仮定・結論・推論が正しい', () => {
+test('p43〜p45 の仮定・結論・推論が正しい', () => {
   assert.equal(PH.conclusionType(P('p43')), 'triangleCongruence');
   assert.equal(P('p43').conclusion, '△ABH≡△ADK');
-  assert.deepEqual(['p44', 'p45'].map((id) => PH.quadType(P(id))), ['rhombus', 'rhombus']);
-  assert.deepEqual(['p46', 'p47', 'p48'].map((id) => PH.quadType(P(id))), ['rectangle', 'rectangle', 'rectangle']);
+  assert.equal(PH.quadType(P('p44')), 'rhombus');
+  assert.equal(PH.quadType(P('p45')), 'rectangle');
   SPECIAL_IDS.forEach((id) => {
     const p = P(id);
     assert.equal(p.conclusion, '四角形ABCDは' + PH.quadTypeName(p));
@@ -271,29 +275,23 @@ test('p43〜p48 の仮定・結論・推論が正しい', () => {
     assert.deepEqual(PG.verify(p), [], id);
     const r = PG.deriveCondition(p, p.parallelogram.evidence);
     assert.ok(r.all.some((a) => a.condition === p.parallelogram.condition), id);
-    // 図は、結論の種類の図形に描いてある（判定には使わない）
     assert.equal(PG.holdsSpecial(p.figure, ABCD, PH.quadType(p)), true, id);
-  });
-  // 根拠を1つ減らすと、4つの辺（角）がすべて等しいとはいえない
-  SPECIAL_IDS.forEach((id) => {
-    const p = P(id);
+    // 根拠を1つ減らすと、4つの辺（角）がすべて等しいとはいえない
     p.parallelogram.evidence.forEach((_, i) => {
       const evs = p.parallelogram.evidence.filter((__, j) => j !== i);
-      const r = PG.deriveCondition(p, evs);
-      assert.ok(!r || !r.all.some((a) => a.condition === p.parallelogram.condition), id + ' -' + i);
+      const r2 = PG.deriveCondition(p, evs);
+      assert.ok(!r2 || !r2.all.some((a) => a.condition === p.parallelogram.condition), id + ' -' + i);
     });
   });
-  // 多段階証明のデータ（p45・p46）：前提を変えると誤りを見つける
+  // 多段階証明のデータ（p45）：前提を変えると誤りを見つける
   assert.deepEqual(PH.proofEngine.verify(P('p45')), []);
-  assert.deepEqual(PH.proofEngine.verify(P('p46')), []);
-  assert.ok(PH.proofEngine.verify(variant(P('p45'), { given: ['四角形ABCDは平行四辺形', 'ACは∠BCDの二等分線'] })).length > 0);
-  assert.ok(PH.proofEngine.verify(variant(P('p46'), { given: ['四角形ABCDは平行四辺形'] })).length > 0);
+  assert.ok(PH.proofEngine.verify(variant(P('p45'), { given: ['四角形ABCDは平行四辺形'] })).length > 0);
   // ひし形の性質は、仮定のひし形にだけ（p43）
   assert.deepEqual(PG.verifyKnown(P('p43')), []);
   assert.ok(PG.verifyKnown(variant(P('p43'), { given: ['四角形ABCDは平行四辺形', 'AH⊥BC', 'AK⊥CD'] })).length > 0);
 });
 
-test('ハンターモードで p43〜p48 を解ける（ミス・ヒントなしで★3）', () => {
+test('ハンターモードで p43〜p45 を解ける（ミス・ヒントなしで★3）', () => {
   NEW_IDS.forEach((id) => {
     const g = solveHunter(P(id));
     assert.equal(g.phase, 'clear', id);
@@ -303,15 +301,15 @@ test('ハンターモードで p43〜p48 を解ける（ミス・ヒントなし
   });
 });
 
-test('証明パズル3レベル（おてがる・スタンダード・チャレンジ）で p43〜p48 を解ける', () => {
+test('証明パズル3レベル（おてがる・スタンダード・チャレンジ）で p43〜p45 を解ける', () => {
   NEW_IDS.forEach((id) => TYPES.forEach((t) => {
     const p = P(id);
     const z = new PH.Puzzle(p, t);
     assert.equal(z.slots.some((s) => s.id === 'pcond'), PH.isQuadProblem(p), id + ' ' + t);
-    // ひし形・長方形の成立条件はカードで選ぶ（キーパッドで入力しない）
+    // 成立条件はカードで選ぶ（キーパッドで入力しない）。3択
     if (PH.isQuadProblem(p)) {
       assert.equal(z.slots.find((s) => s.id === 'pcond').input, undefined);
-      assert.deepEqual(z.cards.pcond.map((c) => c.cond), S.PROOF_CONDITION_ORDER);
+      assert.deepEqual(z.cards.pcond.map((c) => c.text), ['4つの辺がすべて等しい', '4つの角がすべて等しい', '4つの辺と角がすべて等しい']);
     }
     fill(z, z.solution());
     const r = z.check();
@@ -328,7 +326,6 @@ test('p43：ひし形の性質を使い、直角三角形の合同条件（RHA�
   assert.equal(geo.segKey(RT.hypotenuse(p, 0)), geo.segKey('AB'));
   assert.equal(geo.segKey(RT.hypotenuse(p, 1)), geo.segKey('AD'));
   assert.equal(val.deriveCondition(p, p.evidence), 'RHA');
-  // ∠ABH・∠ADK はひし形の対角（∠ABC・∠ADC）
   assert.equal(k(p, '∠ABH'), k(p, '∠ABC'));
   assert.equal(k(p, '∠ADK'), k(p, '∠ADC'));
   // 鋭角の理由は「ひし形の対角」でも「平行四辺形の対角」でもよい（ひし形は平行四辺形）
@@ -342,13 +339,38 @@ test('p43：ひし形の性質を使い、直角三角形の合同条件（RHA�
   g.selectCondition('RHA');
   assert.equal(g.confirmCondition().ok, true);
   assert.equal(g.misses, 0);
-  // 斜辺の欄で鋭角を先に答えても、ミスにしない（Ver.0.9 の仕様）
-  const g2 = new PH.Game(p);
-  g2.selectRole('right');
-  sel(g2, right.items[0], right.items[1]); g2.selectReason(right.reason); g2.confirmEvidence();
-  sel(g2, acute.items[0], acute.items[1]); g2.selectReason(acute.reason);
-  assert.equal(g2.confirmEvidence().status, 'wrong-role');
-  assert.equal(g2.misses, 0);
+});
+
+test('p44・p45：成立条件は「4つの辺／4つの角／4つの辺と角がすべて等しい」の3択（ハンター・パズル共通）', () => {
+  const CH = ['rhombusDefinition', 'rectangleDefinition', 'squareDefinition'];
+  SPECIAL_IDS.forEach((id) => {
+    const p = P(id);
+    assert.deepEqual(PH.quadConditionOrder(p), CH, id);
+    assert.deepEqual(CH.map((c) => PH.quadCondition(c).label), ['4つの辺がすべて等しい', '4つの角がすべて等しい', '4つの辺と角がすべて等しい']);
+    const g = new PH.Game(p);
+    p.parallelogram.evidence.forEach((ev) => answerQ(g, ev));
+    assert.deepEqual(g.conditionOptions(), CH, id);
+    const right = p.parallelogram.condition;
+    const other = right === 'rhombusDefinition' ? 'rectangleDefinition' : 'rhombusDefinition';
+    // ほかの種類の条件・正方形の条件はミス
+    g.selectCondition(other);
+    assert.equal(g.confirmCondition().status, 'wrong-type', id);
+    g.selectCondition('squareDefinition');
+    const sq = g.confirmCondition();
+    assert.equal(sq.status, 'too-specific', id);
+    assert.equal(sq.type, 'square');
+    assert.equal(g.misses, 2, id);
+    g.selectCondition(right);
+    assert.equal(g.confirmCondition().ok, true, id);
+    // パズルでも正方形の条件はミス
+    const z = new PH.Puzzle(p, 'build');
+    const sol = z.solution();
+    sol.pcond = z.cards.pcond.find((c) => c.cond === 'squareDefinition').id;
+    fill(z, sol);
+    const r = z.check();
+    assert.equal(r.result.slotStatus.pcond, 'ng');
+    assert.ok(/正方形になるための条件/.test(r.result.messages[0].text));
+  });
 });
 
 test('p44：4辺の等しさを示せる（4辺の等式は入力させず「4つの辺がすべて等しい」を確認して条件を選ぶ）', () => {
@@ -362,21 +384,8 @@ test('p44：4辺の等しさを示せる（4辺の等式は入力させず「4�
   assert.equal(g.confirmEvidence().status, 'property-unproved');
   assert.equal(g.misses, 1);
   p.parallelogram.evidence.forEach((ev) => assert.equal(answerQ(g, ev).status, 'correct'));
-  assert.equal(g.phase, 'qcondition');
-  // 長方形の条件はミス、ほかの道すじ（平行四辺形で隣り合う2辺）はミスにしない、言えない条件はミス
-  g.selectCondition('rectangleDefinition');
-  assert.equal(g.confirmCondition().status, 'wrong-type');
-  assert.equal(g.misses, 2);
-  g.selectCondition('rhombusAdjacentEqual');
-  const alt = g.confirmCondition();
-  assert.equal(alt.status, 'alternative');
-  assert.equal(alt.miss, false);
-  g.selectCondition('rhombusDiagonalPerpendicular');
-  assert.equal(g.confirmCondition().status, 'wrong-condition');
-  assert.equal(g.misses, 3);
   g.selectCondition('rhombusDefinition');
   assert.equal(g.confirmCondition().ok, true);
-  // 証明文：①、②、③より、AB＝BC＝CD＝DA、4つの辺がすべて等しいので、四角形ABCDはひし形である。
   const q = PH.buildProof(p).quad;
   assert.equal(q.summary, '①、②、③より、');
   assert.equal(q.chain, 'AB＝BC＝CD＝DA');
@@ -384,126 +393,30 @@ test('p44：4辺の等しさを示せる（4辺の等式は入力させず「4�
   assert.equal(q.conclusion, '四角形ABCDはひし形である。');
 });
 
-test('p45：角の二等分線と二等辺三角形を利用できる（三角形の合同は使わない）', () => {
+test('p45：4つの角がすべて直角であることを示せる（∠A＋∠B＝180° → ∠B＝90° は1ステップ）', () => {
   const p = P('p45');
-  assert.equal(PH.hasCongruence(p), false);
-  assert.equal(p.triangles, undefined);
-  assert.equal(p.congruence, undefined);
-  assert.deepEqual(p.proofSteps.map((s) => s.rule), ['angleBisector', 'parallelAlternateAngles', 'angleTransitive', 'isoscelesConverseSides']);
-  const g = new PH.Game(p);
-  assert.equal(g.phase, 'qcollect');
-  // AB＝BC は理由1つでは言えない：「詳しい理由を説明する」で4つのステップを解く
-  const q1 = p.parallelogram.evidence.find((ev) => ev.fromStep);
-  sel(g, q1.items[0], q1.items[1]);
-  assert.equal(g.explain().status, 'explain');
-  assert.deepEqual(g.availableSteps('pre').map((s) => s.id).sort(), ['s1', 's2']);
-  const solved = [];
-  while (g.phase === 'step') { solved.push(g.currentStep().id); assert.equal(solveStep(g).status, 'correct'); }
-  assert.deepEqual(solved.slice(-2), ['s3', 's4']);
-  assert.ok(g.qfound.includes(q1.id));
-  p.parallelogram.evidence.filter((ev) => !ev.fromStep).forEach((ev) => assert.equal(answerQ(g, ev).status, 'correct'));
-  g.selectCondition('rhombusDefinition');
-  assert.equal(g.confirmCondition().ok, true);
-  assert.equal(g.misses, 0);
-  const proof = PH.buildProof(p);
-  assert.deepEqual(proof.quad.stepLines.map((l) => l.equation), ['∠BAC＝∠CAD', '∠CAD＝∠ACB', '∠BAC＝∠ACB', 'AB＝BC']);
-  assert.equal(proof.quad.summary, '①、②、⑥より、');
-  // ステップの誤答（その定理では言えない理由）はミス
-  const g2 = new PH.Game(p);
-  sel(g2, q1.items[0], q1.items[1]);
-  g2.explain();
-  const wrong = g2.stepOptions().find((o) => o.id !== 'a');
-  g2.chooseStepOption(wrong.id);
-  assert.equal(g2.confirmStep().status, 'wrong');
-  assert.equal(g2.misses, 1);
-});
-
-test('p46：4つの角がすべて直角であることを示せる（∠A＋∠B＝180° → ∠B＝90° は1ステップ）', () => {
-  const p = P('p46');
   assert.deepEqual(p.proofSteps.map((s) => s.rule), ['parallelogramAdjacentSupplementary']);
   assert.equal(p.proofSteps[0].label, '∠DAB＝∠ABC＝90°');
   assert.equal(p.parallelogram.chain, '∠A＝∠B＝∠C＝∠D＝90°');
   assert.equal(p.parallelogram.condition, 'rectangleDefinition');
-  // 仮定の ∠A＝90° は ∠DAB の直角（図の直角の印もこの角だけ）
   assert.deepEqual(RT.givenRightAngles(p), ['∠DAB']);
   assert.deepEqual(p.figure.rightMarks, ['DAB']);
   const g = solveHunter(p);
   assert.equal(g.phase, 'clear');
-  // 「平行四辺形で1つの角が直角」（ほかの道すじ）はミスにしない。ひし形の条件はミス
-  const g2 = new PH.Game(p);
-  p.parallelogram.evidence.forEach((ev) => answerQ(g2, ev));
-  g2.selectCondition('rectangleOneRightAngle');
-  assert.equal(g2.confirmCondition().status, 'alternative');
-  g2.selectCondition('rhombusAdjacentEqual');
-  assert.equal(g2.confirmCondition().status, 'wrong-type');
-  assert.equal(g2.misses, 1);
   const q = PH.buildProof(p).quad;
   assert.equal(q.summary, '①、②、③より、');
   assert.equal(q.condition, '4つの角がすべて等しい');
   assert.equal(q.conclusion, '四角形ABCDは長方形である。');
 });
 
-test('p47・p48：合同を証明してもクリアにならず、1つの問題の中で長方形まで証明する', () => {
-  ['p47', 'p48'].forEach((id) => {
-    const p = P(id);
-    assert.equal(PH.hasLemma(p), true);
-    assert.equal(p.congruence, 'SSS');
-    const g = new PH.Game(p);
-    const r = solveLemma(g);
-    assert.equal(r.status, 'correct');
-    assert.equal(r.quad, true);
-    assert.notEqual(g.phase, 'clear');
-    assert.equal(g.phase, 'qcollect');
-    // 合同から導いた角の等しさ（fromFinal）を、四角形の角として根拠にする
-    const q1 = p.parallelogram.evidence[0];
-    assert.equal(q1.fromFinal, true);
-    assert.equal(PG.factKey(p.figure, q1.items, 'eq'), PG.factKey(p.figure, p.finalStep.items, 'eq'), id);
-    p.parallelogram.evidence.forEach((ev) => assert.equal(answerQ(g, ev).status, 'correct', id + ' ' + ev.id));
-    g.selectCondition('rectangleDefinition');
-    assert.equal(g.confirmCondition().ok, true);
-    assert.equal(g.phase, 'clear');
-    // 証明文：合同（①〜③）→ 対応する角 ④ → 平行四辺形の対角 ⑤⑥ → ④、⑤、⑥より 4つの角がすべて等しい → 長方形
-    const proof = PH.buildProof(p);
-    assert.equal(proof.conclusion, PH.congruenceText(p));
-    assert.equal(proof.final.no, '④');
-    assert.deepEqual(proof.quad.lines.map((l) => l.no), ['⑤', '⑥']);
-    assert.equal(proof.quad.summary, '④、⑤、⑥より、');
-    assert.equal(proof.quad.chain, '∠A＝∠B＝∠C＝∠D');
-    assert.equal(proof.quad.conclusion, '四角形ABCDは長方形である。');
-  });
-  // p47：△ABM≡△DCM（A↔D、B↔C、M↔M）。∠BAM と ∠DAB は同じ角（Mは辺AD上）
-  const p47 = P('p47');
-  assert.equal(PH.congruenceText(p47), '△ABM≡△DCM');
-  assert.equal(k(p47, '∠BAM'), k(p47, '∠DAB'));
-  assert.equal(k(p47, '∠CDM'), k(p47, '∠CDA'));
-  assert.equal(p47.evidence.find((ev) => ev.reason === 'midpoint').label, 'AM＝DM');
-  assert.ok(PH.acceptedReasons(p47.evidence[1]).includes('given'));
-  // p48：△ABC≡△DCB（A↔D、B↔C、C↔B）。頂点の対応順がちがう組は不正解
-  const p48 = P('p48');
-  assert.equal(PH.congruenceText(p48), '△ABC≡△DCB');
-  assert.equal(val.checkTriangles(p48, ['A', 'B', 'C'], ['D', 'C', 'B']).status, 'ok');
-  assert.notEqual(val.checkTriangles(p48, ['A', 'B', 'C'], ['D', 'B', 'C']).status, 'ok');
-  assert.equal(val.correspondenceOrder(p48, ['∠ABC', '∠DCB']), 'ok');
-  // 「平行四辺形で、対角線の長さが等しい」（ほかの道すじ）はミスにしない
-  const g = new PH.Game(p48);
-  solveLemma(g);
-  p48.parallelogram.evidence.forEach((ev) => answerQ(g, ev));
-  g.selectCondition('rectangleDiagonalsEqual');
-  assert.equal(g.confirmCondition().status, 'alternative');
-  assert.equal(g.misses, 0);
-});
-
-test('ヒント：p43〜p48 に3段階ヒントがあり、表示しただけでは解答を自動入力しない', () => {
+test('ヒント：p43〜p45 に3段階ヒントがあり、表示しただけでは解答を自動入力しない', () => {
   NEW_IDS.forEach((id) => {
     const p = P(id);
     Object.keys(p.hints).forEach((h) => assert.equal(p.hints[h].length, 3, id + ' ' + h));
   });
   assert.equal(P('p43').hints.e1[0].text, '直角三角形に注目しよう！ AH⊥BC、AK⊥CD だね。');
   assert.equal(P('p44').hints.q1[0].text, '平行四辺形の対辺にはどんな性質があるかな？');
-  assert.equal(P('p45').hints.q1[0].text, '角の二等分線に注目しよう！');
-  assert.equal(P('p46').hints.q1[0].text, '平行四辺形の隣り合う角の和は？');
-  assert.equal(P('p47').hints.triangleSelection[0].text, '△ABMと△DCMを比べよう！');
-  assert.equal(P('p48').hints.triangleSelection[0].text, '対角線が等しいことを使って、合同な三角形を探そう！');
+  assert.equal(P('p45').hints.q1[0].text, '平行四辺形の隣り合う角の和は？');
   NEW_IDS.forEach((id) => {
     const g = new PH.Game(P(id));
     for (let i = 0; i < 3; i++) assert.ok(g.useHint(), id);
@@ -528,7 +441,7 @@ const BASIC = TR.pool('basic');
 const COMP = TR.pool('comprehensive');
 
 test('四角形の分類の問題を、分類ルールから生成できる', () => {
-  assert.equal(QC.length, 17);
+  assert.equal(QC.length, 15);
   assert.equal(PH.rankQuestions.CATEGORY_LABEL.quad, '四角形の分類');
   QC.forEach((q) => {
     assert.equal(q.category, 'quad');
@@ -556,8 +469,8 @@ test('四角形の分類の問題を、分類ルールから生成できる', ()
     assert.ok(q, line);
     assert.equal(q.answerText, ans, line);
   });
-  // 問題データ（p44〜p48）を生成元にした問題がある
-  ['p44', 'p45', 'p46', 'p47', 'p48'].forEach((id) => assert.ok(QC.some((q) => q.sourceId === id), id));
+  // 問題データ（p44・p45）を生成元にした問題がある
+  ['p44', 'p45'].forEach((id) => assert.ok(QC.some((q) => q.sourceId === id), id));
   // 新しく言える種類がない組（長方形で1つの角が直角など）は出題しない
   assert.ok(!QC.some((q) => q.premises[0] === 'rectangle' && q.premises.includes('oneRightAngle')));
 });
@@ -569,7 +482,7 @@ test('正解が一意に決まり、図形の包含関係によって誤判定�
     assert.equal(new Set(b.choices.map((c) => c.text)).size, 3, q.id);
     const base = S.isType(q.premises[0]) ? q.premises[0] : null;
     const atoms = q.premises.filter((x) => !S.isType(x));
-    const derived = atoms.map((a) => ({ bisector: 'adjacentSidesEqual', midpointEqual: 'oneRightAngle' }[a] || a));
+    const derived = atoms;
     const types = S.guaranteedTypes(base, derived);
     const best = S.mostSpecific(types);
     const correct = b.choices.filter((c) => c.text === S.typeName(best));
@@ -593,8 +506,6 @@ test('基本コースには出題されず、総合コースには出題され�
   assert.ok(!BASIC.some((q) => q.requiredTopics.some((t) => ['rhombus', 'rectangle', 'square', 'quadrilateralClassification'].includes(t))));
   QC.forEach((q) => assert.ok(COMP.includes(q), q.id));
   assert.ok(COMP.some((q) => q.sourceId === 'p43'));
-  assert.ok(COMP.some((q) => q.sourceId === 'p47'));
-  assert.ok(COMP.some((q) => q.sourceId === 'p48'));
   ['rhombus', 'rectangle', 'square', 'quadrilateralClassification'].forEach((t) => {
     assert.ok(TR.get('comprehensive').allowedTopics.includes(t), t);
     assert.ok(!TR.get('basic').allowedTopics.includes(t), t);
@@ -604,7 +515,7 @@ test('基本コースには出題されず、総合コースには出題され�
   assert.equal(TR.get('basic').categoryWeights.quad, undefined);
   // 新しい問題の topics
   assert.ok(TR.problemTopics(P('p43')).includes('rhombus'));
-  assert.ok(TR.problemTopics(P('p46')).includes('rectangle'));
+  assert.ok(TR.problemTopics(P('p45')).includes('rectangle'));
   // 基本コースでは、何問解いても四角形の分類・新しい問題は出ない
   for (let seed = 1; seed <= 5; seed++) {
     const g = new PH.RankGame({ seed, track: 'basic' });
@@ -691,8 +602,8 @@ test('回帰：数学キーパッドの既存機能（辺・角・平行・三�
   assert.equal(K.parse('∠ABC=∠DEF').kind, 'ang');
   assert.equal(K.parse('AD∥BC').kind, 'par');
   assert.equal(K.parse('AD∥DA'), null);
-  // チャレンジ：p47 の根拠の行は角（∠A＝∠C）から入力する
-  const z = new PH.Puzzle(P('p47'), 'challenge');
+  // チャレンジ：p45 の根拠の行は角（∠A＝∠C）から入力する
+  const z = new PH.Puzzle(P('p45'), 'challenge');
   const row = z.slots.find((s) => s.kind === 'qeq');
   assert.equal(row.inputKinds[0], 'ang');
 });
@@ -720,4 +631,80 @@ test('回帰：旧段位記録・問題の記録を引き継ぐ', () => {
     assert.equal(after.questionPoolVersion, 3);
     assert.equal(after.playCount, 5);
   });
+});
+
+test('角の式のステップ（p23・p24・p30）は、理由ではなく □ に入る式を選ぶ（ハンター・パズル）', () => {
+  [['p23', 's1', '∠ACD＋60°', ['∠ACD＋90°', '∠ACD－60°']], ['p24', 's2', '60°－∠DAC', ['90°－∠DAC', '60°＋∠DAC']], ['p30', 's1', '90°－∠DAB', ['60°－∠DAB', '90°＋∠DAB']]]
+    .forEach(([id, sid, ans, wrong]) => {
+      const p = P(id);
+      const g = new PH.Game(p);
+      const st = p.proofSteps.find((s) => s.id === sid);
+      const opts = g.stepOptions(st);
+      assert.deepEqual(opts.map((o) => o.text).sort(), [ans].concat(wrong).sort(), id);
+      assert.equal(opts.find((o) => o.id === 'a').text, ans);
+      assert.ok(!opts.some((o) => /角の和|角の差|内角の和/.test(o.text)), id);
+      // 証明パズルも、□に入る式のカード（3レベル共通）
+      ['fill', 'build', 'challenge'].forEach((t) => {
+        const z = new PH.Puzzle(p, t);
+        assert.deepEqual(z.cards['srule:' + sid].map((c) => c.text).sort(), [ans].concat(wrong).sort(), id + ' ' + t);
+        assert.equal(z.slot('st:' + sid).expr, true);
+      });
+    });
+  // 誤った式はミス、正しい式で次へ
+  const p23 = P('p23');
+  const g = new PH.Game(p23);
+  if (g.phase === 'triangle') { g.tapTriangle(p23.triangles[0]); g.tapTriangle(p23.triangles[1]); g.confirmTriangles(); }
+  const ev = p23.evidence.find((e) => e.fromStep);
+  sel(g, ev.items[0], ev.items[1]);
+  assert.equal(g.explain().status, 'explain');
+  const wrong = g.stepOptions().find((o) => o.id !== 'a');
+  g.chooseStepOption(wrong.id);
+  assert.equal(g.confirmStep().status, 'wrong');
+  assert.equal(g.misses, 1);
+  g.chooseStepOption('a');
+  assert.equal(g.confirmStep().status, 'correct');
+});
+
+test('p46・p47：長方形・ひし形の対角線の性質を、指定された三角形の合同で証明できる（ハンター・パズル）', () => {
+  // 使う三角形を問題文で指定している
+  assert.ok(/△ABCと△DCBの合同を使って/.test(P('p46').statement));
+  assert.ok(/△ABOと△ADOの合同を使って/.test(P('p47').statement));
+  assert.equal(PH.congruenceText(P('p46')), '△ABC≡△DCB');
+  assert.equal(PH.congruenceText(P('p47')), '△ABO≡△ADO');
+  assert.equal(val.deriveCondition(P('p46'), P('p46').evidence), 'SAS');
+  assert.equal(val.deriveCondition(P('p47'), P('p47').evidence), 'SSS');
+  // 長方形・ひし形の性質は、仮定の長方形・ひし形にだけ使える
+  assert.deepEqual(PG.verifyKnown(P('p46')), []);
+  assert.ok(PG.verifyKnown(variant(P('p46'), { given: ['四角形ABCDは平行四辺形'] })).length > 0);
+  // p47 の後半のステップ：∠AOB＝∠AOD と ∠AOB＋∠AOD＝180° から AC⊥BD
+  assert.deepEqual(PH.proofEngine.verify(P('p47')), []);
+  const bad = variant(P('p47'), { proofSteps: [Object.assign({}, P('p47').proofSteps[0], { premise: ['∠AOB', '∠BAO'] })] });
+  assert.ok(PH.proofEngine.verify(bad).length > 0);
+  DIAG_IDS.forEach((id) => {
+    const p = P(id);
+    const g = new PH.Game(p);
+    const r = solveLemma(g);
+    assert.equal(r.status, 'correct', id);
+    while (g.phase === 'post') {
+      assert.ok(!/一直線/.test(g.currentStep().lead), id + ' 書き出しに理由を書かない');
+      assert.equal(solveStep(g).status, 'correct');
+    }
+    assert.equal(g.phase, 'clear', id);
+    assert.equal(g.stars, 3, id);
+    TYPES.forEach((t) => {
+      const z = new PH.Puzzle(p, t);
+      fill(z, z.solution());
+      assert.equal(z.check().status, 'clear', id + ' ' + t);
+    });
+  });
+  const proof = PH.buildProof(P('p47'));
+  assert.deepEqual(proof.post.map((l) => l.conclusion), ['AC⊥BD']);
+  assert.equal(PH.buildProof(P('p46')).final.conclusion, 'AC＝DB');
+});
+
+test('p45：隣り合う角のステップの書き出しに、答えの理由（隣り合う角の和は180°）を書かない（ハンター・パズル共通）', () => {
+  const st = P('p45').proofSteps[0];
+  assert.ok(!/180°/.test(st.lead), st.lead);
+  assert.ok(!/隣り合う角/.test(st.lead), st.lead);
+  assert.equal(PH.stepOptions(P('p45'), st).find((o) => o.id === 'a').text, '平行四辺形の隣り合う角の和は180°だから');
 });

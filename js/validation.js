@@ -556,7 +556,7 @@
     // 結論が「二等辺三角形である」（Ver.0.7）の問題は、合同から導いた等式（finalStep）をもとに、後半のステップで結論を導く
     // 結論が「平行四辺形」（Ver.0.9）の問題は、合同から導いた等式（finalStep）を、平行四辺形の根拠（平行を導く角など）に使う
     const ctype = PH.conclusionType(problem);
-    const viaPost = ctype === 'isoscelesTriangle' || ctype === 'parallelLines';   // 後半のステップで結論を導く（二等辺三角形・平行）
+    const viaPost = ctype === 'isoscelesTriangle' || ctype === 'parallelLines' || ctype === 'perpendicular';   // 後半のステップで結論を導く（二等辺三角形・平行・垂直）
     const viaQuad = PH.isQuadProblem(problem);
     const kind = ctype === 'equalAngle' ? 'angle' : ctype === 'equalSide' ? 'side' : fs.relationType;
     if (fs.relationType !== kind) errors.push('finalStep.relationType が conclusionType と合わない');

@@ -61,7 +61,7 @@
     rectangleDefinition:          { type: 'rectangle', premise: null, atoms: ['allAnglesEqual'], label: '4つの角がすべて等しい', definition: true },
     rectangleOneRightAngle:       { type: 'rectangle', premise: 'parallelogram', atoms: ['oneRightAngle'], label: '平行四辺形で、1つの角が直角' },
     rectangleDiagonalsEqual:      { type: 'rectangle', premise: 'parallelogram', atoms: ['diagonalsEqual'], label: '平行四辺形で、対角線の長さが等しい' },
-    squareDefinition:             { type: 'square', premise: null, atoms: ['allSidesEqual', 'allAnglesEqual'], label: '4つの辺がすべて等しく、4つの角がすべて等しい', definition: true },
+    squareDefinition:             { type: 'square', premise: null, atoms: ['allSidesEqual', 'allAnglesEqual'], label: '4つの辺と角がすべて等しい', definition: true },
     squareRectangleAdjacent:      { type: 'square', premise: 'rectangle', atoms: ['adjacentSidesEqual'], label: '長方形で、となり合う2辺が等しい' },
     squareRhombusRightAngle:      { type: 'square', premise: 'rhombus', atoms: ['oneRightAngle'], label: 'ひし形で、1つの角が直角' },
     squareDiagonals:              { type: 'square', premise: 'parallelogram', atoms: ['diagonalsEqual', 'diagonalsPerpendicular'], label: '平行四辺形で、対角線の長さが等しく、垂直に交わる' },

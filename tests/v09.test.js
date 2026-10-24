@@ -338,7 +338,7 @@ test('新しい推論ルール：平行・長さをつなぐ（p40）、等し�
 
 test('p35（STAGE 6）：合同 → 対応する角 → 「錯角が等しいから平行」で AD∥BC を証明する', () => {
   const p = P('p35');
-  assert.equal(p.stage, 6);
+  assert.equal(p.stage, 5);
   assert.equal(PH.conclusionType(p), 'parallelLines');
   assert.equal(p.conclusion, 'AD∥BC');
   assert.equal(PH.isQuadProblem(p), false);
@@ -454,13 +454,13 @@ test('最終結論（平行四辺形である）を正しく判定する：誤�
 // =====================================================================================
 
 test('42問・10ステージ。STAGE 9「平行四辺形を利用せよ！」・STAGE 10「平行四辺形を証明せよ！」', () => {
-  assert.equal(PH.problems.length, 48);   // Ver.1.0 で STAGE 11（p43〜p48）を追加（v10.test.js）
-  assert.equal(PH.STAGES.length, 11);
-  assert.equal(PH.getStage(9).title, '平行四辺形を利用せよ！');
-  assert.equal(PH.getStage(10).title, '平行四辺形を証明せよ！');
-  assert.deepEqual(PH.stageProblems(6).map((p) => p.id), ['p16', 'p17', 'p18', 'p19', 'p20', 'p35']);
-  assert.deepEqual(PH.stageProblems(9).map((p) => p.id), USE_IDS);
-  assert.deepEqual(PH.stageProblems(10).map((p) => p.id), QUAD_IDS);
+  assert.equal(PH.problems.length, 47);   // Ver.1.0 で STAGE 11（p43〜p47）を追加（v10.test.js）
+  assert.equal(PH.STAGES.length, 10);
+  assert.equal(PH.getStage(8).title, '平行四辺形を利用せよ！');
+  assert.equal(PH.getStage(9).title, '平行四辺形を証明せよ！');
+  assert.deepEqual(PH.stageProblems(5).map((p) => p.id), ['p16', 'p17', 'p18', 'p19', 'p20', 'p35']);
+  assert.deepEqual(PH.stageProblems(8).map((p) => p.id), USE_IDS);
+  assert.deepEqual(PH.stageProblems(9).map((p) => p.id), QUAD_IDS);
   QUAD.forEach((p) => {
     assert.equal(PH.conclusionType(p), 'parallelogram', p.id);
     assert.equal(p.conclusion, Q.name(p.targetQuadrilateral) + 'は平行四辺形');
@@ -758,7 +758,7 @@ test('基本コースに平行四辺形・Ver.0.9 の問題が混入しない。
   // Ver.0.8 の274問 ＋ 平行四辺形 ＋ Ver.0.9 の問題の三角形の合同の部分（p35・p37〜p39・p42）
   //   ＋ Ver.1.0 の四角形の分類と、p43〜p48 から作る問題（v10.test.js）
   const triNew = COMP.filter((q) => NEW_IDS.includes(q.sourceId) && q.category !== 'para').length;
-  const v10 = COMP.filter((q) => q.category === 'quad' || ['p43', 'p44', 'p45', 'p46', 'p47', 'p48'].includes(q.sourceId)).length;
+  const v10 = COMP.filter((q) => q.category === 'quad' || ['p43', 'p44', 'p45', 'p46', 'p47'].includes(q.sourceId)).length;
   assert.equal(COMP.length, 274 + PARA.length + triNew + v10);
   ['parallelogramProperties', 'parallelogramConditions', 'diagonalBisector', 'parallelConverse']
     .forEach((t) => assert.ok(TR.get('comprehensive').allowedTopics.includes(t), t));
@@ -902,8 +902,8 @@ test('回帰：Ver.0.8 の保存データ（ハンター・パズル3レベル�
     assert.equal(PH.storage.getProblem('p30').bestStars, 2);
     assert.equal(PH.storage.getProblem('p01', 'puzzle:easy').bestStars, 3);
     assert.equal(PH.storage.getPuzzleLevel(), 'standard');
-    assert.equal(PH.storage.stageStats(9).total, 3);
-    assert.equal(PH.storage.stageStats(10).total, 8);
-    assert.equal(PH.storage.stageStats(10).cleared, 0);
+    assert.equal(PH.storage.stageStats(8).total, 3);
+    assert.equal(PH.storage.stageStats(9).total, 8);
+    assert.equal(PH.storage.stageStats(9).cleared, 0);
   });
 });

@@ -91,6 +91,7 @@
   // 平行四辺形の根拠を集める段階へ（三角形の合同の部分がある問題は、結論を導いたあと）
   Game.prototype.enterQuad = function () {
     this.part = 'quad';
+    this.role = null;              // 直角三角形の欄（直角・斜辺・鋭角）は三角形の合同の部分だけ（p42）
     this.phase = 'qcollect';
     this.mode = this.answerMode = 'side';
     this.relation = 'eq';
@@ -568,9 +569,10 @@
     if (!ev) {
       const st = quad ? PG.equationStatus(this.problem, qkey) : PH.validation.equationStatus(this.problem, keys);
       r = { status: st, miss: st !== 'irrelevant', kind: kind, rel: quad ? this.relation : 'eq' };
+      if (quad && st === 'irrelevant') r.outsideQuad = !PG.isTargetRelation(this.problem, keys);   // 四角形の外の辺・角をふくむ関係（p40 の AD∥BC）
     } else if (this.partFound().indexOf(ev.id) >= 0) {
       r = { status: 'duplicate', miss: false, evidence: ev, kind: kind };
-    } else if (this.isRight() && this.roleOf(ev) !== this.role) {
+    } else if (!quad && this.isRight() && this.roleOf(ev) !== this.role) {
       r = { status: 'wrong-role', miss: false, evidence: ev, kind: kind, role: this.roleOf(ev), want: this.role };   // 欄の順番だけのちがいはミスにしない
     } else if (!ev.fromStep) {
       r = { status: 'not-explain', miss: true, evidence: ev, kind: kind };
@@ -640,8 +642,10 @@
   };
 
   // 理由を選ぶステップの選択肢（正解と、その定理では言えない理由。並びは問題ごとに一定）
+  //   ハンターの角の式のステップ（p23・p24・p30）は、理由ではなく「∠ACE＝∠ACD＋∠DCE＝□」の□に入る式を選ぶ（expressionOptions）
   Game.prototype.stepOptions = function (step) {
-    return stepOptions(this.problem, step || this.currentStep());
+    const s = step || this.currentStep();
+    return s && s.type === 'expression' ? expressionOptions(this.problem, s) : stepOptions(this.problem, s);
   };
 
   Game.prototype.chooseStepOption = function (id) {
@@ -747,7 +751,7 @@
         if (list.length === this.total()) {
           this.phase = quad ? 'qcondition' : 'congruence';
           r.complete = true;
-        } else if (this.isRight()) {
+        } else if (!quad && this.isRight()) {
           const self = this;
           this.role = this.roles.find(function (x) { return !self.roleFound(x); }) || null;
         }
@@ -848,6 +852,24 @@
       return { id: 'w' + i, text: t };
     }));
     const rnd = seeded(problem.id + ':' + step.id);
+    for (let i = opts.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      const t = opts[i]; opts[i] = opts[j]; opts[j] = t;
+    }
+    return opts;
+  }
+
+  /*
+   * 角の式のステップの選択肢（ハンター）：「∠ACE＝∠ACD＋∠DCE＝□」の□に入る式（正解 id 'a'）と、
+   * 定数角を取りちがえた式（60°⇔90°）・符号を取りちがえた式（＋⇔－）。並びは問題ごとに一定
+   */
+  function expressionOptions(problem, step) {
+    const value = step.value;
+    const swapped = /60°/.test(value) ? value.replace('60°', '90°') : value.replace('90°', '60°');
+    const flipped = /＋/.test(value) ? value.replace('＋', '－') : value.replace('－', '＋');
+    const opts = [{ id: 'a', text: value }];
+    [swapped, flipped].forEach(function (t, i) { if (t !== value && !opts.some(function (o) { return o.text === t; })) opts.push({ id: 'w' + i, text: t }); });
+    const rnd = seeded(problem.id + ':' + step.id + ':expr');
     for (let i = opts.length - 1; i > 0; i--) {
       const j = Math.floor(rnd() * (i + 1));
       const t = opts[i]; opts[i] = opts[j]; opts[j] = t;
@@ -990,6 +1012,7 @@
   PH.calcStars = calcStars;
   PH.buildProof = buildProof;
   PH.stepOptions = stepOptions;
+  PH.expressionOptions = expressionOptions;
   PH.stepReasonText = stepReasonText;
   PH.buildQuadProof = buildQuadProof;
 
