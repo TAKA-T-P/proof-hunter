@@ -23,6 +23,7 @@
  *   #/error/challenge        ランダム5問チャレンジ：コースを選ぶ（Ver.1.2）
  *   #/error/challenge/<コース>/play    プレイ（「〜コースに挑戦」から来たときだけ始まる）。コースは basic / comprehensive
  *   #/error/challenge/<コース>/result  #/error/challenge/<コース>/review   結果発表・振り返り（コース別）
+ *   #/error/challenge/<コース>/titles  連続PERFECT の称号一覧（コース別。段位認定の段位とは別）
  *   #/error/dev              開発者用：誤りバリエーションの確認（生徒の画面からはリンクしない）
  *   （Ver.0.7 までの #/rank/play などを開いたときは、段位認定のトップへ戻す）
  * 記録・評価はモードごとに別々。証明パズルは、さらに解答レベル（おてがる／スタンダード／チャレンジ）ごとに別々
@@ -389,7 +390,7 @@
       // Ver.1.2：ランダム5問チャレンジ
       {
         title: 'ランダム5問チャレンジ',
-        text: '「基本の合同証明」か「総合証明」を選んで、5問に挑戦！ 解答は1問1回だけ、ヒントはなし。正解20点で100点満点だよ。同じ証明でも、間違いの場所は毎回変わるよ。終わったら、振り返りで正解の行と解説を確認しよう！',
+        text: '「基本の合同証明」か「総合証明」を選んで、5問に挑戦！ 解答は1問1回だけ、ヒントはなし。正解20点で100点満点だよ。同じ証明でも、間違いの場所は毎回変わるよ。終わったら、振り返りで正解の行と解説を確認しよう！ 100点（PERFECT）を続けると「見習い鑑定士」から「証明の神眼」まで10段階の称号がもらえるよ（コースごと。80点以下で連続は0にもどるけど、称号は失わない）。',
         art: '<svg viewBox="0 0 200 120"><rect x="10" y="14" width="85" height="60" rx="10" class="h-btn h-on"/><text x="52" y="40" class="h-btxt">基本の</text><text x="52" y="60" class="h-btxt">合同証明</text><rect x="105" y="14" width="85" height="60" rx="10" class="h-btn"/><text x="147" y="40" class="h-btxt">総合</text><text x="147" y="60" class="h-btxt">証明</text><text x="100" y="104" class="h-star">100点満点！</text></svg>',
       },
     ],
@@ -573,7 +574,7 @@
       return;
     }
     // 知らないコース・画面は、コースを選ぶ画面へ戻す
-    if (!PH.errorChallenge.isCourse(course) || ['play', 'result', 'review'].indexOf(page) < 0) { go('#/error/challenge'); return; }
+    if (!PH.errorChallenge.isCourse(course) || ['play', 'result', 'review', 'titles'].indexOf(page) < 0) { go('#/error/challenge'); return; }
     if (page === 'play') {
       show('error');
       const ok = PH.errorView.mountChallenge(el, course, {
@@ -586,6 +587,7 @@
       return;
     }
     if (page === 'result') PH.errorView.renderChallengeResult(el, course);
+    else if (page === 'titles') PH.errorView.renderChallengeTitles(el, course);
     else PH.errorView.renderChallengeReview(el, course);
     show('error');
   }

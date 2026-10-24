@@ -150,9 +150,13 @@
 
   // ---- 1回のチャレンジ ---------------------------------------------------------------
 
+  let playCounter = 0;
+
   function ChallengeSession(drawn) {
     this.course = drawn.course;
     this.seed = drawn.seed;
+    // 1回のプレイのID（同じ結果を二重に記録しないため。storage.recordErrorChallenge が確かめる）
+    this.playId = drawn.course + '-' + drawn.seed + '-' + Date.now().toString(36) + '-' + (++playCounter);
     this.items = drawn.items.map(function (it, i) {
       const def = PH.errorVariants.def(it.baseId, it.variantId);
       const built = PH.errorHunt.build(def);
@@ -195,7 +199,7 @@
   ChallengeSession.prototype.result = function () {
     const correct = this.correctCount();
     return {
-      course: this.course, seed: this.seed, score: this.score(), correct: correct, wrong: this.items.length - correct, total: this.items.length,
+      course: this.course, seed: this.seed, playId: this.playId, score: this.score(), correct: correct, wrong: this.items.length - correct, total: this.items.length,
       items: this.items.map(function (q) {
         return { no: q.no, baseId: q.baseId, variantId: q.variantId, category: q.def.category, target: q.target, selected: q.selected, correct: q.correct === true };
       }),
@@ -215,7 +219,39 @@
     return '間違いを見抜く力を磨こう！';
   }
 
+  // ---- 連続PERFECT の称号（Ver.1.2。段位認定の段位とは完全に別） ----------------------------
+  //   100点（5問すべて正解）で連続回数+1、80点以下で0。途中終了は変えない（記録は js/storage.js）。
+  //   称号は最高連続記録（bestPerfectStreak）から決まり、連続が途切れても失わない。10回で最高称号（11回以上も回数は数える）
+  const TITLES = [
+    { level: 1, need: 1, name: '見習い鑑定士' },
+    { level: 2, need: 2, name: '証明チェッカー' },
+    { level: 3, need: 3, name: 'ミス発見名人' },
+    { level: 4, need: 4, name: '論理の観察者' },
+    { level: 5, need: 5, name: '証明鑑定士' },
+    { level: 6, need: 6, name: '推理の達人' },
+    { level: 7, need: 7, name: '論理の番人' },
+    { level: 8, need: 8, name: '証明の眼力王' },
+    { level: 9, need: 9, name: '真理の探究者' },
+    { level: 10, need: 10, name: '証明の神眼' },
+  ];
+  const MAX_TITLE = TITLES.length;
+
+  // 連続回数 → 称号の段階（0 は称号なし）
+  function titleLevel(streak) { return Math.max(0, Math.min(MAX_TITLE, Math.floor(streak) || 0)); }
+  function title(level) { return TITLES[level - 1] || null; }
+  // 次の称号（まだ獲得していない一番下の称号。すべて獲得ずみなら null）と、いまの連続回数からあと何回の連続PERFECT が必要か。
+  // highestLevel（獲得ずみの最高称号）を渡すと、連続が途切れたあとも獲得ずみの称号を「次」にしない
+  function nextTitle(streak, highestLevel) {
+    const t = TITLES[Math.max(titleLevel(streak), titleLevel(highestLevel || 0))];
+    return t ? { title: t, remaining: t.need - (Math.floor(streak) || 0) } : null;
+  }
+
   PH.errorChallenge = {
+    TITLES: TITLES,
+    MAX_TITLE: MAX_TITLE,
+    titleLevel: titleLevel,
+    title: title,
+    nextTitle: nextTitle,
     SIZE: SIZE,
     POINTS: POINTS,
     RECENT_KEEP: RECENT_KEEP,

@@ -429,7 +429,7 @@ test('未挑戦は bestScore null（0点と区別）。記録すると最高得�
     // 0点でも初挑戦の記録は 0点（未挑戦ではない）
     const s0 = playThrough(C.start('basic', null, 11), [false, false, false, false, false]);
     const sv0 = S.recordErrorChallenge('basic', s0.result());
-    assert.deepEqual(sv0, { newBest: false, firstTime: true, bestScore: 0 });
+    assert.deepEqual(sv0, { newBest: false, firstTime: true, bestScore: 0, perfect: false, currentPerfectStreak: 0, bestPerfectStreak: 0, highestTitleLevel: 0, newTitleLevel: 0 });
     assert.equal(S.getErrorChallenge('basic').bestScore, 0);
     // 最高得点の更新
     const s1 = playThrough(C.start('basic', S.getErrorChallengeHistory('basic'), 12), [true, true, true, false, true]);
@@ -556,6 +556,167 @@ test('振り返り：保存したバリエーションIDから、出題時と同
       assert.ok(b.correctSteps.length >= 3);
     });
     assert.notEqual(PH.storage.getErrorChallenge('basic').lastResult.seed, last.seed);
+  });
+});
+
+// =====================================================================================
+// 連続PERFECT・称号（段位認定の段位とは独立）
+// =====================================================================================
+
+const ALL_OK = [true, true, true, true, true];
+const ONE_MISS = [true, true, true, true, false];
+let seedNo = 1000;
+// 1回のチャレンジを最後まで進めて記録する
+function playAndRecord(course, answers) {
+  const s = playThrough(C.start(course, PH.storage.getErrorChallengeHistory(course), seedNo++), answers);
+  return { result: s.result(), saved: PH.storage.recordErrorChallenge(course, s.result()) };
+}
+
+test('称号は10段階（見習い鑑定士〜証明の神眼）。連続回数から段階・次の称号までの残りを求める', () => {
+  assert.deepEqual(C.TITLES.map((t) => t.name), ['見習い鑑定士', '証明チェッカー', 'ミス発見名人', '論理の観察者', '証明鑑定士',
+    '推理の達人', '論理の番人', '証明の眼力王', '真理の探究者', '証明の神眼']);
+  assert.deepEqual(C.TITLES.map((t) => t.need), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.equal(C.titleLevel(0), 0);
+  assert.equal(C.titleLevel(3), 3);
+  assert.equal(C.titleLevel(10), 10);
+  assert.equal(C.titleLevel(25), 10);
+  assert.deepEqual([C.nextTitle(0).title.name, C.nextTitle(0).remaining], ['見習い鑑定士', 1]);
+  assert.deepEqual([C.nextTitle(4).title.name, C.nextTitle(4).remaining], ['証明鑑定士', 1]);
+  assert.equal(C.nextTitle(10), null);
+  assert.equal(C.nextTitle(12), null);
+  // 連続が途切れても、獲得ずみの称号を「次の称号」にしない（最高「ミス発見名人」で連続1回 → 次は「論理の観察者」まで3回）
+  assert.deepEqual([C.nextTitle(1, 3).title.name, C.nextTitle(1, 3).remaining], ['論理の観察者', 3]);
+  assert.equal(C.nextTitle(0, 10), null);
+  // 段位認定の段位名とは別のもの
+  const grades = PH.rank.config.grades.map((g) => g.name);
+  C.TITLES.forEach((t) => assert.ok(grades.indexOf(t.name) < 0, t.name));
+});
+
+test('100点で連続PERFECTが1増え、80点以下で0にもどる。最高連続記録は減らない', () => {
+  withFakeStorage(null, () => {
+    const S = PH.storage;
+    let r = S.getErrorChallenge('basic');
+    assert.deepEqual([r.currentPerfectStreak, r.bestPerfectStreak, r.highestTitleLevel], [0, 0, 0]);
+    let sv = playAndRecord('basic', ALL_OK).saved;
+    assert.equal(sv.perfect, true);
+    assert.equal(sv.currentPerfectStreak, 1);
+    assert.equal(sv.newTitleLevel, 1);
+    playAndRecord('basic', ALL_OK);
+    playAndRecord('basic', ALL_OK);
+    r = S.getErrorChallenge('basic');
+    assert.deepEqual([r.currentPerfectStreak, r.bestPerfectStreak, r.highestTitleLevel], [3, 3, 3]);
+    assert.equal(r.lastResult.perfectStreak, 3);
+    assert.equal(r.lastResult.titleLevel, 3);
+    // 80点で0にもどる。最高記録・称号はそのまま
+    sv = playAndRecord('basic', ONE_MISS).saved;
+    assert.equal(sv.perfect, false);
+    assert.equal(sv.newTitleLevel, 0);
+    r = S.getErrorChallenge('basic');
+    assert.deepEqual([r.currentPerfectStreak, r.bestPerfectStreak, r.highestTitleLevel], [0, 3, 3]);
+    // 0点でも0
+    playAndRecord('basic', ALL_OK);
+    playAndRecord('basic', [false, false, false, false, false]);
+    r = S.getErrorChallenge('basic');
+    assert.deepEqual([r.currentPerfectStreak, r.bestPerfectStreak], [0, 3]);
+    // 1回だけの PERFECT では最高記録は下がらず、新しい称号もない
+    sv = playAndRecord('basic', ALL_OK).saved;
+    assert.equal(sv.newTitleLevel, 0);
+    assert.equal(S.getErrorChallenge('basic').bestPerfectStreak, 3);
+  });
+});
+
+test('10回連続で最高称号「証明の神眼」。11回以降も連続回数は増える。途切れても称号は失わない', () => {
+  withFakeStorage(null, () => {
+    const S = PH.storage;
+    const newTitles = [];
+    for (let i = 1; i <= 12; i++) {
+      const sv = playAndRecord('comprehensive', ALL_OK).saved;
+      assert.equal(sv.currentPerfectStreak, i);
+      newTitles.push(sv.newTitleLevel);
+    }
+    // 1〜10回目で1段ずつ昇格、11・12回目は昇格なし
+    assert.deepEqual(newTitles, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0]);
+    let r = S.getErrorChallenge('comprehensive');
+    assert.deepEqual([r.currentPerfectStreak, r.bestPerfectStreak, r.highestTitleLevel], [12, 12, 10]);
+    assert.equal(C.title(r.highestTitleLevel).name, '証明の神眼');
+    assert.equal(r.lastResult.titleLevel, 10);
+    playAndRecord('comprehensive', ONE_MISS);
+    r = S.getErrorChallenge('comprehensive');
+    assert.deepEqual([r.currentPerfectStreak, r.bestPerfectStreak, r.highestTitleLevel], [0, 12, 10]);
+  });
+});
+
+test('途中終了では連続記録・称号・最高得点・挑戦回数が変わらない', () => {
+  withFakeStorage(null, () => {
+    const S = PH.storage;
+    playAndRecord('basic', ALL_OK);
+    playAndRecord('basic', ALL_OK);
+    const before = JSON.stringify(S.getErrorChallenge('basic'));
+    const s = C.start('basic', S.getErrorChallengeHistory('basic'), 77);
+    s.answer(E.build(s.current().def).steps.find((x) => x.id !== s.current().target).id);   // 1問目で不正解
+    s.next();
+    s.abort();                                                                                 // ここでやめる（記録しない）
+    assert.equal(JSON.stringify(S.getErrorChallenge('basic')), before);
+    assert.equal(S.getErrorChallenge('basic').currentPerfectStreak, 2);
+  });
+});
+
+test('基本・総合の連続記録・称号は混ざらない。段位認定の記録にも影響しない', () => {
+  withFakeStorage(null, () => {
+    const S = PH.storage;
+    const rankBefore = JSON.stringify([S.getRank('basic'), S.getRank('comprehensive')]);
+    for (let i = 0; i < 4; i++) playAndRecord('basic', ALL_OK);
+    playAndRecord('comprehensive', ALL_OK);
+    playAndRecord('comprehensive', ONE_MISS);
+    const b = S.getErrorChallenge('basic'), c = S.getErrorChallenge('comprehensive');
+    assert.deepEqual([b.currentPerfectStreak, b.bestPerfectStreak, b.highestTitleLevel, b.playCount], [4, 4, 4, 4]);
+    assert.deepEqual([c.currentPerfectStreak, c.bestPerfectStreak, c.highestTitleLevel, c.playCount], [0, 1, 1, 2]);
+    // 総合で途切れても、基本の連続は続く
+    playAndRecord('basic', ALL_OK);
+    assert.equal(S.getErrorChallenge('basic').currentPerfectStreak, 5);
+    assert.equal(S.getErrorChallenge('comprehensive').currentPerfectStreak, 0);
+    assert.equal(JSON.stringify([S.getRank('basic'), S.getRank('comprehensive')]), rankBefore);
+  });
+});
+
+test('同じプレイの結果は二重に記録しない（連続PERFECT・挑戦回数が二重に増えない）', () => {
+  withFakeStorage(null, () => {
+    const S = PH.storage;
+    const s = playThrough(C.start('basic', null, 501), ALL_OK);
+    const res = s.result();
+    assert.ok(typeof res.playId === 'string' && res.playId.length > 0);
+    assert.ok(S.recordErrorChallenge('basic', res));
+    assert.equal(S.recordErrorChallenge('basic', res), null);
+    assert.equal(S.recordErrorChallenge('basic', s.result()), null);
+    const r = S.getErrorChallenge('basic');
+    assert.deepEqual([r.playCount, r.currentPerfectStreak], [1, 1]);
+    // 同じシードでも別のプレイなら記録する
+    const s2 = playThrough(C.start('basic', null, 501), ALL_OK);
+    assert.notEqual(s2.playId, s.playId);
+    assert.ok(S.recordErrorChallenge('basic', s2.result()));
+    assert.equal(S.getErrorChallenge('basic').currentPerfectStreak, 2);
+  });
+});
+
+test('旧データ（連続PERFECTの項目なし）は0で補う。称号は最高連続記録から導き、保存値と整合させる', () => {
+  // Ver.1.2 の称号追加前のデータ
+  const old = JSON.stringify({ errorHunt: { problems: {}, challenge: { basic: { bestScore: 80, playCount: 4, lastResult: null, recentVariants: {}, lastBases: [] } } } });
+  withFakeStorage(old, (mem) => {
+    const r = PH.storage.getErrorChallenge('basic');
+    assert.deepEqual([r.bestScore, r.playCount, r.currentPerfectStreak, r.bestPerfectStreak, r.highestTitleLevel], [80, 4, 0, 0, 0]);
+    playAndRecord('basic', ALL_OK);
+    const saved = JSON.parse(mem[PH.storage.KEY]).errorHunt.challenge.basic;
+    assert.deepEqual([saved.currentPerfectStreak, saved.bestPerfectStreak, saved.highestTitleLevel, saved.playCount], [1, 1, 1, 5]);
+  });
+  // 食いちがう・壊れた値：現在 > 最高なら最高を合わせる。称号は最高連続記録から（保存値が大きければ保持）。10を超えない
+  const odd = JSON.stringify({ errorHunt: { challenge: {
+    basic: { currentPerfectStreak: 6, bestPerfectStreak: 2, highestTitleLevel: 1 },
+    comprehensive: { currentPerfectStreak: 'x', bestPerfectStreak: 15, highestTitleLevel: 99 },
+  } } });
+  withFakeStorage(odd, () => {
+    const b = PH.storage.getErrorChallenge('basic'), c = PH.storage.getErrorChallenge('comprehensive');
+    assert.deepEqual([b.currentPerfectStreak, b.bestPerfectStreak, b.highestTitleLevel], [6, 6, 6]);
+    assert.deepEqual([c.currentPerfectStreak, c.bestPerfectStreak, c.highestTitleLevel], [0, 15, 10]);
   });
 });
 

@@ -646,7 +646,7 @@
         if (session.next()) { showQuestion(ch); root.scrollTo(0, 0); return; }
         if (!session.finished()) return;
         const res = session.result();
-        const saved = PH.storage.recordErrorChallenge(course, res);
+        const saved = PH.storage.recordErrorChallenge(course, res);     // 同じプレイ（playId）は二重に記録しない
         lastShown = { course: course, result: res, saved: saved, fresh: true };
         nav.result();
       },
@@ -677,9 +677,87 @@
         '<div class="rank-best-item"><span>挑戦回数</span><b>' + r.playCount + '回</b></div>' +
         '<div class="rank-best-item"><span>出題範囲</span><b class="ehc-pool">' + pool.length + '問<small>' + variants + '通り</small></b></div>' +
       '</div>' +
+      titleSummary(r) +
       '<button class="btn btn-confirm btn-big ehc-start" data-act="errch-start" data-course="' + id + '">' + esc(c.short) + 'コースに挑戦</button>' +
-      (r.lastResult ? '<div class="rank-top-links"><button class="btn" data-go="#/error/challenge/' + id + '/result">前回の結果</button></div>' : '') +
+      '<div class="rank-top-links">' +
+        '<button class="btn" data-go="#/error/challenge/' + id + '/titles">🏅 称号一覧</button>' +
+        (r.lastResult ? '<button class="btn" data-go="#/error/challenge/' + id + '/result">前回の結果</button>' : '') +
+      '</div>' +
     '</div>';
+  }
+
+  // ---- 連続PERFECT・称号（Ver.1.2。段位認定の段位とは完全に別） ----
+
+  function titleName(level) { const t = CH().title(level); return t ? t.name : null; }
+
+  // コースのカード：現在の連続PERFECT・最高連続・獲得した最高称号
+  function titleSummary(r) {
+    const best = titleName(r.highestTitleLevel);
+    return '<div class="ehc-title-sum">' +
+      '<span>🔥 連続PERFECT <b>' + r.currentPerfectStreak + '</b>回</span>' +
+      '<span>最高 <b>' + r.bestPerfectStreak + '</b>回</span>' +
+      '<span class="ehc-title-now">🏅 ' + (best ? '<b>' + esc(best) + '</b>' : '称号なし') + '</span>' +
+    '</div>';
+  }
+
+  // 結果発表の連続PERFECT・称号の欄（lr＝保存した直近の結果、rec＝コースの記録）
+  function perfectBlock(lr, rec) {
+    if (!lr) return '';
+    if (!lr.perfect) {
+      return '<div class="ehc-streak is-reset">' +
+        '<p>連続PERFECT は <b>0回</b> にもどったよ。100点で、また1回目から！</p>' +
+        (rec.highestTitleLevel ? '<p class="ehc-streak-keep">獲得した称号「' + esc(titleName(rec.highestTitleLevel)) + '」はそのまま（最高 ' + rec.bestPerfectStreak + '回連続）</p>' : '') +
+      '</div>';
+    }
+    const n = lr.perfectStreak;
+    const nx = CH().nextTitle(n, rec.highestTitleLevel);
+    const top = lr.newTitleLevel === CH().MAX_TITLE;
+    return (lr.newTitleLevel
+        ? '<div class="ehc-promote' + (top ? ' is-top' : '') + '" role="status">' +
+            '<span class="ehc-promote-ico" aria-hidden="true">' + (top ? '👑' : '🎊') + '</span>' +
+            '<span class="ehc-promote-label">' + (top ? '最高称号 達成！' : '称号昇格！') + '</span>' +
+            '<span class="ehc-promote-name">「' + esc(titleName(lr.newTitleLevel)) + '」</span>' +
+            (top ? '<span class="ehc-promote-sub">10回連続PERFECT！ 証明の神眼の持ち主だ！</span>' : '') +
+          '</div>'
+        : '') +
+      '<div class="ehc-streak">' +
+        '<p class="ehc-streak-count">🔥 連続PERFECT <b>' + n + '</b>回</p>' +
+        '<p>現在の称号：<b>' + esc(titleName(Math.max(lr.titleLevel, rec.highestTitleLevel))) + '</b></p>' +
+        '<p class="ehc-streak-next">' + (nx
+          ? '次の称号「' + esc(nx.title.name) + '」まで、あと <b>' + nx.remaining + '</b>回'
+          : '最高称号に到達！ 連続記録はまだまだ続くよ') + '</p>' +
+      '</div>';
+  }
+
+  // 称号一覧（コース別。未獲得の称号も名前を見せて目標にする）
+  function renderChallengeTitles(el, course) {
+    const c = CH().course(course);
+    if (!c) { root.location.hash = '#/error/challenge'; return; }
+    const r = PH.storage.getErrorChallenge(course);
+    const nx = CH().nextTitle(r.currentPerfectStreak, r.highestTitleLevel);
+    const MAX = CH().MAX_TITLE;
+    el.innerHTML = header(c.label + '｜称号一覧', '#/error/challenge', 'コース') +
+      '<div class="rank-grades ehc-titles">' +
+        '<div class="card rank-now ehc-titles-now course-' + course + '">' +
+          courseTag(c) +
+          '<p>獲得した最高称号：<b>' + (r.highestTitleLevel ? esc(titleName(r.highestTitleLevel)) : 'まだなし') + '</b></p>' +
+          '<p>現在の連続PERFECT：<b>' + r.currentPerfectStreak + '</b>回 ／ 最高：<b>' + r.bestPerfectStreak + '</b>回</p>' +
+          '<p class="rank-next">' + (nx
+            ? '連続PERFECT であと<b class="rank-need">' + nx.remaining + '回</b>で「' + esc(nx.title.name) + '」！'
+            : '最高称号「' + esc(titleName(MAX)) + '」の連続記録を更新中！') + '</p>' +
+          '<p class="select-note">5問すべて正解（100点）で連続PERFECT が1回ふえ、80点以下で0回にもどるよ。一度獲得した称号は失わない。</p>' +
+        '</div>' +
+        '<ol class="grade-list ehc-title-list">' + CH().TITLES.slice().reverse().map(function (t) {
+          const got = t.level <= r.highestTitleLevel;
+          const isBest = t.level === r.highestTitleLevel;
+          return '<li class="grade-item' + (got ? ' is-got' : '') + (isBest ? ' is-best' : '') + (t.level === MAX ? ' is-top' : '') + '">' +
+            '<span class="grade-ico" aria-hidden="true">' + (got ? (t.level === MAX ? '👑' : '🏅') : '・') + '</span>' +
+            '<span class="grade-name">' + esc(t.name) + (isBest ? '<span class="ehc-title-mark">現在の最高称号</span>' : '') + '</span>' +
+            '<span class="grade-min">' + t.need + '回連続' + (t.level === MAX ? '以上' : '') + '　' + (got ? '<b class="ehc-got">獲得済み</b>' : '未獲得') + '</span>' +
+          '</li>';
+        }).join('') + '</ol>' +
+        '<p class="select-note">称号は「' + esc(c.label) + '」コースだけの記録だよ（もう一方のコース・段位認定とは別）。</p>' +
+      '</div>';
   }
 
   function renderChallengeTop(el) {
@@ -709,7 +787,10 @@
     const shown = c && resultFor(course);
     if (!shown) { el.innerHTML = ''; root.location.hash = '#/error/challenge'; return; }
     const res = shown.result;
-    const best = PH.storage.getErrorChallenge(course).bestScore;
+    const rec = PH.storage.getErrorChallenge(course);
+    const best = rec.bestScore;
+    // 連続PERFECT・称号は、保存した直近の結果から（いま終えた挑戦と同じプレイのときだけ）
+    const lr = rec.lastResult && (!res.playId || rec.lastResult.playId === res.playId) ? rec.lastResult : null;
     el.innerHTML = header(c.label + '｜結果発表', '#/error/challenge', 'コース') +
       '<div class="rank-result ehc-result">' +
         '<div class="card ehc-result-card course-' + course + '">' +
@@ -723,6 +804,7 @@
             return '<li class="' + (it.correct ? 'is-ok' : 'is-ng') + '"><span>Q' + it.no + '</span><b>' + (it.correct ? '○' : '×') + '</b></li>';
           }).join('') + '</ol>' +
           '<p class="ehc-result-best">このコースの最高得点：<b>' + (best === null ? '－' : best + '点') + '</b></p>' +
+          perfectBlock(lr, rec) +
         '</div>' +
         '<div class="ehc-result-actions">' +
           '<button class="btn btn-confirm btn-big" data-act="errch-start" data-course="' + course + '">同じコースでもう一度挑戦</button>' +
@@ -734,6 +816,7 @@
     if (shown.fresh) {
       shown.fresh = false;
       PH.sound.play(res.score >= 60 ? 'success' : 'soft');
+      if (lr && lr.newTitleLevel) root.setTimeout(function () { PH.sound.play('get'); }, 700);
     }
   }
 
@@ -908,6 +991,7 @@
     renderChallengeTop: renderChallengeTop,
     renderChallengeResult: renderChallengeResult,
     renderChallengeReview: renderChallengeReview,
+    renderChallengeTitles: renderChallengeTitles,
     renderDev: renderDev,
     requestStart: function (course) { pendingStart = CH().isCourse(course) ? course : null; },
     mountChallenge: mountChallenge,

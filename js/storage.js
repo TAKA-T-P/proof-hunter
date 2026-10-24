@@ -46,6 +46,10 @@
  *                     items: [{ no, baseId, variantId, category, target, selected, correct }] } | null,   // 直近1回（振り返り用）
  *       recentVariants: { <ベース問題ID>: [バリエーションID（新しい順・最大3つ）] },   // 同じ間違いが続かないようにする少量の履歴
  *       lastBases: [ベース問題ID],              // 直近のチャレンジで出題したベース問題
+ *       currentPerfectStreak,                  // 現在の連続PERFECT（100点）回数。100点で+1、80点以下で0。途中終了では変わらない
+ *       bestPerfectStreak,                     // 最高連続PERFECT回数（下がらない。11回以上も数える）
+ *       highestTitleLevel,                     // 獲得した最高称号の段階 0〜10（bestPerfectStreak から導ける。下がらない）
+ *       （lastResult には playId・perfect・perfectStreak・titleLevel・newTitleLevel も入る。同じ playId は二重に記録しない）
  *     }
  *   }
  *   Ver.0.7 までの rankCertification（コースの記録の形そのもの）は、読みこむときに legacy へ移す（1回だけ。保存すると新しい形になる）。
@@ -177,7 +181,16 @@
   const CHALLENGE_IDS = ['basic', 'comprehensive'];
   const RECENT_KEEP = 3;
 
-  function blankChallenge() { return { bestScore: null, playCount: 0, lastResult: null, recentVariants: {}, lastBases: [] }; }
+  function blankChallenge() {
+    return {
+      bestScore: null, playCount: 0, lastResult: null, recentVariants: {}, lastBases: [],
+      currentPerfectStreak: 0, bestPerfectStreak: 0, highestTitleLevel: 0,
+    };
+  }
+
+  // 連続PERFECT の称号の段階（1〜10。10回以上は最高の10。称号名は js/error-hunt-challenge.js）。段位認定の段位とは無関係
+  const MAX_TITLE_LEVEL = 10;
+  function titleLevel(streak) { return Math.max(0, Math.min(MAX_TITLE_LEVEL, Math.floor(streak) || 0)); }
   function blankChallenges() {
     const out = {};
     CHALLENGE_IDS.forEach(function (id) { out[id] = blankChallenge(); });
@@ -213,6 +226,18 @@
       });
     }
     out.lastBases = strList(r.lastBases, 10);
+    // Ver.1.2 連続PERFECT・称号（古いデータには無いので0から）。称号は最高連続記録から導き、保存値と食いちがえば大きいほうに合わせる
+    out.currentPerfectStreak = Math.floor(num(r.currentPerfectStreak, 0));
+    out.bestPerfectStreak = Math.max(Math.floor(num(r.bestPerfectStreak, 0)), out.currentPerfectStreak);
+    out.highestTitleLevel = Math.max(titleLevel(num(r.highestTitleLevel, 0)), titleLevel(out.bestPerfectStreak));
+    if (out.lastResult) {
+      const lr = r.lastResult;
+      out.lastResult.playId = typeof lr.playId === 'string' ? lr.playId : null;
+      out.lastResult.perfect = lr.perfect === true;
+      out.lastResult.perfectStreak = Math.floor(num(lr.perfectStreak, 0));
+      out.lastResult.titleLevel = titleLevel(num(lr.titleLevel, 0));
+      out.lastResult.newTitleLevel = titleLevel(num(lr.newTitleLevel, 0));
+    }
     return out;
   }
 
@@ -514,15 +539,26 @@
     const id = challengeId(course || (result && result.course));
     if (!id || !result) return null;
     const c = load().errorHunt.challenge[id];
+    // 同じプレイの結果を二重に記録しない（Ver.1.2：連続PERFECT が二重に増えないように）
+    if (typeof result.playId === 'string' && c.lastResult && c.lastResult.playId === result.playId) return null;
     const score = score100(result.score) || 0;
     const firstTime = c.bestScore === null;
     const newBest = !firstTime && score > c.bestScore;
     c.bestScore = firstTime ? score : Math.max(c.bestScore, score);
     c.playCount++;
+    // 連続PERFECT：100点で1つ増え、それ以外（80点以下）は0にもどる。最高記録・獲得した称号は下がらない
+    const perfect = score === 100;
+    const prevTitle = c.highestTitleLevel;
+    c.currentPerfectStreak = perfect ? c.currentPerfectStreak + 1 : 0;
+    c.bestPerfectStreak = Math.max(c.bestPerfectStreak, c.currentPerfectStreak);
+    c.highestTitleLevel = Math.max(c.highestTitleLevel, titleLevel(c.bestPerfectStreak));
     const items = (result.items || []).slice(0, 10);
     c.lastResult = {
       score: score, correct: result.correct, wrong: result.wrong, total: result.total, seed: result.seed,
+      playId: typeof result.playId === 'string' ? result.playId : null,
       completedAt: new Date().toISOString(), newBest: newBest,
+      perfect: perfect, perfectStreak: c.currentPerfectStreak, titleLevel: titleLevel(c.currentPerfectStreak),
+      newTitleLevel: c.highestTitleLevel > prevTitle ? c.highestTitleLevel : 0,
       items: items.map(function (it) {
         return { no: it.no, baseId: it.baseId, variantId: it.variantId, category: it.category, target: it.target, selected: it.selected, correct: it.correct === true };
       }),
@@ -533,7 +569,11 @@
     });
     c.lastBases = items.map(function (it) { return it.baseId; });
     save();
-    return { newBest: newBest, firstTime: firstTime, bestScore: c.bestScore };
+    return {
+      newBest: newBest, firstTime: firstTime, bestScore: c.bestScore,
+      perfect: perfect, currentPerfectStreak: c.currentPerfectStreak, bestPerfectStreak: c.bestPerfectStreak,
+      highestTitleLevel: c.highestTitleLevel, newTitleLevel: c.lastResult.newTitleLevel,
+    };
   }
 
   function getSound() { return load().sound !== false; }
