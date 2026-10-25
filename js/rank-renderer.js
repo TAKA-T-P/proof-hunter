@@ -410,7 +410,8 @@
       return;
     }
     const ok = r.status === 'correct';
-    PH.sound.play(ok ? 'rankOk' : 'rankNg');
+    // 連続正解の表示（NICE！など）が出るときは、その効果音（pop の combo）だけを鳴らす（正解音と重ねない）
+    if (!(ok && r.comboText)) PH.sound.play(ok ? 'rankOk' : 'rankNg');
     this.locked = true;
     this.game.pause(now());          // ○× を表示している間は、残り時間を減らさない
     const mark = this.ref('mark');
