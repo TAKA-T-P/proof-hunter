@@ -307,14 +307,15 @@ test('直近と同じバリエーションは、ほかに候補があれば出�
       const again = C.draw(c, { seed, history });
       again.items.forEach((it) => {
         const prev = history.recentVariants[it.baseId];
-        if (prev) assert.notEqual(it.variantId, prev[0], c + ' seed ' + seed + ' ' + it.baseId);
+        // 「間違いがない」問題（'none'）は誤りバリエーションではないので対象外
+        if (prev && prev[0] !== 'none' && it.variantId !== 'none') assert.notEqual(it.variantId, prev[0], c + ' seed ' + seed + ' ' + it.baseId);
       });
     }
   });
   // すべての履歴を入れても動く（すべて直前に出ていても、別のバリエーションを選ぶ）
   const h = { recentVariants: {}, lastBases: [] };
   C.pool('basic').forEach((e) => { h.recentVariants[e.base.id] = [e.variants[0].variantId]; });
-  C.draw('basic', { seed: 3, history: h }).items.forEach((it) => assert.notEqual(it.variantId, h.recentVariants[it.baseId][0]));
+  C.draw('basic', { seed: 3, history: h, noErrorRate: 0 }).items.forEach((it) => assert.notEqual(it.variantId, h.recentVariants[it.baseId][0]));
 });
 
 test('候補が足りなくても無限ループしない（あるだけ出題）。壊れた履歴でも動く', () => {
@@ -546,9 +547,16 @@ test('振り返り：保存したバリエーションIDから、出題時と同
       const def = V.def(it.baseId, it.variantId);           // 再抽選しない
       const b = E.build(def);
       assert.deepEqual(b.steps.map(E.stepText), shown[i], 'Q' + it.no + ' の証明文');
-      assert.equal(it.target, b.target);
       assert.equal(it.selected, res.items[i].selected);
       assert.equal(it.correct, res.items[i].correct);
+      assert.ok(def.explain.length > 20);
+      if (def.noError) {
+        // 「間違いがない」問題：正しい証明そのもの。正解は「間違いはない！」
+        assert.equal(it.target, 'none');
+        assert.deepEqual(b.steps.map(E.stepText), b.correctSteps.map(E.stepText));
+        return;
+      }
+      assert.equal(it.target, b.target);
       assert.ok(b.steps.some((x) => x.id === it.selected), '選んだ行が証明の中にある');
       // 正しい文・解説・正しい証明全文がある
       assert.notEqual(E.stepText(b.wrong), E.stepText(b.right));
@@ -558,6 +566,71 @@ test('振り返り：保存したバリエーションIDから、出題時と同
     assert.notEqual(PH.storage.getErrorChallenge('basic').lastResult.seed, last.seed);
   });
 });
+
+// =====================================================================================
+// 「間違いがない」問題（ランダムチャレンジ）
+// =====================================================================================
+
+test('約20%が「間違いがない」問題（1回の挑戦で2問まで）。同じシードなら同じ。割合0なら出ない', () => {
+  ['basic', 'comprehensive'].forEach((c) => {
+    let none = 0, total = 0;
+    for (let seed = 1; seed <= 400; seed++) {
+      const items = C.draw(c, { seed }).items;
+      const n = items.filter((it) => it.variantId === 'none').length;
+      assert.ok(n <= C.MAX_NO_ERROR, c + ' seed ' + seed + ' ' + n);
+      none += n; total += items.length;
+    }
+    const rate = none / total;
+    assert.ok(rate > 0.13 && rate < 0.25, c + ' ' + rate);
+    for (let seed = 1; seed <= 50; seed++) assert.equal(C.draw(c, { seed, noErrorRate: 0 }).items.filter((it) => it.variantId === 'none').length, 0);
+  });
+  assert.equal(C.NO_ERROR_RATE, 0.2);
+});
+
+test('「間違いがない」問題は正しい証明のまま。「間違いはない！」で正解、行を選ぶと不正解', () => {
+  const d = V.def('eh-p01-cong', 'none');
+  assert.equal(d.noError, true);
+  assert.equal(d.id, 'eh-p01-cong');
+  const b = E.build(d);
+  assert.deepEqual(b.steps.map(E.stepText), b.correctSteps.map(E.stepText));
+  assert.equal(b.target, null);
+  assert.deepEqual(V.courses(d), ['basic', 'comprehensive']);
+  assert.deepEqual(V.courses(V.def('eh-p21-theorem', 'none')), ['comprehensive']);
+  // じっくり練習・開発者用の一覧には入らない
+  assert.ok(V.list('eh-p01-cong').every((x) => x.variantId !== 'none'));
+  assert.ok(ALL.every((x) => !x.noError));
+  // セッション：「間違いはない！」の正誤
+  const findSession = (wantNone) => {
+    for (let seed = 1; seed < 500; seed++) {
+      const s = C.start('basic', null, seed);
+      if (s.current().noError === wantNone) return s;
+    }
+    throw new Error('not found');
+  };
+  const s1 = findSession(true);
+  assert.equal(s1.current().target, 'none');
+  assert.equal(s1.answer('none').status, 'correct');
+  assert.equal(s1.score(), 20);
+  const s2 = findSession(true);
+  assert.equal(s2.answer('intro').status, 'wrong');           // 間違いがないのに行を選んだ
+  const s3 = findSession(false);
+  assert.equal(s3.answer('none').status, 'wrong');            // 間違いがあるのに「間違いはない！」
+  assert.equal(s3.answer(s3.current().target).status, 'locked');
+  // 記録：結果に残り、誤りバリエーションの履歴には入らない
+  withFakeStorage(null, () => {
+    const s = playThrough(findSession(true), ALL_OK_5);
+    const res = s.result();
+    assert.equal(res.items[0].variantId, 'none');
+    assert.equal(res.items[0].selected, 'none');
+    assert.equal(res.score, 100);
+    PH.storage.recordErrorChallenge('basic', res);
+    const r = PH.storage.getErrorChallenge('basic');
+    assert.equal(r.lastResult.items[0].variantId, 'none');
+    assert.equal(r.lastResult.items[0].target, 'none');
+    Object.keys(r.recentVariants).forEach((id) => assert.ok(r.recentVariants[id].indexOf('none') < 0));
+  });
+});
+const ALL_OK_5 = [true, true, true, true, true];
 
 // =====================================================================================
 // 連続PERFECT・称号（段位認定の段位とは独立）

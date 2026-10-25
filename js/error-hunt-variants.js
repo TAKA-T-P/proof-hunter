@@ -17,6 +17,7 @@
  *
  *   PH.errorVariants.list(baseId)           … ベース問題のバリエーション（'original' が最初）
  *   PH.errorVariants.def(baseId, variantId) … 1つのバリエーションの問題データ（ErrorHuntGame・build・verify にそのまま渡せる）
+ *                                             variantId 'none' は「間違いがない」問題（正しい証明。ランダム5問チャレンジだけで出題）
  *   PH.errorVariants.topics(def)            … 必要な知識
  *   PH.errorVariants.courses(def)           … 出題できるコース ['basic', 'comprehensive']
  *   PH.errorVariants.all()                  … すべてのバリエーション（開発者用の確認画面・テスト）
@@ -303,7 +304,19 @@
       .concat(extra.map(function (v) { return make(b, v); }));
   }
 
+  // 「間違いがない」問題（ランダム5問チャレンジだけ。正しい証明をそのまま見せる）。list・all にはふくめない
+  const NONE = 'none';
+  function noErrorDef(baseId) {
+    const b = base(baseId);
+    if (!b) return null;
+    return Object.assign({}, b, {
+      variantId: NONE, noError: true, category: null, mutation: null, hint: undefined, requiredTopics: [], key: b.id + '/' + NONE,
+      explain: 'この証明には間違いがないよ。根拠の等式と理由、合同条件、三角形の頂点の対応、証明の順序がすべて正しいね。正しい証明を見ぬけたら「間違いはない！」で正解。',
+    });
+  }
+
   function def(baseId, variantId) {
+    if (variantId === NONE) return noErrorDef(baseId);
     return list(baseId).find(function (d) { return d.variantId === (variantId || ORIGINAL); }) || null;
   }
 
@@ -356,6 +369,7 @@
   function mutationTopics(d) {
     const m = d.mutation;
     const out = [];
+    if (!m) return out;                 // 「間違いがない」問題は、元の問題の知識だけ
     if (m.field === 'reason' && m.rule) addAll(out, RULE_TOPIC[m.rule] || ['unknown:' + m.rule]);
     else if (m.field === 'reason') addAll(out, REASON_TOPIC[m.reason] || ['unknown:' + m.reason]);
     if (m.field === 'condition') {
@@ -407,6 +421,7 @@
 
   PH.errorVariants = {
     ORIGINAL: ORIGINAL,
+    NONE: NONE,
     list: list,
     def: def,
     all: all,

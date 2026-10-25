@@ -564,6 +564,7 @@
       }),
     };
     items.forEach(function (it) {
+      if (it.variantId === 'none') return;     // 「間違いがない」問題は、誤りバリエーションの履歴に入れない
       const prev = c.recentVariants[it.baseId] || [];
       c.recentVariants[it.baseId] = [it.variantId].concat(prev.filter(function (v) { return v !== it.variantId; })).slice(0, RECENT_KEEP);
     });

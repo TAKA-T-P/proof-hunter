@@ -161,6 +161,8 @@
     const problem = PH.getProblem(def.source);
     if (!problem) return null;
     const correctSteps = structure(problem);
+    // Ver.1.2：「間違いがない」問題（ランダム5問チャレンジ）は正しい証明のまま。正解の行はない（target: null）
+    if (def.noError) return { def: def, problem: problem, correctSteps: correctSteps, target: null, steps: correctSteps.slice(), wrong: null, right: null };
     const target = correctSteps.find(function (s) { return s.id === def.mutation.target; });
     if (!target) return null;
     const wrong = mutate(problem, target, def.mutation);

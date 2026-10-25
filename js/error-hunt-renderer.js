@@ -539,7 +539,6 @@
     this.ch = ch;
     this.q = ch.session.current();
     this.course = CH().course(ch.course);
-    this.judge = null;            // 判定の結果 { status, points }
     ErrorView.call(this, el, this.q.def, ch.nav);
   }
   ChallengeView.prototype = Object.create(ErrorView.prototype);
@@ -557,15 +556,19 @@
       '</header>';
   };
   ChallengeView.prototype.ruleHtml = function () {
-    return '<p class="eh-rule"><b>間違いは1か所！</b> 解答は1回だけ。よく確かめてから「ここが間違い！」</p>';
+    return '<p class="eh-rule"><b>間違いは1か所まで！</b> 間違いの行を選んで「ここが間違い！」。間違いがなければ「間違いはない！」。解答は1回だけ。</p>';
   };
   ChallengeView.prototype.helpHtml = function () {
     return '<p class="eh-feedback ehc-feedback" data-ref="feedback" aria-live="polite"></p>';
   };
   ChallengeView.prototype.barHtml = function () {
     const last = this.q.no >= this.ch.session.total();
-    return '<div class="eh-bar">' +
-        '<button class="btn btn-big eh-confirm" data-act="confirm" data-ref="confirm">ここが間違い！</button>' +
+    // 「間違いはない！」は「ここが間違い！」の左（行を選んでいなくても押せる。押すと確認のメッセージ）
+    return '<div class="eh-bar ehc-bar">' +
+        '<div class="ehc-answer" data-ref="answer">' +
+          '<button class="btn btn-big ehc-noerror" data-act="noerror" data-ref="noerror">間違いはない！</button>' +
+          '<button class="btn btn-big eh-confirm" data-act="confirm" data-ref="confirm">ここが間違い！</button>' +
+        '</div>' +
         '<button class="btn btn-big btn-primary ehc-next" data-act="cnext" data-ref="cnext" hidden>' + (last ? '結果発表へ ▶' : '次の問題へ ▶') + '</button>' +
       '</div>' +
       '<div class="ehc-judge" data-ref="judge" aria-hidden="true" hidden></div>';
@@ -585,9 +588,9 @@
       if (sel) cls.push(done ? (q.correct ? 'is-judged-ok' : 'is-judged-ng') : 'is-selected');
       return '<li><button class="' + cls.join(' ') + '" data-step="' + s.id + '" aria-pressed="' + sel + '"' + (done ? ' disabled' : '') + '>' + stepHtml(s) + '</button></li>';
     }).join('');
-    const confirm = this.ref('confirm');
-    confirm.hidden = done;
-    confirm.disabled = done || !g.selected;
+    this.ref('answer').hidden = done;
+    this.ref('confirm').disabled = done || !g.selected;
+    this.ref('noerror').disabled = done;
     this.ref('cnext').hidden = !done;
     this.ref('score').textContent = String(this.ch.session.score());
     const fb = this.ref('feedback');
@@ -601,6 +604,7 @@
       const act = t.getAttribute('data-act');
       if (act === 'quit') return this.ch.quit();
       if (act === 'cnext') return this.ch.next();
+      if (act === 'noerror') return this.askNoError();
     }
     return ErrorView.prototype.handleClick.call(this, e);
   };
@@ -613,7 +617,31 @@
   // 「ここが間違い！」：1問1回だけ判定（二重に確定しない）
   ChallengeView.prototype.confirm = function () {
     if (this.q.answered || !this.game.selected) return;
-    const r = this.ch.session.answer(this.game.selected);
+    this.submit(this.game.selected);
+  };
+
+  // 「間違いはない！」：いきなり判定せず、「はい」「いいえ」で確かめてから判定する
+  ChallengeView.prototype.askNoError = function () {
+    if (this.q.answered) return;
+    const self = this;
+    PH.sound.play('tap');
+    PH.chooser.open({
+      title: '確認',
+      message: '「間違いはない！」で解答していいですか？',
+      options: [{ value: 'yes', label: 'はい' }],
+      cancelLabel: 'いいえ',
+      textOptions: true,
+      onChoose: function () {
+        if (self.q.answered || current !== self) return;
+        self.game.selected = null;           // 選んでいた行は解除して「間違いはない！」で答える
+        self.submit(CH().NO_ERROR);
+      },
+    });
+  };
+
+  // 解答を確定して判定する（行のID、または「間違いはない！」の 'none'）
+  ChallengeView.prototype.submit = function (answer) {
+    const r = this.ch.session.answer(answer);
     if (r.status !== 'correct' && r.status !== 'wrong') return;
     const ok = r.status === 'correct';
     PH.sound.play(ok ? 'correct' : 'wrong');
@@ -767,7 +795,7 @@
           '<div class="rank-hero-ico" aria-hidden="true">🎯</div>' +
           '<p class="rank-hero-tag">証明の間違い探し</p>' +
           '<p class="rank-hero-lead">5問の証明に隠れた間違いを見抜け！</p>' +
-          '<p class="ehc-rules">解答は1問1回 ／ ヒントなし・制限時間なし</p>' +
+          '<p class="ehc-rules">解答は1問1回 ／ ヒントなし・制限時間なし ／ 間違いがない問題もあるよ</p>' +
         '</div>' +
         '<div class="rank-courses">' + CH().ORDER.map(challengeCard).join('') + '</div>' +
       '</div>';
@@ -832,7 +860,19 @@
     if (!def) return '<li class="card ehc-rv"><p>Q' + it.no + '：この問題は表示できません（' + esc(it.baseId + '/' + it.variantId) + '）</p></li>';
     const b = PH.errorHunt.build(def);
     const src = b.problem;
-    const mine = it.selected ? stepTextOf(b.steps, it.selected) : null;
+    const NONE = CH().NO_ERROR;
+    const mine = it.selected === NONE ? '「間違いはない！」' : it.selected ? stepTextOf(b.steps, it.selected) : null;
+    // 「間違いがない」問題：正解は「間違いはない！」。間違い・正しくはの行はない
+    const fix = def.noError
+      ? '<div class="eh-fix-row is-mine"><span class="eh-fix-label">👆 あなたの答え</span><span class="eh-fix-text">' + (mine ? esc(mine) : '（なし）') + '</span></div>' +
+        '<div class="eh-fix-row is-right"><span class="eh-fix-label">○ 正解</span><span class="eh-fix-text">「間違いはない！」（この証明は正しい）</span></div>' +
+        '<h3 class="eh-why-title">💡 解説</h3>' +
+        '<p class="eh-why">' + esc(def.explain) + '</p>'
+      : '<div class="eh-fix-row is-mine"><span class="eh-fix-label">👆 あなたの答え</span><span class="eh-fix-text">' + (mine ? esc(mine) : '（なし）') + '</span></div>' +
+        '<div class="eh-fix-row is-wrong"><span class="eh-fix-label">✖ 間違いがある行（正解の行）</span><span class="eh-fix-text">' + esc(PH.errorHunt.stepText(b.wrong)) + '</span></div>' +
+        '<div class="eh-fix-row is-right"><span class="eh-fix-label">○ 正しくは</span><span class="eh-fix-text">' + esc(PH.errorHunt.stepText(b.right)) + '</span></div>' +
+        '<h3 class="eh-why-title">💡 なぜ間違い？</h3>' +
+        '<p class="eh-why">' + esc(def.explain) + '</p>';
     return '<li class="card ehc-rv ' + (it.correct ? 'is-ok' : 'is-ng') + '">' +
       '<div class="ehc-rv-head">' +
         '<span class="ehc-rv-no">Q' + it.no + '</span>' +
@@ -840,7 +880,7 @@
         courseTag(c) +
       '</div>' +
       '<p class="ehc-rv-src">間違い探し' + esc(def.no) + '（元の問題 ' + esc(src.number) + '）' + esc(src.title) +
-        '<span class="eh-cat">' + esc(PH.errorHunt.CATEGORIES[def.category].label) + '</span></p>' +
+        '<span class="eh-cat">' + esc(def.noError ? '間違いなし' : PH.errorHunt.CATEGORIES[def.category].label) + '</span></p>' +
       '<div class="ehc-rv-body">' +
         '<div class="ehc-rv-fig"><svg class="figure mini" data-rv-fig="' + it.no + '" aria-label="問題の図"></svg></div>' +
         '<div class="ehc-rv-cond">' +
@@ -855,18 +895,13 @@
         if (s.id === it.selected && !it.correct) cls.push('is-mine');
         return '<li><div class="' + cls.join(' ') + '">' + stepHtml(s) + '</div></li>';
       }).join('') + '</ol>' +
-      '<div class="eh-fix">' +
-        '<div class="eh-fix-row is-mine"><span class="eh-fix-label">👆 あなたが選んだ行</span><span class="eh-fix-text">' + (mine ? esc(mine) : '（なし）') + '</span></div>' +
-        '<div class="eh-fix-row is-wrong"><span class="eh-fix-label">✖ 間違いがある行（正解の行）</span><span class="eh-fix-text">' + esc(PH.errorHunt.stepText(b.wrong)) + '</span></div>' +
-        '<div class="eh-fix-row is-right"><span class="eh-fix-label">○ 正しくは</span><span class="eh-fix-text">' + esc(PH.errorHunt.stepText(b.right)) + '</span></div>' +
-        '<h3 class="eh-why-title">💡 なぜ間違い？</h3>' +
-        '<p class="eh-why">' + esc(def.explain) + '</p>' +
-      '</div>' +
-      '<details class="ehc-rv-proof"><summary>正しい証明全文を見る</summary>' +
-        '<ol class="eh-lines is-proof">' + b.correctSteps.map(function (s) {
-          return '<li><div class="eh-line kind-' + s.kind + (s.id === b.target ? ' is-fixed' : '') + '">' + stepHtml(s) + '</div></li>';
-        }).join('') + '</ol>' +
-      '</details>' +
+      '<div class="eh-fix">' + fix + '</div>' +
+      (def.noError ? '' :
+        '<details class="ehc-rv-proof"><summary>正しい証明全文を見る</summary>' +
+          '<ol class="eh-lines is-proof">' + b.correctSteps.map(function (s) {
+            return '<li><div class="eh-line kind-' + s.kind + (s.id === b.target ? ' is-fixed' : '') + '">' + stepHtml(s) + '</div></li>';
+          }).join('') + '</ol>' +
+        '</details>') +
     '</li>';
   }
 
@@ -876,7 +911,7 @@
     if (!r) { el.innerHTML = ''; root.location.hash = '#/error/challenge'; return; }
     el.innerHTML = header(c.label + '｜振り返り', '#/error/challenge/' + course + '/result', '結果') +
       '<div class="ehc-review">' +
-        '<p class="select-note">前回の' + esc(c.label) + 'コース（' + r.score + '点）で出題された' + r.items.length + '問だよ。黄色が正解の行（間違いがある行）、赤があなたが選んだ行。</p>' +
+        '<p class="select-note">前回の' + esc(c.label) + 'コース（' + r.score + '点）で出題された' + r.items.length + '問だよ。黄色が正解の行（間違いがある行）、赤があなたが選んだ行。間違いがない問題は「間違いはない！」が正解。</p>' +
         '<ol class="ehc-rv-list">' + r.items.map(function (it) { return reviewItem(it, c); }).join('') + '</ol>' +
         '<div class="ehc-result-actions">' +
           '<button class="btn btn-confirm btn-big" data-act="errch-start" data-course="' + course + '">同じコースでもう一度挑戦</button>' +

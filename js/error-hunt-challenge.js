@@ -11,6 +11,7 @@
  *   2. 重複しない5問のベース問題を選ぶ（総合証明は4つの単元から、できれば1問ずつ。前回のチャレンジのベース問題は少し出にくく）
  *   3. ベース問題ごとにバリエーションを1つ選ぶ
  *      … 前回と同じバリエーションは、ほかに候補があれば出さない。前々回・前回と同じ行の間違い、同じ誤りの種類の重なりは出にくくする
+ *   4. 約20%（1回の挑戦で2問まで）は「間違いがない」問題（バリエーション 'none'：正しい証明のまま）。「間違いはない！」で答えると正解
  *   候補が5問に足りなければ、ある分だけ出題する（無限ループしない）。
  *
  *   PH.errorChallenge.draw(course, { seed, history }) … { course, seed, items: [{ baseId, variantId }] }
@@ -26,6 +27,10 @@
   const POINTS = 20;         // 1問の得点
   const RECENT_KEEP = 3;     // ベース問題ごとに覚えておく、直近のバリエーションの数
   const UNIT_ORDER = ['basic', 'conclusion', 'triangle', 'quadrilateral'];
+  // 「間違いがない」問題（正しい証明。「間違いはない！」で答える）の割合と、1回の挑戦での上限
+  const NO_ERROR = 'none';         // バリエーションID・「間違いはない！」の解答（PH.errorVariants.NONE と同じ）
+  const NO_ERROR_RATE = 0.2;
+  const MAX_NO_ERROR = 2;
 
   // コースの表示（ID・表示名は段位認定と共通。説明は間違い探しのもの）
   const COURSES = {
@@ -126,6 +131,8 @@
     }
     // バリエーション：前回と同じものは、ほかに候補があれば出さない。同じ行・同じ誤りの種類が続かないように重みを下げる
     const catCount = {};
+    const noErrorRate = typeof o.noErrorRate === 'number' ? o.noErrorRate : NO_ERROR_RATE;
+    let noneCount = 0;
     const items = chosen.map(function (e) {
       const recent = Array.isArray(hist.recentVariants[e.base.id]) ? hist.recentVariants[e.base.id] : [];
       let cands = e.variants;
@@ -142,6 +149,11 @@
         w *= Math.pow(0.35, catCount[d.category] || 0);
         return w;
       }, r);
+      // 約20%は「間違いがない」問題（正しい証明のまま）。1回の挑戦で多くても2問まで
+      if (r() < noErrorRate && noneCount < MAX_NO_ERROR) {
+        noneCount++;
+        return { baseId: e.base.id, variantId: NO_ERROR };
+      }
       catCount[v.category] = (catCount[v.category] || 0) + 1;
       return { baseId: e.base.id, variantId: v.variantId };
     });
@@ -160,7 +172,8 @@
     this.items = drawn.items.map(function (it, i) {
       const def = PH.errorVariants.def(it.baseId, it.variantId);
       const built = PH.errorHunt.build(def);
-      return { no: i + 1, baseId: it.baseId, variantId: it.variantId, def: def, target: built.target, selected: null, answered: false, correct: null };
+      // 「間違いがない」問題の正解は「間違いはない！」（target: 'none'）
+      return { no: i + 1, baseId: it.baseId, variantId: it.variantId, def: def, noError: !!def.noError, target: def.noError ? NO_ERROR : built.target, selected: null, answered: false, correct: null };
     });
     this.index = 0;
     this.state = this.items.length ? 'play' : 'done';     // 'play' / 'done'（5問終了） / 'aborted'（途中終了）
@@ -173,11 +186,11 @@
   ChallengeSession.prototype.score = function () { return this.correctCount() * POINTS; };
   ChallengeSession.prototype.maxScore = function () { return this.items.length * POINTS; };
 
-  // 「ここが間違い！」：1問につき1回だけ判定する（二重に確定しない）
+  // 「ここが間違い！」（行のID）・「間違いはない！」（'none'）：1問につき1回だけ判定する（二重に確定しない）
   ChallengeSession.prototype.answer = function (stepId) {
     const q = this.current();
     if (!q || q.answered) return { status: 'locked' };
-    if (!stepId || !PH.errorHunt.build(q.def).steps.some(function (s) { return s.id === stepId; })) return { status: 'none' };
+    if (!stepId || (stepId !== NO_ERROR && !PH.errorHunt.build(q.def).steps.some(function (s) { return s.id === stepId; }))) return { status: 'none' };
     q.selected = stepId;
     q.answered = true;
     q.correct = stepId === q.target;
@@ -247,6 +260,9 @@
   }
 
   PH.errorChallenge = {
+    NO_ERROR: NO_ERROR,
+    NO_ERROR_RATE: NO_ERROR_RATE,
+    MAX_NO_ERROR: MAX_NO_ERROR,
     TITLES: TITLES,
     MAX_TITLE: MAX_TITLE,
     titleLevel: titleLevel,

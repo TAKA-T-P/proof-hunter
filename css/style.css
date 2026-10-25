@@ -1566,3 +1566,11 @@ button.eh-line:disabled { cursor: default; opacity: 1; color: var(--ink); }
 .ehc-title-list .grade-item.is-top .grade-name { color: #b45309; }
 .ehc-title-mark { display: table; margin: 2px 0 0; padding: 0 8px; border-radius: 99px; background: var(--teal); color: #fff; font-size: .7rem; vertical-align: middle; }
 .ehc-got { color: var(--green); }
+
+/* Ver.1.2：ランダムチャレンジの「間違いはない！」「ここが間違い！」（横並び。「間違いはない！」が左） */
+.ehc-answer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ehc-answer[hidden] { display: none; }
+.ehc-answer .btn { width: 100%; padding-left: 6px; padding-right: 6px; white-space: nowrap; }
+.ehc-noerror { background: #fff; border-color: var(--teal); color: var(--teal); }
+.ehc-noerror:disabled { opacity: .45; }
+@media (max-width: 360px) { .ehc-answer .btn { font-size: .95rem; } }

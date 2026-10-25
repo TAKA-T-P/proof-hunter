@@ -2,7 +2,8 @@
  * chooser.js — 「どちらに印をつけますか？」のような、候補から1つを選ぶ小さなポップアップ（両モード共通）
  *
  * PH.chooser.open({ title, message?, options: [{ value, label }], onChoose(value), textOptions? })
- *   textOptions: true … 選択肢が長い文字（「スタンダード」など）のとき、改行しない小さめの文字で表示
+ *   cancelLabel: 'いいえ' … キャンセルのボタンの文字（省略時「キャンセル」）
+ *   textOptions: true …選択肢が長い文字（「スタンダード」など）のとき、改行しない小さめの文字で表示
  *   avoid: 要素   … その要素（図）と重ならない位置に出す（図の下 → 図の右 → 図の左 → 図の上。どこにも入らなければ中央）
  *   選択肢に wide: true をつけると、ほかの選択肢の下（キャンセルの上）に横いっぱいのボタンで出す（Ver.1.0：「ハンターモードに切り替える」）
  * キャンセル（ボタン・外側のタップ・Esc）では何もしない。
@@ -57,6 +58,8 @@
     el.classList.toggle('is-many', opts.options.filter(function (o) { return !o.wide; }).length > 3);
     // 長い文字の選択肢が3つ横に並ぶとき（解答レベル3つ）は、さらに小さい文字にする（「スタンダード」がはみ出さないように）
     el.classList.toggle('is-three', !!opts.textOptions && opts.options.filter(function (o) { return !o.wide; }).length === 3);
+    // cancelLabel … キャンセルのボタンの文字（「いいえ」など。省略時「キャンセル」）
+    el.querySelector('.chooser-cancel').textContent = opts.cancelLabel || 'キャンセル';
     const msg = el.querySelector('.chooser-message');
     msg.textContent = opts.message || '';
     msg.hidden = !opts.message;
