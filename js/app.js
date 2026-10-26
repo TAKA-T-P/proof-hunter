@@ -180,8 +180,9 @@
     const reviewBtn = function (kind, ico, label) {
       const n = count(kind);
       return '<button class="review-btn review-' + kind + '" data-go="' + M.review + '/' + kind + '">' +
-        '<span class="review-label"><span aria-hidden="true">' + ico + '</span>' + label + '</span>' +
-        '<span class="review-count">' + n + '問</span></button>';
+        '<span class="review-label">' + label + '</span>' +
+        // 絵文字は「○問」の左（「🎯 20問」）
+        '<span class="review-sub"><span class="review-ico" aria-hidden="true">' + ico + '</span><span class="review-count">' + n + '問</span></span></button>';
     };
     $('#select-body').innerHTML =
       '<p class="mode-lead">' + (mode === 'puzzle'
