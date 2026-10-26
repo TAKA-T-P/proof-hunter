@@ -554,16 +554,16 @@ test('120秒・時間ペナルティ・21段階の称号は変わらない。出
   assert.equal(PH.rank.penaltyFor(1), 4000);
   assert.equal(PH.rank.totalPenalty(3), 24000);
   assert.equal(CFG.grades.length, 21);
-  assert.equal(PH.rank.gradeFor(0).name, '10級');
-  assert.equal(PH.rank.gradeFor(10).name, '初段');
-  assert.equal(PH.rank.gradeFor(20).name, '皆伝');
-  assert.equal(CFG.criteriaVersion, 2);
+  assert.equal(PH.rank.gradeFor(1).name, '10級');
+  assert.equal(PH.rank.gradeFor(11).name, '初段');
+  assert.equal(PH.rank.gradeFor(21).name, '皆伝');
+  assert.equal(CFG.criteriaVersion, 3);
   assert.equal(CFG.questionPoolVersion, 3);
   const g = new PH.RankGame({ seed: 7, track: 'comprehensive' });
   g.start(0);
   g.tick(120001);
   assert.ok(g.result);
-  assert.equal(g.result.criteriaVersion, 2);
+  assert.equal(g.result.criteriaVersion, 3);
   assert.equal(g.result.questionPoolVersion, 3);
 });
 
@@ -619,14 +619,14 @@ test('回帰：旧段位記録・問題の記録を引き継ぐ', () => {
     assert.equal(PH.storage.getProblem('p01').bestStars, 3);
     assert.equal(PH.storage.getProblem('p42').bestStars, 2);
     assert.equal(PH.storage.getProblem('p43').cleared, false);
-    assert.equal(PH.storage.getRank('basic').best.rankName, '三段');
-    assert.equal(PH.storage.getRank('comprehensive').best.rankName, '六段');
+    assert.equal(PH.storage.getRank('basic').best.rankName, '二段');            // 基準 2 の記録は新しい基準で認定しなおす
+    assert.equal(PH.storage.getRank('comprehensive').best.rankName, '五段');
     // 出題範囲のバージョンが変わっても、認定基準が同じなので最高段位は比べ続ける
-    const out = PH.storage.recordRank({ correct: 10, misses: 2, passes: 0, answered: 12, effectiveScore: 10, rank: 10, rankName: '初段',
-      maxCombo: 4, criteriaVersion: 2, questionPoolVersion: 3, wrongs: [] }, 'comprehensive');
+    const out = PH.storage.recordRank({ correct: 10, misses: 2, passes: 0, answered: 12, effectiveScore: 10, rank: 9, rankName: '1級',
+      maxCombo: 4, criteriaVersion: 3, questionPoolVersion: 3, wrongs: [] }, 'comprehensive');
     assert.equal(out.newRecord, false);
     const after = PH.storage.getRank('comprehensive');
-    assert.equal(after.best.rankName, '六段');
+    assert.equal(after.best.rankName, '五段');
     assert.equal(after.questionPoolVersion, 3);
     assert.equal(after.playCount, 5);
   });

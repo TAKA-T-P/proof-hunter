@@ -511,7 +511,7 @@ test('旧データ（Ver.1.1：challenge なし）を読める。★評価・段
     const saved = JSON.parse(mem[S.KEY]);
     assert.equal(saved.errorHunt.problems['eh-p05-cong'].bestStars, 2);
     assert.equal(saved.errorHunt.lastId, 'eh-p05-cong');
-    assert.equal(saved.rankCertification.tracks.comprehensive.best.rankName, '初段');
+    assert.equal(saved.rankCertification.tracks.comprehensive.best.rankName, '1級');     // 基準 2 の初段（10問）は、基準 3 では1級
     assert.equal(saved.problems.p01.bestStars, 3);
     assert.equal(saved.errorHunt.challenge.comprehensive.bestScore, 80);
   });
@@ -858,4 +858,48 @@ test('証明パズル 問題25（p50）③：理由は表示し、導ける等�
   const sol = Object.assign({}, z.solution(), { 'se:s3': '∠FAC=∠AFC' });
   Object.keys(sol).forEach((id) => { z.selectSlot(id); if (z.slot(id).input) z.setInput(sol[id]); else z.place(sol[id]); });
   assert.notEqual(z.check().status, 'clear');
+});
+
+test('段位認定の基準（Ver.1.2・基準3）：1問で10級、21問以上で皆伝。0問は「認定なし」で最高段位に保存しない', () => {
+  const R = PH.rank;
+  assert.equal(R.config.criteriaVersion, 3);
+  assert.deepEqual(R.config.grades.map((g) => g.min), Array.from({ length: 21 }, (_, i) => i + 1));
+  assert.deepEqual([R.gradeFor(0).rank, R.gradeFor(0).name], [-1, '認定なし']);
+  assert.equal(R.gradeFor(1).name, '10級');
+  assert.equal(R.gradeFor(20).name, '十段');
+  assert.equal(R.gradeFor(21).name, '皆伝');
+  assert.deepEqual(R.nextGrade(0), { grade: R.config.grades[0], need: 1 });
+  withFakeStorage(null, () => {
+    const S = PH.storage;
+    const res = (n) => ({ correct: n, misses: 0, passes: 0, answered: n, effectiveScore: n, rank: R.gradeFor(n).rank, rankName: R.gradeFor(n).name, maxCombo: n, criteriaVersion: 3, wrongs: [] });
+    S.recordRank(res(0), 'basic');
+    assert.equal(S.getRank('basic').best, null);            // 未認定のまま
+    assert.equal(S.getRank('basic').playCount, 1);
+    assert.equal(S.getRank('basic').lastResult.rankName, '認定なし');
+    const out = S.recordRank(res(1), 'basic');
+    assert.equal(S.getRank('basic').best.rankName, '10級');
+    assert.equal(out.firstTime, true);
+  });
+});
+
+test('段位認定：基準2で保存した記録は、有効正解数から基準3で認定しなおす（記録は消さない）', () => {
+  const old = JSON.stringify({ rankCertification: { format: 2, legacy: null, tracks: {
+    basic: { criteriaVersion: 2, best: { rank: 20, rankName: '皆伝', effectiveScore: 20, correct: 20, maxCombo: 9, at: 'x' }, bestCorrect: 20, playCount: 5,
+      lastResult: { correct: 10, misses: 1, effectiveScore: 10, rank: 10, rankName: '初段', criteriaVersion: 2 } },
+    comprehensive: { criteriaVersion: 2, best: { rank: 0, rankName: '10級', effectiveScore: 0, correct: 0, maxCombo: 0, at: 'y' }, playCount: 1 },
+  } } });
+  withFakeStorage(old, () => {
+    const b = PH.storage.getRank('basic');
+    assert.equal(b.criteriaVersion, 3);
+    assert.deepEqual([b.best.rank, b.best.rankName, b.best.effectiveScore], [19, '十段', 20]);
+    assert.deepEqual([b.lastResult.rankName, b.lastResult.criteriaVersion], ['1級', 3]);
+    assert.equal(b.playCount, 5);
+    assert.deepEqual(b.previous, []);
+    // 0問の10級は、新しい基準では未認定
+    assert.equal(PH.storage.getRank('comprehensive').best, null);
+    // 認定しなおした記録と、新しい基準の挑戦を比べる（21問で皆伝 → 自己ベスト更新）
+    const out = PH.storage.recordRank({ correct: 21, misses: 0, passes: 0, answered: 21, effectiveScore: 21, rank: 20, rankName: '皆伝', maxCombo: 21, criteriaVersion: 3, wrongs: [] }, 'basic');
+    assert.equal(out.newRecord, true);
+    assert.equal(PH.storage.getRank('basic').best.rankName, '皆伝');
+  });
 });

@@ -807,13 +807,13 @@ test('120秒・時間ペナルティ・21段階認定・認定基準は変わら
   assert.equal(CFG.penaltyStepMs, 4000);
   assert.equal(PH.rank.totalPenalty(3), 24000);
   assert.equal(CFG.grades.length, 21);
-  assert.equal(PH.rank.gradeFor(20).name, '皆伝');
-  assert.equal(CFG.criteriaVersion, 2);
+  assert.equal(PH.rank.gradeFor(21).name, '皆伝');
+  assert.equal(CFG.criteriaVersion, 3);
   assert.equal(CFG.questionPoolVersion, 3);   // Ver.1.0 で 3（ひし形・長方形・四角形の分類を追加）
   const g = new PH.RankGame({ seed: 5, track: 'comprehensive' });
   g.start(0);
   g.tick(120001);
-  assert.equal(g.result.criteriaVersion, 2);
+  assert.equal(g.result.criteriaVersion, 3);
   assert.equal(g.result.questionPoolVersion, 3);
 });
 
@@ -827,15 +827,15 @@ test('コース別の記録が維持される（Ver.0.8 の総合証明の記録
   });
   withFakeStorage(old, () => {
     assert.equal(PH.storage.getProblem('p01').bestStars, 3);
-    assert.equal(PH.storage.getRank('basic').best.rankName, '三段');
+    assert.equal(PH.storage.getRank('basic').best.rankName, '二段');
     const comp = PH.storage.getRank('comprehensive');
-    assert.equal(comp.best.rankName, '六段');
+    assert.equal(comp.best.rankName, '五段');
     assert.equal(comp.questionPoolVersion, null);
-    const out = PH.storage.recordRank({ correct: 10, misses: 2, passes: 0, answered: 12, effectiveScore: 10, rank: 10, rankName: '初段',
-      maxCombo: 4, criteriaVersion: 2, questionPoolVersion: 2, wrongs: [] }, 'comprehensive');
+    const out = PH.storage.recordRank({ correct: 10, misses: 2, passes: 0, answered: 12, effectiveScore: 10, rank: 9, rankName: '1級',
+      maxCombo: 4, criteriaVersion: 3, questionPoolVersion: 2, wrongs: [] }, 'comprehensive');
     assert.equal(out.newRecord, false);
     const after = PH.storage.getRank('comprehensive');
-    assert.equal(after.best.rankName, '六段');
+    assert.equal(after.best.rankName, '五段');
     assert.deepEqual(after.previous, []);
     assert.equal(after.questionPoolVersion, 2);
     assert.equal(after.lastResult.questionPoolVersion, 2);

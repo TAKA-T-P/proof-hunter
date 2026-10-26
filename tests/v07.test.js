@@ -514,7 +514,7 @@ test('回帰：段位認定の制限時間・時間ペナルティ・21段階・
   assert.equal(PH.rankConfig.penaltyStepMs, 4000);
   assert.equal(PH.rankConfig.grades.length, 21);
   assert.equal(PH.rankConfig.grades[20].name, '皆伝');
-  assert.equal(PH.rankConfig.criteriaVersion, 2);
+  assert.equal(PH.rankConfig.criteriaVersion, 3);    // Ver.1.2 で基準を1問ずつ上げた
   const q = (id) => PH.rankQuestions.byId(id);
   assert.equal(q('p01-eq-e3').answerText, 'BD＝BD');
   assert.equal(q('p02-rs-e3').answerText, '対頂角は等しいから');

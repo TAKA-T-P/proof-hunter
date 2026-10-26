@@ -538,25 +538,29 @@ test('誤答の時間ペナルティ：n 回目の誤答で制限時間が 4×n 
   assert.equal(h.correct, 0);
 });
 
-test('21段階の段位が正しい順序で、境界値で正しく認定される（20以上で皆伝）', () => {
+test('21段階の段位が正しい順序で、境界値で正しく認定される（Ver.1.2：1問で10級・21以上で皆伝、0問は認定なし）', () => {
   const g = CFG.grades;
   assert.equal(g.length, 21);
   assert.deepEqual(g.map((x) => x.name), ['10級', '9級', '8級', '7級', '6級', '5級', '4級', '3級', '2級', '1級',
     '初段', '二段', '三段', '四段', '五段', '六段', '七段', '八段', '九段', '十段', '皆伝']);
   g.forEach((x, i) => { assert.equal(x.rank, i); if (i) assert.ok(x.min > g[i - 1].min); });
   const name = (s) => R.gradeFor(s).name;
-  assert.equal(name(0), '10級');
-  assert.equal(name(0.5), '10級');
-  assert.equal(name(1), '9級');
-  assert.equal(name(9.5), '1級');
-  assert.equal(name(10), '初段');
-  assert.equal(name(13), '四段');
-  assert.equal(name(19.5), '十段');
-  assert.equal(name(20), '皆伝');
+  g.forEach((x, i) => assert.equal(x.min, i + 1));
+  assert.equal(name(0), '認定なし');
+  assert.equal(R.gradeFor(0).rank, -1);
+  assert.equal(name(0.5), '認定なし');
+  assert.equal(name(1), '10級');
+  assert.equal(name(2), '9級');
+  assert.equal(name(10.5), '1級');
+  assert.equal(name(11), '初段');
+  assert.equal(name(14), '四段');
+  assert.equal(name(20.5), '十段');
+  assert.equal(name(21), '皆伝');
   assert.equal(name(35), '皆伝');
-  assert.deepEqual(R.nextGrade(13), { grade: g[14], need: 1 });
-  assert.deepEqual(R.nextGrade(12.5), { grade: g[13], need: 0.5 });
-  assert.equal(R.nextGrade(20), null);
+  assert.deepEqual(R.nextGrade(0), { grade: g[0], need: 1 });
+  assert.deepEqual(R.nextGrade(14), { grade: g[14], need: 1 });
+  assert.deepEqual(R.nextGrade(13.5), { grade: g[13], need: 0.5 });
+  assert.equal(R.nextGrade(21), null);
   assert.equal(R.tierFor(9), 'kyu');
   assert.equal(R.tierFor(10), 'medal');
   assert.equal(R.tierFor(15), 'gold');
@@ -573,8 +577,8 @@ test('結果：段位・時間ペナルティ・最高連続正解・認定基�
   assert.equal(r.correct, 15);
   assert.equal(r.misses, 4);
   assert.equal(r.effectiveScore, 15);
-  assert.equal(r.rankName, '六段');
-  assert.equal(r.rank, 15);
+  assert.equal(r.rankName, '五段');
+  assert.equal(r.rank, 14);
   assert.equal(r.penaltyMs, 40000);                                 // 4 + 8 + 12 + 16 秒
   assert.equal(r.maxCombo, 15);
   assert.equal(r.criteriaVersion, CFG.criteriaVersion);

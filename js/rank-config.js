@@ -10,7 +10,8 @@
   const PH = root.PH = root.PH || {};
 
   const config = {
-    criteriaVersion: 2,          // 認定基準のバージョン（暫定版。2：誤答は時間ペナルティ、段位は正解数で判定）
+    // 認定基準のバージョン（2：誤答は時間ペナルティ、段位は正解数で判定。3：Ver.1.2 で基準を1問ずつ上げた（1問で10級・21問以上で皆伝））
+    criteriaVersion: 3,
     // 出題範囲（ミニ問題の集まり）のバージョン。認定基準は変えずに問題が増えたとき上げる（記録には残すが、最高段位は比べ続ける）
     //   1：Ver.0.8（2コース）／ 2：Ver.0.9（総合証明に平行四辺形を追加）／ 3：Ver.1.0（総合証明にひし形・長方形・四角形の分類を追加）
     questionPoolVersion: 3,
@@ -41,29 +42,29 @@
       { n: 10, text: 'EXCELLENT！' },
       { n: 15, text: 'AMAZING！' },
     ],
-    // 21段階の認定（必要な有効正解数。rank は内部のランク番号）
+    // 21段階の認定（必要な有効正解数。rank は内部のランク番号）。Ver.1.2：1問で10級、21問以上で皆伝（0問は「認定なし」）
     grades: [
-      { rank: 0, name: '10級', min: 0 },
-      { rank: 1, name: '9級', min: 1 },
-      { rank: 2, name: '8級', min: 2 },
-      { rank: 3, name: '7級', min: 3 },
-      { rank: 4, name: '6級', min: 4 },
-      { rank: 5, name: '5級', min: 5 },
-      { rank: 6, name: '4級', min: 6 },
-      { rank: 7, name: '3級', min: 7 },
-      { rank: 8, name: '2級', min: 8 },
-      { rank: 9, name: '1級', min: 9 },
-      { rank: 10, name: '初段', min: 10 },
-      { rank: 11, name: '二段', min: 11 },
-      { rank: 12, name: '三段', min: 12 },
-      { rank: 13, name: '四段', min: 13 },
-      { rank: 14, name: '五段', min: 14 },
-      { rank: 15, name: '六段', min: 15 },
-      { rank: 16, name: '七段', min: 16 },
-      { rank: 17, name: '八段', min: 17 },
-      { rank: 18, name: '九段', min: 18 },
-      { rank: 19, name: '十段', min: 19 },
-      { rank: 20, name: '皆伝', min: 20 },
+      { rank: 0, name: '10級', min: 1 },
+      { rank: 1, name: '9級', min: 2 },
+      { rank: 2, name: '8級', min: 3 },
+      { rank: 3, name: '7級', min: 4 },
+      { rank: 4, name: '6級', min: 5 },
+      { rank: 5, name: '5級', min: 6 },
+      { rank: 6, name: '4級', min: 7 },
+      { rank: 7, name: '3級', min: 8 },
+      { rank: 8, name: '2級', min: 9 },
+      { rank: 9, name: '1級', min: 10 },
+      { rank: 10, name: '初段', min: 11 },
+      { rank: 11, name: '二段', min: 12 },
+      { rank: 12, name: '三段', min: 13 },
+      { rank: 13, name: '四段', min: 14 },
+      { rank: 14, name: '五段', min: 15 },
+      { rank: 15, name: '六段', min: 16 },
+      { rank: 16, name: '七段', min: 17 },
+      { rank: 17, name: '八段', min: 18 },
+      { rank: 18, name: '九段', min: 19 },
+      { rank: 19, name: '十段', min: 20 },
+      { rank: 20, name: '皆伝', min: 21 },
     ],
     // 認定演出の段階（ランク番号の範囲）
     tiers: [
@@ -84,9 +85,12 @@
     return Math.round(v * 10) / 10;
   }
 
-  // 有効正解数から認定する段位（条件を満たす最も高いもの）
+  // 10級に届かないとき（0問）：「認定なし」（rank -1。最高段位としては保存しない）
+  const NO_GRADE = { rank: -1, name: '認定なし', min: 0 };
+
+  // 有効正解数から認定する段位（条件を満たす最も高いもの。どれも満たさなければ NO_GRADE）
   function gradeFor(score) {
-    let g = config.grades[0];
+    let g = NO_GRADE;
     config.grades.forEach(function (x) { if (score >= x.min && x.rank >= g.rank) g = x; });
     return g;
   }
@@ -121,6 +125,7 @@
     penaltyFor: penaltyFor,
     totalPenalty: totalPenalty,
     gradeFor: gradeFor,
+    NO_GRADE: NO_GRADE,
     gradeByRank: gradeByRank,
     nextGrade: nextGrade,
     tierFor: tierFor,

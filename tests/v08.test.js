@@ -812,10 +812,11 @@ test('どちらのコースでも、120秒制限・誤答の時間ペナルテ�
   });
   assert.equal(CFG.timeLimitMs, 120000);
   assert.equal(CFG.grades.length, 21);
-  assert.equal(PH.rank.gradeFor(0).name, '10級');
-  assert.equal(PH.rank.gradeFor(10).name, '初段');
-  assert.equal(PH.rank.gradeFor(19).name, '十段');
-  assert.equal(PH.rank.gradeFor(20).name, '皆伝');
+  assert.equal(PH.rank.gradeFor(0).name, '認定なし');
+  assert.equal(PH.rank.gradeFor(1).name, '10級');
+  assert.equal(PH.rank.gradeFor(11).name, '初段');
+  assert.equal(PH.rank.gradeFor(20).name, '十段');
+  assert.equal(PH.rank.gradeFor(21).name, '皆伝');
 });
 
 test('コースを変えてもプレイ状態が混ざらない（別々のゲーム・別々の出題候補）', () => {

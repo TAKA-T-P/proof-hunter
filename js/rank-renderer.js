@@ -75,7 +75,7 @@
         '<div class="card rank-hero">' +
           '<div class="rank-hero-ico" aria-hidden="true">⏱️</div>' +
           '<p class="rank-hero-tag">120秒チャレンジ</p>' +
-          '<p class="rank-hero-lead">120秒で何問解ける？ コースを選んで、目指せ皆伝！</p>' +
+          '<p class="rank-hero-lead">時間内で何問解ける？目指せ皆伝！</p>' +
           (legacy ? '<div class="rank-top-links"><button class="btn" data-go="#/rank/legacy">Ver.0.7までの記録を見る</button></div>' : '') +
         '</div>' +
         '<div class="rank-courses">' + T().ORDER.map(courseCard).join('') + '</div>' +
@@ -143,7 +143,7 @@
         '<div class="card rank-cert tier-' + tier + (fresh ? ' is-fresh' : '') + '">' +
           '<p class="rank-course-tag course-' + t.id + '">' + esc(t.label) + '</p>' +
           '<p class="rank-cert-label">認定段位</p>' +
-          '<div class="rank-cert-ico" aria-hidden="true">' + TIER_ICON[tier] + '</div>' +
+          '<div class="rank-cert-ico" aria-hidden="true">' + (res.rank < 0 ? '🔰' : TIER_ICON[tier]) + '</div>' +
           '<p class="rank-cert-name">' + esc(res.rankName) + '</p>' +
           (saved.newRecord ? '<p class="rank-newrec">NEW RECORD！</p>' : '') +
           '<dl class="rank-stats">' +

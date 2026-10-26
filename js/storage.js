@@ -102,11 +102,35 @@
    *   Ver.0.8 の形（tracks あり）… コースごとに安全な値にそろえる。legacy はそのまま残す
    *   Ver.0.6〜0.7 の形（tracks なし）… legacy に移す（新しいコースは未認定から）。壊れた値・未挑戦なら legacy なし
    */
+  /*
+   * Ver.1.2：認定基準 2 → 3（段位の基準を1問ずつ上げた）。段位は有効正解数だけで決まるので、
+   * 基準 2 で保存した最高段位・直近の結果は、保存してある有効正解数から新しい基準で認定しなおす（記録を消さない）。
+   * 新しい基準で10級に届かない（0問）なら、最高段位は未認定（null）にもどす。
+   */
+  function regradeV2(rec) {
+    const R = PH.rank;
+    if (!R || rec.criteriaVersion !== 2 || R.config.criteriaVersion !== 3) return rec;
+    if (rec.best) {
+      // 基準 2 の段位 rank は rank 問以上の正解なので、有効正解数がない古い記録でも rank 問として認定しなおす
+      const g = R.gradeFor(Math.max(rec.best.effectiveScore || 0, rec.best.rank));
+      if (g.rank < 0) rec.best = null;
+      else { rec.best.rank = g.rank; rec.best.rankName = g.name; }
+    }
+    if (rec.lastResult && typeof rec.lastResult.effectiveScore === 'number') {
+      const g = R.gradeFor(rec.lastResult.effectiveScore);
+      rec.lastResult.rank = g.rank;
+      rec.lastResult.rankName = g.name;
+      rec.lastResult.criteriaVersion = 3;
+    }
+    rec.criteriaVersion = 3;
+    return rec;
+  }
+
   function cleanCert(r) {
     const out = blankCert();
     if (!isObj(r)) return out;
     if (isObj(r.tracks)) {
-      TRACK_IDS.forEach(function (id) { out.tracks[id] = cleanRank(r.tracks[id]); });
+      TRACK_IDS.forEach(function (id) { out.tracks[id] = regradeV2(cleanRank(r.tracks[id])); });
       const lg = isObj(r.legacy) ? cleanRank(r.legacy) : null;
       out.legacy = lg && hasRankData(lg) ? lg : null;
       return out;
@@ -455,8 +479,9 @@
     if (typeof result.questionPoolVersion === 'number') r.questionPoolVersion = result.questionPoolVersion;
     const at = new Date().toISOString();
     const prevBest = r.best;
-    const newRecord = !prevBest || result.rank > prevBest.rank ||
-      (result.rank === prevBest.rank && result.effectiveScore > prevBest.effectiveScore);
+    // 「認定なし」（10級に届かない。rank -1）は最高段位として保存しない
+    const newRecord = result.rank >= 0 && (!prevBest || result.rank > prevBest.rank ||
+      (result.rank === prevBest.rank && result.effectiveScore > prevBest.effectiveScore));
     if (newRecord) {
       r.best = { rank: result.rank, rankName: result.rankName, effectiveScore: result.effectiveScore,
         correct: result.correct, maxCombo: result.maxCombo, at: at };

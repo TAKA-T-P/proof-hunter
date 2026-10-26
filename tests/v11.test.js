@@ -294,7 +294,7 @@ test('旧データ（errorHunt なし）の記録は保たれ、間違い探し�
     assert.equal(S.getProblem('p02', 'puzzle:easy').bestStars, 2);
     assert.equal(S.getPuzzleLevel(), 'standard');
     assert.equal(S.getSound(), false);
-    assert.equal(S.getRank('basic').best.rankName, '三段');
+    assert.equal(S.getRank('basic').best.rankName, '二段');     // 基準 2 の三段（12問）は、基準 3 では二段
     const saved = JSON.parse(mem[S.KEY]);
     assert.equal(saved.problems.p01.bestStars, 3);
     assert.equal(saved.rankCertification.tracks.basic.playCount, 4);
