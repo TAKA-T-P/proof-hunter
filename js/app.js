@@ -3,13 +3,13 @@
  *
  * 画面はURLのハッシュで切り替える（ブラウザの「戻る」でも状態が崩れない）。
  *   #/                       タイトル・モード選択
- *   #/select                 ハンターモード：ステージ選択（＋苦手な問題に挑戦）
+ *   #/select                 ハンターモード：ステージ選択（＋未クリア問題に挑戦・★★以下の問題を復習）
  *   #/stage/<n>              ハンターモード：ステージの問題一覧
- *   #/review                 ハンターモード：苦手な問題（未クリア・★★以下）
+ *   #/review/uncleared       ハンターモード：未クリアの問題（#/review/low は★★以下の問題。#/review は両方）
  *   #/play/<id>              ハンターモード：プレイ（開くたびに新しい状態で開始）
- *   #/puzzle                 証明パズル：ステージ選択（＋苦手な問題に挑戦）
+ *   #/puzzle                 証明パズル：ステージ選択（＋未クリア問題に挑戦・★★以下の問題を復習）
  *   #/puzzle/stage/<n>       証明パズル：ステージの問題一覧
- *   #/puzzle/review          証明パズル：苦手な問題
+ *   #/puzzle/review/<uncleared|low>  証明パズル：未クリアの問題・★★以下の問題
  *   #/puzzle/play/<id>       証明パズル：プレイ
  *   #/howto                  あそびかた：メニュー（Ver.1.0）
  *   #/howto/<hunter|puzzle|hunter5|puzzle5|rank|error>  あそびかたの説明（ハンター／パズル／ハンター：STAGE5～／証明パズル：STAGE5～／段位認定／証明の間違い探し）
@@ -176,14 +176,20 @@
   function renderStageList(mode) {
     const M = MODES[mode];
     setSelectHeader(mode, (mode === 'puzzle' ? '証明パズル｜' : '') + 'ステージをえらぶ', '#/', 'ホーム');
-    const review = PH.storage.reviewProblems(recMode(mode)).length;
+    const count = function (kind) { return reviewList(mode, kind).length; };
+    const reviewBtn = function (kind, ico, label) {
+      const n = count(kind);
+      return '<button class="review-btn review-' + kind + '" data-go="' + M.review + '/' + kind + '">' +
+        '<span class="review-label"><span aria-hidden="true">' + ico + '</span>' + label + '</span>' +
+        '<span class="review-count">' + n + '問</span></button>';
+    };
     $('#select-body').innerHTML =
       '<p class="mode-lead">' + (mode === 'puzzle'
         ? '🧩 <b>証明パズル</b>：カードを組み合わせて、証明文を完成させよう！'
         : '🔍 <b>ハンターモード</b>：図をタップして、3つの根拠を探し出せ！') + '</p>' +
       (mode === 'puzzle' ? levelSelector() + levelGuide() : '') +
-      '<button class="review-btn" data-go="' + M.review + '">🔁 苦手な問題に挑戦！<span class="review-count">' +
-        (review ? '復習 ' + review + '問' : '復習なし') + '</span></button>' +
+      // 「未クリア問題に挑戦」「★★以下の問題を復習」（横並び）
+      '<div class="review-btns">' + reviewBtn('uncleared', '🎯', '未クリア問題に挑戦') + reviewBtn('low', '🔁', '★★以下の問題を復習') + '</div>' +
       '<ul class="stage-list">' + PH.STAGES.map(function (st) {
         const stat = PH.storage.stageStats(st.id, recMode(mode));
         return '<li><a class="stage-card' + (stat.complete ? ' is-complete' : '') + '" href="' + M.stage(st.id) + '">' +
@@ -211,13 +217,33 @@
       '<ul class="problem-list">' + stat.problems.map(function (p) { return problemCard(mode, p, false); }).join('') + '</ul>';
   }
 
-  function renderReview(mode) {
-    setSelectHeader(mode, (mode === 'puzzle' ? 'パズル：' : '') + '苦手な問題に挑戦！', MODES[mode].select, 'ステージ');
-    const list = PH.storage.reviewProblems(recMode(mode));
+  /*
+   * 復習の問題の一覧（記録はモードごと・パズルは解答レベルごと）
+   *   uncleared … まだクリアしていない問題
+   *   low       … クリアずみで、最高評価が★★以下の問題
+   *   （省略）  … 両方（Ver.1.2 までの「苦手な問題」。古い URL #/review 用）
+   */
+  function reviewList(mode, kind) {
+    const rm = recMode(mode);
+    return PH.storage.reviewProblems(rm).filter(function (p) {
+      const r = PH.storage.getProblem(p.id, rm);
+      return kind === 'uncleared' ? !r.cleared : kind === 'low' ? r.cleared && r.bestStars < 3 : true;
+    });
+  }
+
+  const REVIEW_KINDS = {
+    uncleared: { title: '未クリア問題に挑戦', note: 'まだクリアしていない問題だよ。クリアをめざそう！', empty: '未クリアの問題はありません！', emptySub: 'すべての問題をクリアしたね！ すばらしい！' },
+    low: { title: '★★以下の問題を復習', note: 'クリアした問題のうち、★★以下の問題だよ。★★★をめざそう！', empty: '★★以下の問題はありません！', emptySub: 'クリアした問題はすべて★★★！ すばらしい！' },
+  };
+
+  function renderReview(mode, kind) {
+    const k = REVIEW_KINDS[kind] || { title: '苦手な問題に挑戦！', note: 'まだクリアしていない問題と、★★以下の問題だよ。★★★をめざそう！', empty: '復習する問題はありません！', emptySub: 'すべて★★★をめざそう！ すばらしい！' };
+    setSelectHeader(mode, (mode === 'puzzle' ? 'パズル：' : '') + k.title, MODES[mode].select, 'ステージ');
+    const list = reviewList(mode, kind);
     $('#select-body').innerHTML = (mode === 'puzzle' ? levelLine() : '') + (list.length
-      ? '<p class="select-note">まだクリアしていない問題と、★★以下の問題だよ。★★★をめざそう！</p>' +
+      ? '<p class="select-note">' + k.note + '</p>' +
         '<ul class="problem-list">' + list.map(function (p) { return problemCard(mode, p, true); }).join('') + '</ul>'
-      : '<div class="card review-empty"><p class="review-empty-title">復習する問題はありません！</p><p>すべて★★★をめざそう！ すばらしい！</p>' +
+      : '<div class="card review-empty"><p class="review-empty-title">' + k.empty + '</p><p>' + k.emptySub + '</p>' +
         '<button class="btn btn-primary" data-go="' + MODES[mode].select + '">ステージ選択へ</button></div>');
   }
 
@@ -502,7 +528,7 @@
       renderStage(mode, PH.getStage(parts[1]));
       show('select');
     } else if (name === 'review') {
-      renderReview(mode);
+      renderReview(mode, parts[1]);     // #/review/uncleared・#/review/low（パズルは #/puzzle/review/…）
       show('select');
     } else if (name === 'rank' && mode === 'hunter') {
       routeRank(parts[1], parts[2]);

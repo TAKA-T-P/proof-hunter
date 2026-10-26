@@ -594,6 +594,16 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 }
 .review-btn:active { transform: scale(.98); }
 .review-count { font-size: .85rem; padding: 0 10px; border-radius: 99px; background: #fff; color: var(--gold-dark); }
+/* 「未クリア問題に挑戦」「★★以下の問題を復習」を横並び（ボタンの文字は改行しない。幅が狭い端末では文字を小さく） */
+.review-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.review-btns .review-btn {
+  flex-direction: column; justify-content: center; gap: 2px; margin: 0; padding: 6px 4px; min-width: 0;
+  font-size: clamp(.72rem, 3.7vw, 1.05rem);
+}
+.review-btns .review-label { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+@media (max-width: 359px) { .review-btns .review-label > span[aria-hidden] { display: none; } }
+.review-btns .review-uncleared { border-color: #93c5fd; background: var(--blue-50); color: var(--navy); }
+.review-btns .review-uncleared .review-count { color: var(--blue); }
 .stage-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 @media (min-width: 760px) { .stage-list { grid-template-columns: repeat(2, 1fr); } }
 .stage-card {
