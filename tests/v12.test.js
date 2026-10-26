@@ -820,3 +820,42 @@ test('じっくり練習の30問（ID・番号・元の問題データの検証�
   g.select('condition');
   assert.equal(g.confirm().status, 'correct');
 });
+
+test('証明パズル 問題25（p50）③：理由は表示し、導ける等式 ∠FAC＝∠ACF を答える（3択・チャレンジは入力）', () => {
+  const p = PH.getProblem('p50');
+  // おてがる・スタンダード：等式の3択（正解は1つ）
+  ['fill', 'build'].forEach((t) => {
+    const z = new PH.Puzzle(p, t);
+    const slots = z.stepSlots(p.proofSteps.find((s) => s.id === 's3'));
+    assert.deepEqual(slots.map((s) => s.id), ['se:s3']);
+    const cards = z.cards['seq:s3'];
+    assert.equal(cards.length, 3);
+    assert.deepEqual(cards.filter((c) => c.correct).map((c) => c.text), ['∠FAC＝∠ACF']);
+    // ダミーは図の上で等しくない等式
+    cards.filter((c) => !c.correct).forEach((c) => {
+      const m = c.items.map((n) => PH.validation.measure(p.figure, n).value);
+      assert.ok(Math.abs(m[0] - m[1]) > 5, c.text);
+    });
+    const sol = z.solution();
+    const fill = (z2, s) => Object.keys(s).forEach((id) => { z2.selectSlot(id); if (z2.slot(id).input) z2.setInput(s[id]); else z2.place(s[id]); });
+    fill(z, sol);
+    assert.equal(z.check().status, 'clear');
+    // ダミーを選ぶとミス
+    const z2 = new PH.Puzzle(p, t);
+    fill(z2, Object.assign({}, z2.solution(), { 'se:s3': z2.cards['seq:s3'].find((c) => !c.correct).id }));
+    const r = z2.check();
+    assert.notEqual(r.status, 'clear');
+    assert.equal(z2.misses, 1);
+  });
+  // チャレンジ：入力。左右の入れかえ・角の別の書き方も正解
+  ['∠FAC=∠ACF', '∠ACF=∠FAC', '∠CAF=∠FCA'].forEach((v) => {
+    const z = new PH.Puzzle(p, 'challenge');
+    const sol = Object.assign({}, z.solution(), { 'se:s3': v });
+    Object.keys(sol).forEach((id) => { z.selectSlot(id); if (z.slot(id).input) assert.ok(z.setInput(sol[id]), id); else z.place(sol[id]); });
+    assert.equal(z.check().status, 'clear', v);
+  });
+  const z = new PH.Puzzle(p, 'challenge');
+  const sol = Object.assign({}, z.solution(), { 'se:s3': '∠FAC=∠AFC' });
+  Object.keys(sol).forEach((id) => { z.selectSlot(id); if (z.slot(id).input) z.setInput(sol[id]); else z.place(sol[id]); });
+  assert.notEqual(z.check().status, 'clear');
+});

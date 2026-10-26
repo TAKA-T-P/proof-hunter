@@ -196,15 +196,49 @@
 
   /*
    * 定理・角の式：理由のカード（正解＋その定理では言えない理由。並びは問題ごとに一定）
-   * 式の比較：おてがるは共通部分（2つの式の左辺・右辺）、スタンダード・チャレンジは比べる2つの式の組（①と②／①と①…）、
+   * 式の比較：おてがるは共通部分（2つの式の左辺・右辺）、スタンダード・チャレンジは比べる2つの式の組（③と④／②と④…。comparePairDummies）、
    *           スタンダードは導ける等式（正解＋ダミー）
    */
+  /*
+   * 比べる2つの式のダミー（2つ）：その行より前にある、ちがう番号の行の組（例：正解「③と④」なら「②と④」「①と③」「①と②」から）。
+   *   正解の行を1つふくむ組を優先し、組はすべて番号の小さい順。並びは問題ごとに一定。
+   *   前の行が足りないときだけ、同じ番号の組（「③と③」。same: true）で補う
+   */
+  function comparePairDummies(p, proof, own, a, b) {
+    const order = function (n) { return n ? n.charCodeAt(0) : 0; };      // ①②③… は文字コードの順
+    const nums = [];
+    proof.lines.concat(proof.stepLines).forEach(function (l) {
+      if (l.no && order(l.no) < order(own) && nums.indexOf(l.no) < 0) nums.push(l.no);
+    });
+    nums.sort(function (x, y) { return order(x) - order(y); });
+    const near = [], far = [];
+    for (let i = 0; i < nums.length; i++) {
+      for (let j = i + 1; j < nums.length; j++) {
+        const x = nums[i], y = nums[j];
+        if ((x === a && y === b) || (x === b && y === a)) continue;
+        ((x === a || x === b || y === a || y === b) ? near : far).push({ text: x + 'と' + y, same: false });
+      }
+    }
+    const out = shuffle(near, p.id + ':cmp-near').concat(shuffle(far, p.id + ':cmp-far')).slice(0, 2);
+    [a, b].forEach(function (n) { if (out.length < 2) out.push({ text: n + 'と' + n, same: true }); });
+    return out;
+  }
+
   function makeStepCards(z) {
     const p = z.problem;
     const proof = PH.buildProof(p);
     const no = {};
     proof.stepLines.forEach(function (l) { no[l.stepId] = l.no; });
     z.preSteps.concat(z.postSteps).forEach(function (st) {
+      // 導ける等式を答えるステップ（askEquation。例：p50 の「同じ角に等しい2つの角は等しいから ∠FAC＝∠ACF」）
+      if (st.askEquation) {
+        z.cards['seq:' + st.id] = shuffle([st.label].concat(st.eqDistractors || []).map(function (label) {
+          const items = splitEquation(label);
+          const keys = items.map(function (n) { return G().elementKey(p.figure, n); });
+          return { kind: 'seq:' + st.id, text: label, items: items, keys: keys, correct: label === st.label };
+        }), p.id + ':seq').map(function (c, i) { c.id = 'se:' + st.id + ':' + i; return c; });
+        return;
+      }
       if (st.type !== 'compare') {
         // 角の式のステップは「∠ACE＝∠ACD＋∠DCE＝□」の□に入る式のカード（理由のカードではない）
         z.cards['srule:' + st.id] = (st.type === 'expression' ? PH.expressionOptions(p, st) : PH.stepOptions(p, st)).map(function (o) {
@@ -222,11 +256,10 @@
         return;
       }
       const a = no[deps[0].id], b = no[deps[1].id];
-      z.cards['cmp:' + st.id] = [
-        { id: 'cp:' + st.id + ':0', kind: 'cmp:' + st.id, text: a + 'と' + b, correct: true },
-        { id: 'cp:' + st.id + ':1', kind: 'cmp:' + st.id, text: a + 'と' + a, correct: false, same: true },
-        { id: 'cp:' + st.id + ':2', kind: 'cmp:' + st.id, text: b + 'と' + b, correct: false, same: true },
-      ];
+      z.cards['cmp:' + st.id] = [{ id: 'cp:' + st.id + ':0', kind: 'cmp:' + st.id, text: a + 'と' + b, correct: true }]
+        .concat(comparePairDummies(p, proof, no[st.id], a, b).map(function (pair, i) {
+          return { id: 'cp:' + st.id + ':' + (i + 1), kind: 'cmp:' + st.id, text: pair.text, correct: false, same: pair.same };
+        }));
       if (z.type === 'build') {
         z.cards['cmr:' + st.id] = shuffle([st.label].concat(st.distractors || []).map(function (label) {
           const items = splitEquation(label);
@@ -470,6 +503,8 @@
    *             チャレンジ   cp ＋ { id: 'cr:<id>', input: true }（導ける等式をキーパッドで入力）
    */
   Puzzle.prototype.stepSlots = function (st) {
+    // 導ける等式を答えるステップ：理由は表示ずみ。おてがる・スタンダードは等式の3択、チャレンジはキーパッドで入力
+    if (st.askEquation) return [{ id: 'se:' + st.id, kind: 'seq:' + st.id, step: st.id, label: '導ける等式', input: this.type === 'challenge' }];
     if (st.type === 'expression' || st.choices) return [{ id: 'st:' + st.id, kind: 'srule:' + st.id, step: st.id, expr: true, label: st.short + '（式）' }];
     if (st.type !== 'compare') return [{ id: 'st:' + st.id, kind: 'srule:' + st.id, step: st.id, label: st.short + '（理由）' }];
     if (this.type === 'fill') return [{ id: 'cc:' + st.id, kind: 'cmc:' + st.id, step: st.id, label: '2つの式の共通部分' }];
@@ -779,6 +814,16 @@
     return this.preSteps.concat(this.postSteps).map(function (st) {
       const ids = self.stepSlots(st).map(function (x) { return x.id; });
       const r = { step: st, slots: ids, okSlots: [], ok: false, label: st.short, empty: ids.some(function (id) { return !self.placed[id]; }) };
+      if (st.askEquation) {
+        // 左右の入れかえ・角の別の書き方（∠CAF など）も正解
+        const c = self.cardIn(ids[0]);
+        const want = st.items.map(function (n) { return G().elementKey(p.figure, n); });
+        r.ok = !!c && !!c.keys && V().equationKey(c.keys[0], c.keys[1]) === V().equationKey(want[0], want[1]);
+        r.ngSlot = ids[0];
+        r.sig = c ? c.id : '';
+        r.message = '2つの等式は、どちらも同じ角と等しいね。その角に等しい2つの角はどれとどれかな？';
+        return r;
+      }
       if (st.type !== 'compare') {
         const c = self.cardIn(ids[0]);
         r.ok = !!c && c.correct;
@@ -804,7 +849,8 @@
       if (!pair || !pair.correct) {
         r.ngSlot = ids[0];
         r.sig = pair ? pair.id : '';
-        r.message = pair && pair.same ? '同じ式を2回選んでも、新しい等式は導けないよ。2つの式を比べよう！' : '比べる2つの式を確認しよう。';
+        r.message = pair && pair.same ? '同じ式を2回選んでも、新しい等式は導けないよ。2つの式を比べよう！'
+          : '比べるのは、角の大きさを同じ形の式で表した2つの行だよ。どの行とどの行かな？';
         if (resOk) r.okSlots.push(ids[1]);
         return r;
       }

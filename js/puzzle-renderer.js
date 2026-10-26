@@ -15,14 +15,14 @@
     tripair: '三角形の組を選ぶ', tri1: '三角形を選ぶ', tri2: '対応する三角形を選ぶ', tri: '三角形を入力',
     freason: '理由を選ぶ', final: '結論を選ぶ', finalInput: '結論の等式を入力',
     // Ver.0.7：多段階証明のステップ
-    srule: '理由を選ぶ', cmc: '共通な部分を選ぶ', cmp: '比べる式を選ぶ', cmr: '導ける等式を選ぶ', cmrInput: '導ける等式を入力',
+    srule: '理由を選ぶ', cmc: '共通な部分を選ぶ', cmp: '比べる式を選ぶ', cmr: '導ける等式を選ぶ', cmrInput: '導ける等式を入力', seq: '導ける等式を選ぶ',
     // Ver.0.8：直角三角形の直角である理由
     rreason: '直角の理由を選ぶ',
     // Ver.0.9：平行四辺形の根拠・成立条件
     qeq: '等式・平行を選ぶ', qreason: '理由を選ぶ', pcond: '成立条件を選ぶ', qinput: '等式・平行を入力',
   };
   const KIND_NAME = { eq: '等式', reason: '理由', cond: '合同条件', tripair: '三角形の組', tri1: '三角形', tri2: '三角形', freason: '理由', final: '結論の等式',
-    srule: '理由', cmc: '共通な部分', cmp: '比べる2つの式', cmr: '導ける等式', rreason: '理由', qeq: '等式・平行の関係', qreason: '理由', pcond: '成立条件' };
+    srule: '理由', cmc: '共通な部分', cmp: '比べる2つの式', cmr: '導ける等式', seq: '導ける等式', rreason: '理由', qeq: '等式・平行の関係', qreason: '理由', pcond: '成立条件' };
   // 空欄の種類（ステップの空欄は 'srule:s1' のように問題のステップIDがつくので、前の部分だけ）
   function kindOf(s) { return String(s.kind).split(':')[0]; }
 
@@ -173,7 +173,7 @@
       case 'next': return this.nav.next();
       case 'next-stage': return this.nav.nextStage();
       case 'hint': return this.hint();
-      case 'close-tray': return this.setTray(false);
+      case 'close-tray': return this.closeTray();
       case 'open-marks': return this.setMarks(true);
       case 'close-marks': return this.setMarks(false);
       case 'clear-marks': return this.clearMarks();
@@ -259,12 +259,30 @@
     }
   };
 
+  /*
+   * 決定を押さずに入力ウィンドウを閉じたとき：「AB＝CD」のように形式がそろっていれば、決定と同じように空欄に入れる。
+   * 「AB＝C＿」のような途中の入力は（入力中）のまま。図の上にない三角形など、決定できない入力も（入力中）のまま。
+   */
+  PuzzleView.prototype.commitDraft = function () {
+    const s = this.activeInputSlot();
+    if (!s || !this.trayOpen) return false;
+    const kp = this.drafts[s.id];
+    if (!kp || !kp.complete() || kp.value() === this.puzzle.inputs[s.id]) return false;
+    return this.puzzle.setInput(kp.value());
+  };
+
+  // 入力ウィンドウを閉じる（×・Esc）。そろった入力は確定してから閉じる
+  PuzzleView.prototype.closeTray = function () {
+    this.commitDraft();
+    this.setTray(false);
+  };
+
   // PCのキーボード：A〜Z・=・Backspace・Enter・Esc（キーパッドが開いているとき）
   PuzzleView.prototype.handleKey = function (e) {
     if (PH.chooser.isOpen()) return;
     if (e.key === 'Escape') {
       if (this.markOpen) return this.setMarks(false);
-      if (this.trayOpen) return this.setTray(false);
+      if (this.trayOpen) return this.closeTray();
       return;
     }
     const s = this.activeInputSlot();
@@ -458,6 +476,7 @@
 
   // 解答欄をタップ → その空欄を選び、カードの領域を出す
   PuzzleView.prototype.selectSlot = function (id) {
+    if (this.puzzle.active !== id) this.commitDraft();      // 別の空欄へ移るときも、そろった入力は確定する
     if (this.puzzle.selectSlot(id)) {
       PH.sound.play('tap');
       PH.hints.hide(doc.getElementById('hint-popup'));
@@ -556,6 +575,7 @@
   PuzzleView.prototype.hint = function () {
     const z = this.puzzle;
     if (z.phase !== 'play') return;
+    this.commitDraft();                                      // ヒントで入力ウィンドウが閉じるときも、そろった入力は確定する
     const h = z.useHint();
     PH.sound.play('tap');
     PH.hints.show(doc.getElementById('hint-popup'), h, z.hintsUsed);
@@ -570,8 +590,9 @@
 
   PuzzleView.prototype.check = function () {
     const z = this.puzzle;
+    this.commitDraft();                                      // 答え合わせの前に、そろった入力を確定する
     const r = z.check();
-    if (r.status === 'incomplete' || r.status === 'done') return;
+    if (r.status === 'incomplete' || r.status === 'done') { this.render(); return; }
     this.trayOpen = false;
     if (r.status === 'wrong') {
       PH.sound.play('wrong');
@@ -678,7 +699,7 @@
     if (status === 'ng') cls.push('is-ng');
     if (status === 'ok') cls.push('is-ok');
     const k = kindOf(s);
-    let text = card ? card.text : s.expr ? '式を選ぶ' : PLACEHOLDER[s.input ? (s.inputKind === 'tri' ? 'tri' : k === 'final' ? 'finalInput' : k === 'cmr' ? 'cmrInput' : k === 'qeq' ? 'qinput' : 'input') : k];
+    let text = card ? card.text : s.expr ? '式を選ぶ' : PLACEHOLDER[s.input ? (s.inputKind === 'tri' ? 'tri' : k === 'final' ? 'finalInput' : (k === 'cmr' || k === 'seq') ? 'cmrInput' : k === 'qeq' ? 'qinput' : 'input') : k];
     const draft = s.input && this.drafts[slotId];
     if (draft && draft.kind && !draft.isEmpty() && draft.value() !== z.inputs[slotId]) {
       cls.push('is-draft');
@@ -789,7 +810,12 @@
     const numOf = function (id) { const l = proof.stepLines.find(function (x) { return x.stepId === id; }); return l ? l.no : ''; };
     const tail = no ? '<span class="pl-no">……' + no + '</span>' : '';
     let body;
-    if (st.type === 'theorem') {
+    if (st.askEquation) {
+      // 「∠ACB＝∠FAC、∠ACB＝∠ACF だから、同じ角に等しい2つの角は等しいから、【導ける等式】……③」（理由は表示ずみ）
+      body = '<p class="pz-step-lead">' + esc(st.lead || st.premiseLabel + 'より、') + '</p>' +
+        '<p class="pz-step-lead pz-step-reason">' + esc(PH.proofRules.label(st.rule)) + '、</p>' +
+        '<div class="pz-eqline">' + this.blank('se:' + st.id) + tail + '</div>';
+    } else if (st.type === 'theorem') {
       body = '<p class="pz-step-lead">' + esc(st.lead || st.premiseLabel + 'より、') + '</p>' + this.blank('st:' + st.id) +
         '<div class="pz-eqline"><span class="pz-step-eq">' + (st.choices ? 'だから、' : '') + esc(st.label) + '</span>' + tail + '</div>';
     } else if (st.type === 'expression') {
@@ -822,6 +848,7 @@
       const guide = s.inputKind === 'tri' ? '証明する2つの三角形を、対応する頂点の順に入力しよう！'
         : s.kind === 'final' ? '合同から導く結論の等式を入力しよう！'
         : s.kind === 'qeq' ? '等しい辺・角、または平行な辺（AB∥DC）を入力しよう！ 種類は「辺⇔角⇔∥」で切りかえられるよ。'
+        : kindOf(s) === 'seq' ? '同じ角に等しい2つの角を、等式で入力しよう！（例：∠ABC＝∠DEF）'
         : '等しい辺（角）を入力しよう！';
       this.ref('trayHead').innerHTML = '<span class="pz-tray-target">' + esc(s.label) + '</span>' +
         '<span class="pz-tray-note">' + guide + '</span>';

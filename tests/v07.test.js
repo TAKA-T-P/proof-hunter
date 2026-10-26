@@ -400,12 +400,19 @@ test('ハンターのヒント：ステップごとの3段階。最終段階を�
 
 test('パズル：ステップの誤答のメッセージ（理由・同じ式を2回・共通部分・導いた等式を根拠の行に入れた）', () => {
   const p = PH.getProblem('p23');
-  // スタンダード：同じ式を2回
+  // スタンダード：比べる2つの式のダミー（Ver.1.2 から「③と③」ではなく、ちがう番号の行の組。例「②と④」）
   let z = new PH.Puzzle(p, 'build');
   let sol = z.solution();
-  fill(z, Object.assign({}, sol, { 'cp:s3': z.cards['cmp:s3'].find((c) => c.same).id }));
+  const pairs = z.cards['cmp:s3'];
+  assert.equal(pairs.length, 3);
+  pairs.filter((c) => !c.correct).forEach((c) => {
+    const m = c.text.match(/^(.)と(.)$/);
+    assert.ok(m && m[1] !== m[2], c.text);
+    assert.ok(!c.same);
+  });
+  fill(z, Object.assign({}, sol, { 'cp:s3': pairs.find((c) => !c.correct).id }));
   let r = z.check();
-  assert.ok(r.result.messages.some((m) => /同じ式を2回選んでも/.test(m.text)));
+  assert.ok(r.result.messages.some((m) => /比べるのは、角の大きさを同じ形の式で表した2つの行/.test(m.text)));
   assert.equal(z.misses, 1);
   // スタンダード：導ける等式のダミー
   z = new PH.Puzzle(p, 'build');

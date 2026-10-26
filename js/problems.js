@@ -1697,7 +1697,9 @@
           proofText: 'ACで折り返したので、' },
         { id: 's3', type: 'theorem', rule: 'angleTransitive', premiseLabel: '∠ACB＝∠FAC、∠ACB＝∠ACF',
           lead: '∠ACB＝∠FAC、∠ACB＝∠ACF だから、', items: ['∠FAC', '∠ACF'], label: '∠FAC＝∠ACF', short: '∠FAC＝∠ACF', dependsOn: ['s1', 's2'],
-          proofText: '{s1}、{s2}より、' },
+          proofText: '{s1}、{s2}より、',
+          // 証明パズル：理由は表示し、導ける等式（∠FAC＝∠ACF）を答える（スタンダードは3択・チャレンジは入力）
+          askEquation: true, eqDistractors: ['∠FAC＝∠AFC', '∠ACF＝∠AFC'] },
         { id: 's4', type: 'theorem', stage: 'post', rule: 'isoscelesConverse', premise: ['∠FAC', '∠ACF'], triangle: 'FAC', premiseLabel: '∠FAC＝∠ACF',
           label: '△AFCは二等辺三角形', short: '二等辺三角形', dependsOn: ['s3'] },
       ],
