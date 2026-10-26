@@ -816,7 +816,6 @@
     if (!shown) { el.innerHTML = ''; root.location.hash = '#/error/challenge'; return; }
     const res = shown.result;
     const rec = PH.storage.getErrorChallenge(course);
-    const best = rec.bestScore;
     // 連続PERFECT・称号は、保存した直近の結果から（いま終えた挑戦と同じプレイのときだけ）
     const lr = rec.lastResult && (!res.playId || rec.lastResult.playId === res.playId) ? rec.lastResult : null;
     el.innerHTML = header(c.label + '｜結果発表', '#/error/challenge', 'コース') +
@@ -828,15 +827,16 @@
           '<p class="ehc-result-msg">' + esc(CH().message(res.score)) + '</p>' +
           (shown.saved && shown.saved.newBest ? '<p class="ehc-newbest">🎉 自己ベスト更新！</p>' : '') +
           '<p class="ehc-result-count">正解 <b>' + res.correct + '</b>問 ・ 不正解 <b>' + res.wrong + '</b>問</p>' +
+          // Q1〜Q5 のボタン：押すと、その問題の振り返り
           '<ol class="ehc-marks">' + res.items.map(function (it) {
-            return '<li class="' + (it.correct ? 'is-ok' : 'is-ng') + '"><span>Q' + it.no + '</span><b>' + (it.correct ? '○' : '×') + '</b></li>';
+            return '<li><button class="ehc-mark ' + (it.correct ? 'is-ok' : 'is-ng') + '" data-go="#/error/challenge/' + course + '/review/' + it.no + '" aria-label="Q' + it.no + ' ' + (it.correct ? '正解' : '不正解') + '・振り返る">' +
+              '<span>Q' + it.no + '</span><b>' + (it.correct ? '○' : '×') + '</b></button></li>';
           }).join('') + '</ol>' +
-          '<p class="ehc-result-best">このコースの最高得点：<b>' + (best === null ? '－' : best + '点') + '</b></p>' +
+          '<p class="ehc-marks-note">問題番号のボタンを押すと、その問題の振り返りができるよ！</p>' +
           perfectBlock(lr, rec) +
         '</div>' +
         '<div class="ehc-result-actions">' +
           '<button class="btn btn-confirm btn-big" data-act="errch-start" data-course="' + course + '">同じコースでもう一度挑戦</button>' +
-          '<button class="btn btn-primary" data-go="#/error/challenge/' + course + '/review">' + (res.wrong ? '間違えた問題を確認' : '問題を振り返る') + '</button>' +
           '<button class="btn" data-go="#/error/challenge">コースを選ぶ</button>' +
           '<button class="btn" data-go="#/error">間違い探しトップへ</button>' +
         '</div>' +
@@ -905,24 +905,30 @@
     '</li>';
   }
 
-  function renderChallengeReview(el, course) {
+  // 1問の振り返り（結果発表の Q1〜Q5 のボタンから。#/error/challenge/<コース>/review/<番号>）。前後の問題・結果発表へ移れる
+  function renderChallengeReview(el, course, no) {
     const c = CH().course(course);
     const r = c ? PH.storage.getErrorChallenge(course).lastResult : null;
-    if (!r) { el.innerHTML = ''; root.location.hash = '#/error/challenge'; return; }
-    el.innerHTML = header(c.label + '｜振り返り', '#/error/challenge/' + course + '/result', '結果') +
-      '<div class="ehc-review">' +
-        '<p class="select-note">前回の' + esc(c.label) + 'コース（' + r.score + '点）で出題された' + r.items.length + '問だよ。黄色が正解の行（間違いがある行）、赤があなたが選んだ行。間違いがない問題は「間違いはない！」が正解。</p>' +
-        '<ol class="ehc-rv-list">' + r.items.map(function (it) { return reviewItem(it, c); }).join('') + '</ol>' +
-        '<div class="ehc-result-actions">' +
-          '<button class="btn btn-confirm btn-big" data-act="errch-start" data-course="' + course + '">同じコースでもう一度挑戦</button>' +
-          '<button class="btn" data-go="#/error/challenge">コースを選ぶ</button>' +
-        '</div>' +
+    if (!r || !r.items.length) { el.innerHTML = ''; root.location.hash = '#/error/challenge'; return; }
+    const idx = Math.max(0, r.items.findIndex(function (it) { return String(it.no) === String(no); }));
+    const it = r.items[idx];
+    const prev = r.items[idx - 1], next = r.items[idx + 1];
+    const to = function (x) { return '#/error/challenge/' + course + '/review/' + x.no; };
+    const nav = '<div class="ehc-rv-nav">' +
+        (prev ? '<button class="btn" data-go="' + to(prev) + '">◀ Q' + prev.no + '</button>' : '<span></span>') +
+        '<button class="btn btn-primary" data-go="#/error/challenge/' + course + '/result">結果発表へ</button>' +
+        (next ? '<button class="btn" data-go="' + to(next) + '">Q' + next.no + ' ▶</button>' : '<span></span>') +
       '</div>';
-    r.items.forEach(function (it) {
-      const def = PH.errorVariants.def(it.baseId, it.variantId);
-      const svg = el.querySelector('[data-rv-fig="' + it.no + '"]');
-      if (def && svg) PH.renderer.render(svg, PH.getProblem(def.source), { interactive: false });
-    });
+    el.innerHTML = header(c.label + '｜Q' + it.no + 'の振り返り', '#/error/challenge/' + course + '/result', '結果') +
+      '<div class="ehc-review">' +
+        '<p class="select-note">黄色が正解の行（間違いがある行）、赤があなたが選んだ行。間違いがない問題は「間違いはない！」が正解。</p>' +
+        '<ol class="ehc-rv-list">' + reviewItem(it, c) + '</ol>' +
+        nav +
+      '</div>';
+    const def = PH.errorVariants.def(it.baseId, it.variantId);
+    const svg = el.querySelector('[data-rv-fig="' + it.no + '"]');
+    if (def && svg) PH.renderer.render(svg, PH.getProblem(def.source), { interactive: false });
+    root.scrollTo(0, 0);
   }
 
   // =====================================================================================

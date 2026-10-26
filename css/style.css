@@ -1481,12 +1481,21 @@ button.eh-line:disabled { cursor: default; opacity: 1; color: var(--ink); }
 .ehc-result-msg { font-size: 1.2rem; font-weight: 900; color: #134e4a; }
 .ehc-newbest { align-self: center; padding: 2px 14px; border-radius: 99px; background: var(--gold-soft); border: 2px solid #fcd34d; color: #92400e; font-weight: 900; }
 .ehc-result-count { font-weight: 800; }
-.ehc-result-best { font-size: .88rem; color: var(--muted); }
-.ehc-marks { list-style: none; margin: 4px 0; padding: 0; display: flex; justify-content: center; gap: 6px; }
-.ehc-marks li { display: flex; flex-direction: column; align-items: center; min-width: 46px; padding: 4px 6px; border-radius: 10px; border: 2px solid; font-size: .75rem; font-weight: 800; }
-.ehc-marks li b { font-size: 1.3rem; line-height: 1.1; }
-.ehc-marks li.is-ok { border-color: #86efac; background: #f0fdf4; color: var(--green); }
-.ehc-marks li.is-ng { border-color: #fca5a5; background: var(--red-soft); color: var(--red); }
+/* Q1〜Q5 のボタン（押すとその問題の振り返り） */
+.ehc-marks { list-style: none; margin: 4px 0 0; padding: 0; display: flex; justify-content: center; gap: 6px; }
+.ehc-mark {
+  display: flex; flex-direction: column; align-items: center; min-width: 52px; min-height: 52px; padding: 4px 6px;
+  border-radius: 10px; border: 2px solid; font: inherit; font-size: .75rem; font-weight: 800; cursor: pointer;
+  box-shadow: 0 2px 0 rgba(15, 23, 42, .12); transition: transform .08s;
+}
+.ehc-mark b { font-size: 1.3rem; line-height: 1.1; }
+.ehc-mark:hover { filter: brightness(.97); transform: translateY(-1px); }
+.ehc-mark:active { transform: translateY(1px); box-shadow: none; }
+.ehc-mark.is-ok { border-color: #86efac; background: #f0fdf4; color: var(--green); }
+.ehc-mark.is-ng { border-color: #fca5a5; background: var(--red-soft); color: var(--red); }
+.ehc-marks-note { font-size: .82rem; font-weight: 700; color: var(--teal); }
+/* 1問の振り返り：前後の問題・結果発表へ */
+.ehc-rv-nav { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 8px; margin: 0 0 16px; }
 .ehc-result-actions { display: grid; gap: 8px; }
 
 /* 振り返り */

@@ -22,7 +22,7 @@
  *   #/error/play/<問題ID>    証明の間違い探し：プレイ（開くたびに新しい状態で開始。Ver.1.2：誤りバリエーションも開くたびに選ぶ）
  *   #/error/challenge        ランダム5問チャレンジ：コースを選ぶ（Ver.1.2）
  *   #/error/challenge/<コース>/play    プレイ（「〜コースに挑戦」から来たときだけ始まる）。コースは basic / comprehensive
- *   #/error/challenge/<コース>/result  #/error/challenge/<コース>/review   結果発表・振り返り（コース別）
+ *   #/error/challenge/<コース>/result  #/error/challenge/<コース>/review/<問題番号>   結果発表・1問の振り返り（コース別。結果発表の Q1〜Q5 から）
  *   #/error/challenge/<コース>/titles  連続PERFECT の称号一覧（コース別。段位認定の段位とは別）
  *   #/error/dev              開発者用：誤りバリエーションの確認（生徒の画面からはリンクしない）
  *   （Ver.0.7 までの #/rank/play などを開いたときは、段位認定のトップへ戻す）
@@ -507,7 +507,7 @@
     } else if (name === 'rank' && mode === 'hunter') {
       routeRank(parts[1], parts[2]);
     } else if (name === 'error' && mode === 'hunter') {
-      routeError(parts[1], parts[2], parts[3]);
+      routeError(parts[1], parts[2], parts[3], parts[4]);
     } else if (name === 'howto' && mode === 'hunter') {
       howtoMode = HOWTO[parts[1]] ? parts[1] : null;      // なければメニュー
       howtoPage = 0;
@@ -531,10 +531,10 @@
   }
 
   // 証明の間違い探しの画面（Ver.1.1）
-  function routeError(sub, arg, page) {
+  function routeError(sub, arg, page, no) {
     const el = doc.getElementById('screen-error');
     doc.title = '証明の間違い探し｜証明ハンター';
-    if (sub === 'challenge') { routeErrorChallenge(el, arg, page); return; }
+    if (sub === 'challenge') { routeErrorChallenge(el, arg, page, no); return; }
     if (sub === 'dev') {       // 開発者用：誤りバリエーションの確認（生徒の画面からはリンクしない）
       PH.errorView.renderDev(el);
       show('error');
@@ -566,7 +566,7 @@
   }
 
   // ランダム5問チャレンジ（Ver.1.2：#/error/challenge/<コース>/<画面>）
-  function routeErrorChallenge(el, course, page) {
+  function routeErrorChallenge(el, course, page, no) {
     doc.title = 'ランダム5問チャレンジ｜証明ハンター';
     if (!course) {
       PH.errorView.renderChallengeTop(el);
@@ -588,7 +588,7 @@
     }
     if (page === 'result') PH.errorView.renderChallengeResult(el, course);
     else if (page === 'titles') PH.errorView.renderChallengeTitles(el, course);
-    else PH.errorView.renderChallengeReview(el, course);
+    else PH.errorView.renderChallengeReview(el, course, no);     // #/error/challenge/<コース>/review/<問題番号>
     show('error');
   }
 
