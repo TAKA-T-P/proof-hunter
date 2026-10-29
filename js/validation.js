@@ -648,6 +648,7 @@
     correspondenceOrder: correspondenceOrder,
     correspondenceKey: correspondenceKey,
     checkTriangles: checkTriangles,
+    acceptedCorrespondences: acceptedCorrespondences,
     finalEquationStatus: finalEquationStatus,
     checkFinal: checkFinal,
     deriveCondition: deriveCondition,

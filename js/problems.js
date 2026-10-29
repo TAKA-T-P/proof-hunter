@@ -3521,6 +3521,7 @@
       proof: { intro: '長方形ABCDで、△ABCと△DCBにおいて' },
       puzzle: {
         type: 'build',
+        trianglesGiven: true,   // 問題文で △ABCと△DCB を指定しているので、「△ABCと△DCBにおいて」は答えない
         distractors: {
           equations: ['AB＝BC', '∠BAC＝∠ACB', 'AC＝BC'],
           reasons: ['vertical'],
@@ -3586,6 +3587,7 @@
       proof: { intro: 'ひし形ABCDで、△ABOと△ADOにおいて' },
       puzzle: {
         type: 'build',
+        trianglesGiven: true,   // 問題文で △ABOと△ADO を指定しているので、「△ABOと△ADOにおいて」は答えない
         distractors: {
           equations: ['AB＝AO', '∠ABO＝∠BAO', 'AO＝BO'],
           reasons: ['vertical'],

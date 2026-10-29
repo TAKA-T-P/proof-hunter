@@ -696,6 +696,13 @@ test('p46・p47：長方形・ひし形の対角線の性質を、指定され�
       assert.equal(z.check().status, 'clear', id + ' ' + t);
     });
   });
+  // p46・p47（問題49・50）のパズル：三角形は問題文で指定しているので「△…と△…において」は答えない
+  DIAG_IDS.forEach((id) => TYPES.forEach((t) => {
+    const z = new PH.Puzzle(P(id), t);
+    assert.ok(!z.slots.some((s) => ['tri', 't1', 't2'].includes(s.id)), id + ' ' + t);
+    assert.deepEqual(z.triangleAnswer(), P(id).triangles);
+    assert.notEqual(z.useHint().targetId, 'triangleSelection', id + ' ' + t);
+  }));
   const proof = PH.buildProof(P('p47'));
   assert.deepEqual(proof.post.map((l) => l.conclusion), ['AC⊥BD']);
   assert.equal(PH.buildProof(P('p46')).final.conclusion, 'AC＝DB');

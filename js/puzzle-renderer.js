@@ -743,7 +743,7 @@
     let intro = '<p class="proof-intro">' + esc(proof.intro) + '</p>';
     let concl = '<p class="proof-concl">' + esc(proof.conclusion) + '</p>';
     if (z.hasFinal) {
-      intro = '<div class="pz-introline">' +
+      if (!z.triGiven) intro = '<div class="pz-introline">' +
         (z.type === 'build' ? this.blank('t1') + '<span>と</span>' + this.blank('t2') : this.blank('tri')) +
         '<span>において</span></div>';
       const ans = z.triangleAnswer();

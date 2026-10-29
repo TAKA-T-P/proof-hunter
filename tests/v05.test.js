@@ -475,7 +475,7 @@ test('パズル（スタンダード）：1つ目の三角形と、対応する�
   const z = new PH.Puzzle(p, 'build');
   assert.deepEqual(z.cards.tri1.map((c) => c.text), ['△ABC', '△ACD']);
   z.selectSlot('t2');
-  assert.equal(z.cardsForActive().length, 12);                 // 1つ目が未選択なら全部
+  assert.equal(z.cardsForActive().length, 6);                  // 1つ目が未選択でも最大6枚
   const sol = z.solution();
   fill(z, { t1: sol.t1 });
   z.selectSlot('t2');
@@ -495,6 +495,33 @@ test('パズル（スタンダード）：1つ目の三角形と、対応する�
   // カードを変えて直す
   fill(z, { t2: sol.t2 });
   assert.equal(z.check().status, 'clear');
+});
+
+test('パズル（スタンダード）：三角形のカードは最大6枚で、正しい答えと対応ちがいの並びをふくむ', () => {
+  PH.problems.filter((p) => PH.hasFinalStep(p)).forEach((p) => {
+    const z = new PH.Puzzle(p, 'build');
+    if (!z.slot('t1')) return;
+    assert.ok(z.cards.tri1.length <= 6, p.id + ' 1つ目 ' + z.cards.tri1.length);
+    z.selectSlot('t2');
+    assert.ok(z.cardsForActive().length <= 6, p.id + ' 2つ目（未選択）');
+    assert.ok(z.cardsForActive().some((c) => c.id === z.solution().t2), p.id + ' 未選択でも正解がある');
+    z.cards.tri1.forEach((c1) => {
+      z.selectSlot('t1'); z.place(c1.id); z.selectSlot('t2');
+      const cards = z.cardsForActive();
+      assert.ok(cards.length <= 6 && cards.length > 0, p.id + ' ' + c1.text);
+      assert.deepEqual(z.cardsForActive().map((c) => c.id), cards.map((c) => c.id), p.id + ' 表示のたびに変わらない');
+      const st = cards.map((c) => val.checkTriangles(p, c1.tri, c.tri).status);
+      const correct = PH.validation.acceptedCorrespondences(p).some((t) => [t[0], t[1]].some((x) => x.slice().sort().join('') === c1.tri.slice().sort().join('')));
+      if (correct) {
+        assert.ok(st.includes('ok'), p.id + ' ' + c1.text + ' 正解');
+        assert.ok(st.includes('order') || cards.length < 6, p.id + ' ' + c1.text + ' 対応ちがい');
+      }
+    });
+    const sol = z.solution();
+    z.clearAll();
+    fill(z, sol);
+    assert.equal(z.check().status, 'clear', p.id);
+  });
 });
 
 test('パズル（スタンダード）：最終結論の理由とカードの判定', () => {

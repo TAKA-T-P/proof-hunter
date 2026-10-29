@@ -296,8 +296,21 @@
 
   // スタンダード：1つ目の三角形（図の三角形を頂点のアルファベット順で）と、
   // 2つ目の三角形（頂点の並び6通り。並びが1つ目との対応を表す）
+  // スタンダードで一度に出す三角形のカードの最大数
+  const TRI_CHOICES = 6;
+
   function makeTriCards(problem) {
-    const tris = G().figureTriangles(problem.figure);
+    // 1つ目の三角形：正しい三角形（別解の対応もふくむ）＋ほかの三角形を、図の三角形の順に最大6つ
+    const all = G().figureTriangles(problem.figure);
+    const setKey = function (t) { return t.slice().sort().join(''); };
+    const need = {};
+    V().acceptedCorrespondences(problem).forEach(function (c) { need[setKey(c[0])] = true; need[setKey(c[1])] = true; });
+    const pick = {};
+    all.filter(function (t) { return need[setKey(t)]; })
+      .concat(shuffle(all.filter(function (t) { return !need[setKey(t)]; }), problem.id + ':tri1'))
+      .slice(0, Math.max(TRI_CHOICES, Object.keys(need).length))
+      .forEach(function (t) { pick[setKey(t)] = true; });
+    const tris = all.filter(function (t) { return pick[setKey(t)]; });
     const first = tris.map(function (t, i) { return { id: 'ta' + i, kind: 'tri1', tri: t.slice(), text: '△' + t.join('') }; });
     const second = [];
     tris.forEach(function (t) {
@@ -371,6 +384,8 @@
     this.letters = PH.mathKeypad ? PH.mathKeypad.lettersOf(problem.figure) : [];
     // 結論が辺・角の等しさの問題（Ver.0.5）：最初に三角形を選び、最後に合同から結論を導く
     this.hasFinal = !!(PH.hasFinalStep && PH.hasFinalStep(problem));
+    // 問題文で使う三角形を指定している問題（p47）は、「△＿と△＿において」を表示済みにする（答えない）
+    this.triGiven = this.hasFinal && !!(problem.puzzle && problem.puzzle.trianglesGiven);
     // Ver.0.7：多段階証明。根拠の行は、前のステップで導いた事実を使わない根拠だけ（導いた事実はステップの行で書く）
     this.multi = !!(PH.proofEngine && PH.proofEngine.hasSteps(problem));
     this.rowEv = problem.evidence.filter(function (ev) { return !ev.fromStep; });
@@ -386,7 +401,7 @@
     // 平行四辺形の根拠の行：ステップで導く根拠と、合同から導いた結論そのもの（fromFinal。証明文では結論の番号を使う）は行にしない
     this.qrowEv = quadEvidence(problem).filter(function (ev) { return !ev.fromStep && !ev.fromFinal; });
     this.postSteps = this.multi ? PH.proofEngine.stepsOf(problem, 'post') : [];
-    const triCards = this.hasFinal && this.type === 'build' ? makeTriCards(problem) : { tri1: [], tri2: [] };
+    const triCards = this.hasFinal && !this.triGiven && this.type === 'build' ? makeTriCards(problem) : { tri1: [], tri2: [] };
     this.cards = {
       eq: this.type === 'challenge' ? [] : makeEquationCards(problem),   // チャレンジでは等式カードを出さない
       reason: this.buildLike ? makeReasonCards(problem) : [],
@@ -395,7 +410,7 @@
       qeq: this.quad && this.type !== 'challenge' ? makeQuadEquationCards(problem) : [],
       qreason: this.quad && this.buildLike ? makeQuadReasonCards(problem) : [],
       pcond: this.quad ? makeQuadConditionCards(problem) : [],
-      tripair: this.hasFinal && this.type === 'fill' ? makeTriPairCards(problem) : [],
+      tripair: this.hasFinal && !this.triGiven && this.type === 'fill' ? makeTriPairCards(problem) : [],
       tri1: triCards.tri1,
       tri2: triCards.tri2,
       freason: this.hasFinal && this.buildLike ? makeFinalReasonCards(problem) : [],
@@ -425,7 +440,7 @@
   Puzzle.prototype.makeSlots = function () {
     const p = this.problem;
     const slots = [];
-    if (this.hasFinal) {
+    if (this.hasFinal && !this.triGiven) {
       if (this.type === 'fill') slots.push({ id: 'tri', kind: 'tripair', label: '証明する三角形' });
       else if (this.type === 'build') {
         slots.push({ id: 't1', kind: 'tri1', label: '1つ目の三角形' });
@@ -556,13 +571,36 @@
     if (!s || s.input) return [];             // チャレンジの等式・三角形はキーパッドで入力
     if (s.kind === 'tri2') {
       // 2つ目の三角形：1つ目と同じ三角形の並べかえは出さない
-      const first = this.cardIn('t1');
-      if (first) {
-        const set = first.tri.slice().sort().join('');
-        return this.cards.tri2.filter(function (c) { return c.set !== set; });
-      }
+      return this.tri2Choices();
     }
     return this.cards[s.kind];
+  };
+
+  /*
+   * スタンダード：2つ目の三角形のカード（最大6枚。1つ目と同じ三角形の並べかえは出さない）
+   *   正しい対応の並び → 同じ三角形で対応ちがいの並び（2枚まで）→ ほかの三角形（なるべく別々の三角形）の順に選ぶ
+   *   1つ目が未選択なら、1つ目のどのカードに対しても正しい並びを入れる
+   */
+  Puzzle.prototype.tri2Choices = function () {
+    const p = this.problem;
+    const first = this.cardIn('t1');
+    const firstSet = first ? first.tri.slice().sort().join('') : '';
+    const firsts = first ? [first] : this.cards.tri1;
+    const status = function (c) {
+      const st = firsts.map(function (f) { return V().checkTriangles(p, f.tri, c.tri).status; });
+      return st.indexOf('ok') >= 0 ? 'ok' : st.indexOf('order') >= 0 ? 'order' : 'other';
+    };
+    const pool = this.cards.tri2.filter(function (c) { return c.set !== firstSet; });   // シャッフル済み
+    const ok = pool.filter(function (c) { return status(c) === 'ok'; });
+    const order = pool.filter(function (c) { return status(c) === 'order'; });
+    const rest = pool.filter(function (c) { return status(c) === 'other'; });
+    const seen = {};
+    const spread = rest.filter(function (c) { return !seen[c.set] && (seen[c.set] = true); });
+    const picked = [];
+    ok.concat(order.slice(0, 2), spread, rest, order).forEach(function (c) {
+      if (picked.length < TRI_CHOICES && picked.indexOf(c) < 0) picked.push(c);
+    });
+    return shuffle(picked, p.id + ':tri2:' + firstSet);
   };
 
   // 入れたあと、次の空いている空欄へ進む
@@ -643,6 +681,7 @@
   // 答えた三角形の組 [t1, t2]（同じ位置の頂点どうしが対応）。未完成なら null
   Puzzle.prototype.triangleAnswer = function () {
     if (!this.hasFinal) return null;
+    if (this.triGiven) return [this.problem.triangles[0].slice(), this.problem.triangles[1].slice()];
     if (this.type === 'build') {
       const a = this.cardIn('t1'), b = this.cardIn('t2');
       return a && b ? [a.tri, b.tri] : null;
@@ -652,7 +691,7 @@
   };
 
   Puzzle.prototype.triangleSlotIds = function () {
-    if (!this.hasFinal) return [];
+    if (!this.hasFinal || this.triGiven) return [];
     return this.type === 'build' ? ['t1', 't2'] : ['tri'];
   };
 
@@ -1290,7 +1329,9 @@
       // 1つ目をアルファベット順にしたときの、対応する2つ目の頂点の並び
       const first = t[0].slice().sort();
       const second = first.map(function (v) { return t[1][t[0].indexOf(v)]; });
-      if (this.type === 'fill') {
+      if (this.triGiven) {
+        // 三角形は表示済み（答えない）
+      } else if (this.type === 'fill') {
         out.tri = this.cards.tripair.find(function (c) { return V().checkTriangles(p, c.t1, c.t2).ok; }).id;
       } else if (this.type === 'build') {
         out.t1 = this.cards.tri1.find(function (c) { return c.tri.join('') === first.join(''); }).id;
