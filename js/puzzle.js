@@ -1015,6 +1015,10 @@
         case 'irrelevant':
           fail(eqId, sig, 'たしかに等しいけれど、今回の証明では使わない関係だよ。', label);
           break;
+        case 'alternative':
+          // 別の道すじで言える関係：正しい考え方なのでミスにしない
+          note(eqId, V().altRoute(p, r.eqCard.keys).text, label);
+          break;
         case 'derived':
           fail(eqId, sig, 'その等式は、ステップで導いた等式（' + self.stepNo(r.evidence.fromStep) + '）だよ。ここには、ほかの根拠を入れよう。', label);
           break;

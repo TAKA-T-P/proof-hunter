@@ -383,6 +383,7 @@
       'not-explain': '等しい' + what + 'は見つけられたね！ それは、理由を1つ選ぶだけで言える関係だよ。下の「等しい理由」から選ぼう。',
       'wrong-role': r.evidence && wrongRoleText(p, r),
       irrelevant: r.outsideQuad ? quadFirstText(p) : 'たしかに等しいね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！',
+      alternative: r.alt && r.alt.text,
       'from-conclusion': PH.hasCongruence(p) ? 'それは' + PH.congruenceText(p) + 'が証明できたら言えることだよ！ まだ根拠には使えないよ。' : '',
       outside: PH.hasCongruence(p) ? outsideText(g) : '',
       'target-property': targetPropertyText(p),
@@ -796,6 +797,11 @@
       case 'irrelevant':
         PH.sound.play('soft');
         this.say('たしかに等しいね！ でも、今回の証明では使わない関係だよ。ほかの根拠を探そう！', 'info');
+        break;
+      case 'alternative':
+        // 別の道すじで言える関係（ミスにしない）
+        PH.sound.play('soft');
+        this.say(r.alt.text, 'info');
         break;
       case 'wrong-reason':
         this.say(r.evidence && r.evidence.role === 'right'

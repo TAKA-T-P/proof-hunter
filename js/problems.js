@@ -926,10 +926,15 @@
         { id: 'e3', items: ['AM', 'AM'], reason: 'common', label: 'AM＝AM', mark: 'common' },
       ],
       extraTruths: [],
+      // 別の道すじで言える関係（二等辺三角形の底角）。正しい考え方なのでミスにしない
+      altRoutes: [
+        { items: ['∠MBA', '∠MCA'],
+          text: 'そのとおり！ AB＝AC だから、二等辺三角形の底角で ∠MBA＝∠MCA が言えるね。でも、この問題では辺の等しさだけを使って証明してみよう！' },
+      ],
       congruence: 'SSS',
       proof: { intro: '△ABMと△ACMにおいて' },
       // 証明パズル：形式（fill＝穴埋め / build＝組み立て）とダミーカード。正解は evidence・congruence を使う
-      puzzle: { type: 'build', distractors: { equations: ['AB＝AM', 'BM＝AM', '∠ABM＝∠ACM'], reasons: [] } },
+      puzzle: { type: 'build', distractors: { equations: ['AB＝AM', 'BM＝AM', '∠BAM＝∠CAM'], reasons: [] } },
       hints: {
         e1: [
           { text: '仮定から等しい辺を探そう。' },
@@ -1986,6 +1991,11 @@
         { id: 'e3', items: ['∠AOB', '∠DOC'], reason: 'vertical', label: '∠AOB＝∠DOC', mark: 1 },
       ],
       extraTruths: [],
+      // 別の道すじで言える関係（三角形の内角の和）。正しい考え方なのでミスにしない
+      altRoutes: [
+        { items: ['∠BAO', '∠CDO'],
+          text: '三角形の内角の和を使えば、∠BAO＝∠CDO も言えるね。でも、この問題では直角三角形の合同条件を使って証明しよう！' },
+      ],
       congruence: 'RHA',
       proof: { intro: '△ABOと△DCOにおいて' },
       puzzle: { type: 'fill', distractors: { equations: ['AB＝BO', 'AO＝BO', '∠BAO＝∠DOC'], reasons: [] } },
@@ -2039,6 +2049,11 @@
         { id: 'e3', items: ['∠AOC', '∠BOD'], reason: 'commonAngle', label: '∠AOC＝∠BOD', mark: 1 },
       ],
       extraTruths: [],
+      // 別の道すじで言える関係（三角形の内角の和）。正しい考え方なのでミスにしない
+      altRoutes: [
+        { items: ['∠CAO', '∠DBO'],
+          text: '三角形の内角の和を使えば、∠CAO＝∠DBO も言えるね。でも、この問題では直角三角形の合同条件を使って証明しよう！' },
+      ],
       congruence: 'RHA',
       proof: { intro: '△OACと△OBDにおいて' },
       puzzle: { type: 'build', distractors: { equations: ['OA＝AC', '∠OAC＝∠AOC', 'AC＝OC'], reasons: ['vertical'] } },
@@ -2094,6 +2109,11 @@
         { id: 'e3', items: ['∠EBC', '∠DCB'], reason: 'proved', fromStep: 's1', label: '∠EBC＝∠DCB', mark: 1 },
       ],
       extraTruths: [],
+      // 別の道すじで言える関係（三角形の内角の和）。正しい考え方なのでミスにしない
+      altRoutes: [
+        { items: ['∠ECB', '∠DBC'],
+          text: '三角形の内角の和を使えば、∠ECB＝∠DBC も言えるね。でも、この問題では直角三角形の合同条件を使って証明しよう！' },
+      ],
       congruence: 'RHA',
       proof: { intro: '△EBCと△DCBにおいて' },
       puzzle: { type: 'build', distractors: { equations: ['BE＝BC', '∠EBC＝∠ECB', 'BD＝BC'], reasons: ['vertical'] } },
@@ -2223,6 +2243,11 @@
         { id: 'e3', items: ['∠POQ', '∠POR'], reason: 'given', label: '∠POQ＝∠POR', mark: 1 },
       ],
       extraTruths: [],
+      // 別の道すじで言える関係（三角形の内角の和）。正しい考え方なのでミスにしない
+      altRoutes: [
+        { items: ['∠OPQ', '∠OPR'],
+          text: '三角形の内角の和を使えば、∠OPQ＝∠OPR も言えるね。でも、この問題では直角三角形の合同条件を使って証明しよう！' },
+      ],
       congruence: 'RHA',
       finalStep: { relationType: 'side', items: ['PQ', 'PR'], reason: 'correspondingSides', label: 'PQ＝PR' },
       proof: { intro: '△POQと△PORにおいて' },
@@ -2306,6 +2331,11 @@
         { id: 'e3', items: ['∠ABD', '∠CAE'], reason: 'proved', fromStep: 's3', label: '∠ABD＝∠CAE', mark: 1 },
       ],
       extraTruths: [],
+      // 別の道すじで言える関係（角の計算）。正しい考え方なのでミスにしない
+      altRoutes: [
+        { items: ['∠BAD', '∠ACE'],
+          text: 'そのとおり！ ∠ACE＝90°－∠CAE＝∠DAB だから、∠BAD＝∠ACE も言えるね。でも、この問題では ∠ABD＝∠CAE のほうを使って証明しよう！' },
+      ],
       congruence: 'RHA',
       proof: { intro: '△ABDと△CAEにおいて' },
       puzzle: { type: 'build', distractors: { equations: ['BD＝AD', 'AB＝BC', '∠ABD＝∠DAB'], reasons: ['vertical'] } },
@@ -2899,6 +2929,11 @@
           parallelGroup: 1, proofReason: 'AB∥DCより、平行線の錯角は等しいから' },
       ],
       extraTruths: [],
+      // 別の道すじで言える関係（三角形の内角の和）。正しい考え方なのでミスにしない
+      altRoutes: [
+        { items: ['∠EBA', '∠FDC'],
+          text: '三角形の内角の和を使えば、∠EBA＝∠FDC も言えるね。でも、この問題では直角三角形の合同条件を使って証明しよう！' },
+      ],
       congruence: 'RHA',
       finalStep: { relationType: 'side', items: ['AE', 'CF'], reason: 'correspondingSides', label: 'AE＝CF' },
       proof: { intro: '△ABEと△CDFにおいて' },
@@ -3208,6 +3243,11 @@
           parallelGroup: 1, proofReason: 'AB∥DCより、平行線の錯角は等しいから' },
       ],
       extraTruths: [],
+      // 別の道すじで言える関係（三角形の内角の和）。正しい考え方なのでミスにしない
+      altRoutes: [
+        { items: ['∠EBA', '∠FDC'],
+          text: '三角形の内角の和を使えば、∠EBA＝∠FDC も言えるね。でも、この問題では直角三角形の合同条件を使って証明しよう！' },
+      ],
       congruence: 'RHA',
       finalStep: { relationType: 'side', items: ['BE', 'DF'], reason: 'correspondingSides', label: 'BE＝DF' },
       proof: { intro: '△ABEと△CDFにおいて' },
@@ -3321,6 +3361,11 @@
         { id: 'e3', items: ['∠ABH', '∠ADK'], reason: 'rhombusAngles', alsoReasons: ['parallelogramAngles'], label: '∠ABH＝∠ADK', mark: 1 },
       ],
       extraTruths: [],
+      // 別の道すじで言える関係（三角形の内角の和）。正しい考え方なのでミスにしない
+      altRoutes: [
+        { items: ['∠BAH', '∠DAK'],
+          text: '三角形の内角の和を使えば、∠BAH＝∠DAK も言えるね。でも、この問題では直角三角形の合同条件を使って証明しよう！' },
+      ],
       congruence: 'RHA',
       proof: { intro: '△ABHと△ADKにおいて' },
       puzzle: { type: 'build', distractors: { equations: ['AB＝AH', '∠BAH＝∠ABH', 'BH＝HC'], reasons: ['vertical'] } },
@@ -3576,6 +3621,14 @@
         { id: 'e3', items: ['AO', 'AO'], reason: 'common', label: 'AO＝AO', mark: 3 },
       ],
       extraTruths: [],
+      // 別解：AB＝AD から二等辺三角形 ABD の底角で ∠ABO＝∠ADO、AD∥BC の錯角と二等辺三角形 ABC の底角で ∠BAO＝∠DAO
+      // （どちらも2組の辺とその間の角）。正しい考え方なのでミスにしない
+      altRoutes: [
+        { items: ['∠ABO', '∠ADO'],
+          text: 'そのとおり！ AB＝AD だから、二等辺三角形の底角で ∠ABO＝∠ADO が言えるね。でも、この問題ではひし形の性質から言える辺の等しさを使って証明してみよう！' },
+        { items: ['∠BAO', '∠DAO'],
+          text: 'そのとおり！ AD∥BC の錯角と、AB＝BC の二等辺三角形 ABC の底角を使えば、∠BAO＝∠DAO が言えるね。でも、この問題ではひし形の性質から言える辺の等しさを使って証明してみよう！' },
+      ],
       congruence: 'SSS',
       finalStep: { relationType: 'angle', items: ['∠AOB', '∠AOD'], reason: 'correspondingAngles', label: '∠AOB＝∠AOD' },
       proofSteps: [
@@ -3610,7 +3663,8 @@
         s1: stepHints('∠AOBと∠AODを合わせると、何度かな？', '∠AOB＋∠AOD＝180°（一直線）で、∠AOB＝∠AOD だね。',
           '∠AOB＝∠AOD＝90° だから、AC⊥BD！', ['∠AOB', '∠AOD']),
       },
-      explanation: '△ABOと△ADOで、ひし形の4辺は等しいので AB＝AD、ひし形は平行四辺形なので対角線はそれぞれの中点で交わり BO＝DO、AOは共通。3組の辺がそれぞれ等しいので △ABO≡△ADO、合同な図形の対応する角は等しいので ∠AOB＝∠AOD。∠AOB＋∠AOD＝180° なので ∠AOB＝90°。よって AC⊥BD。ひし形の対角線は垂直に交わります。',
+      explanation: '△ABOと△ADOで、ひし形の4辺は等しいので AB＝AD、ひし形は平行四辺形なので対角線はそれぞれの中点で交わり BO＝DO、AOは共通。3組の辺がそれぞれ等しいので △ABO≡△ADO、合同な図形の対応する角は等しいので ∠AOB＝∠AOD。∠AOB＋∠AOD＝180° なので ∠AOB＝90°。よって AC⊥BD。ひし形の対角線は垂直に交わります。' +
+        '（別解：AB＝AD より △ABD は二等辺三角形なので、底角が等しく ∠ABO＝∠ADO。AB＝AD、BO＝DO と合わせて、2組の辺とその間の角がそれぞれ等しいので △ABO≡△ADO、と証明することもできます。）',
       learningPoints: [
         'ひし形の性質（4辺が等しい）と、平行四辺形の対角線の性質を合同の根拠に使う。',
         '一直線をつくる2つの角が等しければ、どちらも90°（2直線は垂直）。',

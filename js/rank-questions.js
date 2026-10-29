@@ -145,7 +145,7 @@
       const items = label.split('＝');
       if (items.length !== 2) return false;
       const st = V().equationStatus(p, items.map(function (n) { return key(p, n); }));
-      return st !== 'evidence' && st !== 'irrelevant' && acceptedEq.indexOf(eqKeyOf(p, items)) < 0;
+      return st !== 'evidence' && st !== 'irrelevant' && st !== 'alternative' && acceptedEq.indexOf(eqKeyOf(p, items)) < 0;
     }).slice(0, 2);
     const kinds = accepted.map(function (e) { return G().isAngleName(e.items[0]) ? 'ang' : 'seg'; })
       .filter(function (k, i, a) { return a.indexOf(k) === i; });
@@ -181,7 +181,7 @@
       if (out.indexOf(r) >= 0 || r === ev.reason || !PH.REASONS[r] || PH.REASONS[r].finalOnly || PH.REASONS[r].meta) return;
       if (givenToo && r === 'given') return;
       const st = V().checkEvidence(p, keys, r, []).status;
-      if (st === 'correct' || st === 'irrelevant') return;
+      if (st === 'correct' || st === 'irrelevant' || st === 'alternative') return;
       out.push(r);
     });
     return out.slice(0, count).map(function (r) { return PH.REASONS[r].proof; });

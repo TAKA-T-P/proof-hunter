@@ -219,7 +219,7 @@
         if (m.items && ev) {
           if (step.kind === 'evidence') {
             const st = PH.validation.checkEvidence(problem, keysOf(problem, m.items), ev.reason, []).status;
-            if (st === 'correct' || st === 'irrelevant') err('間違いの等式が、その理由で言えてしまう');
+            if (st === 'correct' || st === 'irrelevant' || st === 'alternative') err('間違いの等式が、その理由で言えてしまう');
           }
           if (measuredEqual(problem, m.items[0], m.items[1])) err('間違いの等式が、図の上で等しい（まぎらわしい）');
         } else if (m.items && step.kind === 'final') {

@@ -35,8 +35,13 @@
       const keys = keysOf(fig, x.items);
       return { item: x, keys: keys, eq: equationKey(keys[0], keys[1]) };
     });
+    // 別の道すじで言える関係（p47 の ∠ABO＝∠ADO：AB＝AD から二等辺三角形の底角）。正しい考え方なのでミスにしない
+    const alts = (problem.altRoutes || []).map(function (x) {
+      const keys = keysOf(fig, x.items);
+      return { item: x, keys: keys, eq: equationKey(keys[0], keys[1]) };
+    });
     const parts = correspondingParts(problem);
-    const c = { evidence: evidence, extras: extras, parts: parts };
+    const c = { evidence: evidence, extras: extras, alts: alts, parts: parts };
     cache.set(problem, c);
     return c;
   }
@@ -85,6 +90,7 @@
    *   foundIds : 登録済みの根拠ID
    * 戻り値 status:
    *   correct / duplicate / wrong-reason / irrelevant / from-conclusion / not-common / wrong-equation / incomplete
+   *   / alternative（別の道すじで言える関係。理由によらずミスにしない。alt.text を表示）
    *   / not-proved（Ver.0.7：まだ証明していない事実を根拠に使った。engine を渡したときだけ）
    */
   function checkEvidence(problem, keys, reasonId, foundIds, engine) {
@@ -110,6 +116,9 @@
       if (extra.item.reason === reasonId) return { status: 'irrelevant', miss: false, kind: kind };
       return { status: 'wrong-reason', miss: true, kind: kind };
     }
+
+    const alt = c.alts.find(function (e) { return e.eq === eq; });
+    if (alt) return { status: 'alternative', miss: false, kind: kind, alt: alt.item };
 
     // 結論（合同）から導かれる関係は、まだ根拠に使えない
     if (classifyPair(problem, keys)) return { status: 'from-conclusion', miss: true, kind: kind };
@@ -137,16 +146,24 @@
     return hit ? hit.ev : null;
   }
 
-  // 根拠ではない等式の種類：'irrelevant'（正しいが今回は使わない）/ 'from-conclusion' / 'not-common'
+  // 根拠ではない等式の種類：'irrelevant'（正しいが今回は使わない）/ 'alternative'（別の道すじで言える）/ 'from-conclusion' / 'not-common'
   //   / 'outside'（合同を証明する2つの三角形の辺・角ではない）/ 'wrong-equation'
   function equationStatus(problem, keys) {
     if (matchEvidence(problem, keys)) return 'evidence';
     const eq = equationKey(keys[0], keys[1]);
     if (compiled(problem).extras.some(function (e) { return e.eq === eq; })) return 'irrelevant';
+    if (compiled(problem).alts.some(function (e) { return e.eq === eq; })) return 'alternative';
     if (classifyPair(problem, keys)) return 'from-conclusion';
     if (keys[0] === keys[1]) return 'not-common';
     if (outsideTriangles(problem, keys)) return 'outside';
     return 'wrong-equation';
+  }
+
+  // 別の道すじで言える関係（altRoutes の1つ）。なければ null
+  function altRoute(problem, keys) {
+    const eq = equationKey(keys[0], keys[1]);
+    const hit = compiled(problem).alts.find(function (e) { return e.eq === eq; });
+    return hit ? hit.item : null;
   }
 
   /*
@@ -255,7 +272,7 @@
     if (eq === equationKey(fk[0], fk[1])) return 'goal';
     const st = equationStatus(problem, keys);
     if (st === 'evidence' || st === 'irrelevant') return 'evidence';
-    if (st === 'from-conclusion') return 'not-goal';
+    if (st === 'from-conclusion' || st === 'alternative') return 'not-goal';
     return 'wrong-equation';
   }
 
@@ -459,6 +476,13 @@
         if (!nearlyEqual(measure(fig, x.item.items[0]), measure(fig, x.item.items[1]))) errors.push('extraTruths が図の上で等しくない: ' + x.item.items.join('='));
         x.keys.forEach(function (k) { if (!els.byKey[k]) errors.push('extraTruths: 図で選択できない要素 ' + k); });
       });
+      c.alts.forEach(function (x) {
+        const name = 'altRoutes ' + x.item.items.join('=');
+        if (!nearlyEqual(measure(fig, x.item.items[0]), measure(fig, x.item.items[1]))) errors.push(name + ' が図の上で等しくない');
+        // 図で選べない角（p27 の ∠ECB など）も、チャレンジでは入力できるので登録してよい
+        if (!x.item.text) errors.push(name + ': text がない');
+        if (c.evidence.some(function (e) { return e.eq === x.eq; }) || c.extras.some(function (e) { return e.eq === x.eq; })) errors.push(name + ' が根拠・extraTruths と重なっている');
+      });
 
       // 図の2つの三角形が実際に合同に描かれているか（対応する辺がすべて等しい）
       if (tri) {
@@ -649,6 +673,7 @@
     correspondenceKey: correspondenceKey,
     checkTriangles: checkTriangles,
     acceptedCorrespondences: acceptedCorrespondences,
+    altRoute: altRoute,
     finalEquationStatus: finalEquationStatus,
     checkFinal: checkFinal,
     deriveCondition: deriveCondition,

@@ -703,9 +703,51 @@ test('p46・p47：長方形・ひし形の対角線の性質を、指定され�
     assert.deepEqual(z.triangleAnswer(), P(id).triangles);
     assert.notEqual(z.useHint().targetId, 'triangleSelection', id + ' ' + t);
   }));
+  // p47：AB＝AD から二等辺三角形の底角で言える ∠ABO＝∠ADO は、別の道すじなのでミスにしない（正解にもしない）
+  const p47 = P('p47');
+  const altKeys = ['∠ABO', '∠ADO'].map((n) => PH.geometry.elementKey(p47.figure, n));
+  ['rhombusSides', 'given', 'vertical'].forEach((reason) => {
+    const r = val.checkEvidence(p47, altKeys, reason, []);
+    assert.equal(r.status, 'alternative', reason);
+    assert.equal(r.miss, false);
+    assert.ok(/二等辺三角形の底角/.test(r.alt.text));
+  });
+  assert.equal(val.equationStatus(p47, altKeys), 'alternative');
+  assert.equal(val.equationStatus(p47, ['∠BAO', '∠DAO'].map((n) => PH.geometry.elementKey(p47.figure, n))), 'alternative');
+  assert.equal(val.equationStatus(p47, ['∠AOB', '∠AOD'].map((n) => PH.geometry.elementKey(p47.figure, n))), 'from-conclusion');
+  const zc = new PH.Puzzle(p47, 'challenge');
+  const solc = zc.solution();
+  fill(zc, Object.assign({}, solc, { e0: '∠ABO=∠ADO' }));
+  const rc = zc.check();
+  assert.equal(zc.misses, 0);
+  assert.equal(rc.result.slotStatus.e0, 'ng');
+  assert.ok(rc.result.messages.some((m) => /二等辺三角形の底角/.test(m.text)));
+  assert.ok(/別解/.test(p47.explanation));
   const proof = PH.buildProof(P('p47'));
   assert.deepEqual(proof.post.map((l) => l.conclusion), ['AC⊥BD']);
   assert.equal(PH.buildProof(P('p46')).final.conclusion, 'AC＝DB');
+});
+
+test('合同を使わずに言える対応する角（altRoutes）は、ハンター・パズルでミスにしない', () => {
+  const ALT = { p12: ['∠MBA', '∠MCA'], p30: ['∠BAD', '∠ACE'], p26: ['∠BAO', '∠CDO'], p49: ['∠CAO', '∠DBO'], p27: ['∠ECB', '∠DBC'],
+    p29: ['∠OPQ', '∠OPR'], p38: ['∠EBA', '∠FDC'], p42: ['∠EBA', '∠FDC'], p43: ['∠BAH', '∠DAK'] };
+  Object.keys(ALT).forEach((id) => {
+    const p = P(id);
+    const keys = ALT[id].map((n) => PH.geometry.elementKey(p.figure, n));
+    const r = val.checkEvidence(p, keys, 'given', []);
+    assert.equal(r.status, 'alternative', id);
+    assert.equal(r.miss, false, id);
+    assert.ok(r.alt.text.length > 0, id);
+    // チャレンジで入力しても、ミスに数えず、メッセージを出す
+    const z = new PH.Puzzle(p, 'challenge');
+    const sol = z.solution();
+    const row = z.slots.find((s) => s.kind === 'eq' && s.input && sol[s.id] != null);
+    fill(z, Object.assign({}, sol, { [row.id]: ALT[id].join('=') }));
+    const res = z.check();
+    assert.equal(z.misses, 0, id);
+    assert.equal(res.result.slotStatus[row.id], 'ng', id);
+    assert.ok(res.result.messages.some((m) => m.text === r.alt.text), id);
+  });
 });
 
 test('p45：隣り合う角のステップの書き出しに、答えの理由（隣り合う角の和は180°）を書かない（ハンター・パズル共通）', () => {

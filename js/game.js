@@ -570,7 +570,8 @@
     let r;
     if (!ev) {
       const st = quad ? PG.equationStatus(this.problem, qkey) : PH.validation.equationStatus(this.problem, keys);
-      r = { status: st, miss: st !== 'irrelevant', kind: kind, rel: quad ? this.relation : 'eq' };
+      r = { status: st, miss: st !== 'irrelevant' && st !== 'alternative', kind: kind, rel: quad ? this.relation : 'eq' };
+      if (st === 'alternative') r.alt = PH.validation.altRoute(this.problem, keys);
       if (quad && st === 'irrelevant') r.outsideQuad = !PG.isTargetRelation(this.problem, keys);   // 四角形の外の辺・角をふくむ関係（p40 の AD∥BC）
     } else if (this.partFound().indexOf(ev.id) >= 0) {
       r = { status: 'duplicate', miss: false, evidence: ev, kind: kind };

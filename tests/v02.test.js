@@ -129,8 +129,14 @@ test('結論から導かれる関係はどの問題でも根拠にできない',
   TRI.forEach((p) => {
     const evEq = p.evidence.map((e) => val.equationKey(k(p, e.items[0]), k(p, e.items[1])));
     const exEq = (p.extraTruths || []).map((x) => val.equationKey(k(p, x.items[0]), k(p, x.items[1])));
+    const altEq = (p.altRoutes || []).map((x) => val.equationKey(k(p, x.items[0]), k(p, x.items[1])));
     val.correspondingParts(p).forEach((part) => {
       if (evEq.includes(part.eq) || exEq.includes(part.eq)) return;
+      // 別の道すじで言える関係（altRoutes）は、どの理由でもミスにしない
+      if (altEq.includes(part.eq)) {
+        Object.keys(PH.REASONS).forEach((r) => assert.equal(val.checkEvidence(p, part.keys, r, []).status, 'alternative', p.id + ' ' + part.eq));
+        return;
+      }
       Object.keys(PH.REASONS).forEach((r) => {
         assert.equal(val.checkEvidence(p, part.keys, r, []).status, 'from-conclusion', p.id + ' ' + part.eq);
       });
