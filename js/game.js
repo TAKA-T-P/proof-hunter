@@ -31,12 +31,14 @@
   }
 
   function Game(problem) {
+    this.baseProblem = problem;      // 左右対称の道すじの形（p45）に切りかえても、やり直すときはこの問題にもどる
     this.problem = problem;
     this.elements = PH.geometry.getElements(problem.figure);
     this.reset();
   }
 
   Game.prototype.reset = function () {
+    this.problem = this.baseProblem;
     this.hasFinal = !!(PH.hasFinalStep && PH.hasFinalStep(this.problem));
     // Ver.0.7：多段階証明（proofSteps）。前半のステップ → 根拠 → 合同条件 → 最終結論 → 後半のステップ
     this.engine = PH.proofEngine && PH.proofEngine.hasSteps(this.problem) ? new PH.ProofEngine(this.problem) : null;
@@ -44,8 +46,11 @@
     this.stepChoice = null;      // 理由を選ぶステップで選んだ選択肢
     this.cmpPick = {};           // 式の比較：式のステップID → 選んだ部分（'target' 左辺 / 'value' 右辺）
     this.stepCounted = {};       // ミスに数えたステップの誤答
-    this.phase = this.hasFinal ? 'triangle' : 'collect';
-    this.mode = this.hasFinal ? 'tri' : 'side';
+    // 三角形を問題文で指定している問題（p46・p47）は、三角形を選ぶ段階をとばして根拠から
+    const pick = this.hasFinal && !PH.trianglesGiven(this.problem);
+    this.phase = pick ? 'triangle' : 'collect';
+    this.mode = pick ? 'tri' : 'side';
+    this.triangles = pick || !this.problem.triangles ? null : this.problem.triangles.map(function (t) { return t.slice(); });
     this.explaining = null;      // 「詳しい理由を説明する」で説明している根拠のID
     this.answerMode = this.mode; // 印つけ等から「解答にもどる」ときの戻り先
     this.triSel = [];            // 選んだ三角形（頂点の配列。1つ目が青、2つ目が黄）
@@ -90,6 +95,28 @@
   Game.prototype.partEvidence = function () { return this.part === 'quad' ? this.quadEvidence() : this.problem.evidence; };
   Game.prototype.partFound = function () { return this.part === 'quad' ? this.qfound : this.found; };
 
+  /*
+   * 左右対称の道すじ（p45：∠A＝90° から ∠B・∠D のどちらを先に求めてもよい）。
+   * 形によって変わる根拠をまだ見つけていなければ、選んだ関係に合う形（問題データの variants）に切りかえる
+   */
+  Game.prototype.switchVariant = function (keys) {
+    const base = this.baseProblem;
+    if (!base.variants || this.part !== 'quad' || this.relation !== 'eq') return false;
+    const self = this;
+    const changed = Object.keys(base.variants[0].evidence || {});
+    if (changed.some(function (id) { return self.qfound.indexOf(id) >= 0; })) return false;
+    const PG = PH.parallelogram;
+    const key = PG.factKeyFromKeys(base.figure, keys, 'eq');
+    const forms = [base].concat(base.variants.map(function (v) { return PH.problemVariant(base, v.id); }));
+    const hit = forms.find(function (q) { const ev = PG.matchEvidence(q, key); return !!ev && changed.indexOf(ev.id) >= 0; });
+    if (!hit || hit === this.problem) return false;
+    this.problem = hit;
+    const old = this.engine;
+    this.engine = new PH.ProofEngine(hit);
+    if (old) ['done', 'reached', 'facts', 'types'].forEach(function (k) { self.engine[k] = old[k]; });
+    return true;
+  };
+
   // 平行四辺形の根拠を集める段階へ（三角形の合同の部分がある問題は、結論を導いたあと）
   Game.prototype.enterQuad = function () {
     this.part = 'quad';
@@ -126,6 +153,7 @@
   // 平行四辺形の根拠を確定
   Game.prototype.confirmQuadEvidence = function () {
     const self = this;
+    this.switchVariant(this.selection);
     const r = PH.parallelogram.checkEvidence(this.problem, this.selection, this.relation, this.reason, this.qfound, {
       engine: this.engine, isEstablished: function (k) { return self.isEstablished(k); },
     });
@@ -565,13 +593,14 @@
     const kind = keys[0].slice(0, 3) === 'ang' ? 'ang' : 'seg';
     const quad = this.phase === 'qcollect';
     const PG = PH.parallelogram;
+    if (quad) this.switchVariant(keys);
     const qkey = quad ? PG.factKeyFromKeys(this.problem.figure, keys, this.relation) : null;
     const ev = quad ? PG.matchEvidence(this.problem, qkey) : PH.validation.matchEvidence(this.problem, keys);
     let r;
     if (!ev) {
       const st = quad ? PG.equationStatus(this.problem, qkey) : PH.validation.equationStatus(this.problem, keys);
       r = { status: st, miss: st !== 'irrelevant' && st !== 'alternative', kind: kind, rel: quad ? this.relation : 'eq' };
-      if (st === 'alternative') r.alt = PH.validation.altRoute(this.problem, keys);
+      if (st === 'alternative') r.alt = quad ? PG.altRoute(this.problem, qkey) : PH.validation.altRoute(this.problem, keys);
       if (quad && st === 'irrelevant') r.outsideQuad = !PG.isTargetRelation(this.problem, keys);   // 四角形の外の辺・角をふくむ関係（p40 の AD∥BC）
     } else if (this.partFound().indexOf(ev.id) >= 0) {
       r = { status: 'duplicate', miss: false, evidence: ev, kind: kind };

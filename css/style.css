@@ -941,6 +941,12 @@ body[data-screen="title"] { background: linear-gradient(160deg, #1e3a8a 0%, #1d4
 .kp-display {
   text-align: center; font-size: 1.6rem; font-weight: 900; letter-spacing: .08em; padding: 2px 8px;
   border-radius: 10px; background: #fffbeb; border: 2px solid var(--gold); color: var(--ink);
+  white-space: nowrap; overflow: hidden;   /* 「∠＿＿＿＝∠＿＿＿」を改行しない */
+}
+/* 幅のせまい画面（スマホ縦）：入力欄の文字を画面幅に合わせて小さくし、切りかえボタンは2行にして幅をゆずる */
+@media (max-width: 599px) {
+  .kp-display { font-size: clamp(1rem, 5.6vw, 1.6rem); letter-spacing: .02em; padding: 2px 4px; }
+  .kp-toggle { white-space: normal; max-width: 4.6em; padding: 0 6px; font-size: .85rem; line-height: 1.25; word-break: break-all; }
 }
 .kp-keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px; }
 .kp-key, .kp-op {

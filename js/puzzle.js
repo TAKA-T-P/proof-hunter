@@ -385,7 +385,7 @@
     // 結論が辺・角の等しさの問題（Ver.0.5）：最初に三角形を選び、最後に合同から結論を導く
     this.hasFinal = !!(PH.hasFinalStep && PH.hasFinalStep(problem));
     // 問題文で使う三角形を指定している問題（p47）は、「△＿と△＿において」を表示済みにする（答えない）
-    this.triGiven = this.hasFinal && !!(problem.puzzle && problem.puzzle.trianglesGiven);
+    this.triGiven = PH.trianglesGiven(problem);
     // Ver.0.7：多段階証明。根拠の行は、前のステップで導いた事実を使わない根拠だけ（導いた事実はステップの行で書く）
     this.multi = !!(PH.proofEngine && PH.proofEngine.hasSteps(problem));
     this.rowEv = problem.evidence.filter(function (ev) { return !ev.fromStep; });
@@ -1100,6 +1100,10 @@
             break;
           case 'target-property':
             fail(eqId, sig, QMSG.targetProperty, label);
+            break;
+          case 'alternative':
+            // 別の道すじで言える関係：正しい考え方なのでミスにしない
+            note(eqId, PH.parallelogram.altRoute(p, r.eqCard.key).text, label);
             break;
           case 'irrelevant':
             // 四角形の外の辺・角をふくむ関係（p40 の AD∥BC）は、四角形の辺・角から選ぶよう案内する

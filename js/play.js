@@ -65,7 +65,7 @@
 
   function PlayController(container, problem, nav) {
     this.root = container;
-    this.problem = problem;
+    this._problem = problem;
     this.nav = nav;
     this.game = new PH.Game(problem);
     this.flashKeys = [];
@@ -90,6 +90,11 @@
     PH.storage.setLastProblem(problem.id);
     this.render();
   }
+
+  // 今の問題。左右対称の道すじの形（p45）に切りかえたときは、ゲームの問題（ステップ・証明文・ヒントが切りかわる）
+  Object.defineProperty(PlayController.prototype, 'problem', {
+    get: function () { return this.game ? this.game.problem : this._problem; },
+  });
 
   PlayController.prototype.ref = function (name) {
     return this.root.querySelector('[data-ref="' + name + '"]');
@@ -872,6 +877,11 @@
       case 'property-unproved':
         this.say(targetPropertyText(p), 'ng');
         break;
+      case 'alternative':
+        // 別の道すじで言える関係（ミスにしない）
+        PH.sound.play('soft');
+        this.say(r.alt.text, 'info');
+        break;
       case 'via-unproved':
         this.say('錯角・同位角が等しいことを、先に証明する必要があるよ！', 'ng');
         break;
@@ -1115,6 +1125,7 @@
     const now = at(g.phase);
     let steps = [['triangle', '三角形'], ['collect', '根拠'], ['congruence', '合同条件'], ['final', '結論']];
     if (!g.hasFinal) steps = steps.filter(function (s) { return s[0] !== 'triangle' && s[0] !== 'final'; });
+    if (PH.trianglesGiven(this.problem)) steps = steps.filter(function (s) { return s[0] !== 'triangle'; });   // 三角形は問題文で指定
     if (PH.isGoalOnly(this.problem)) steps = [['collect', '等しい角']];        // Ver.1.0（p50）：合同を使わない
     const items = steps.map(function (st) {
       const i = at(st[0]);
@@ -1155,6 +1166,7 @@
     const fsLabel = this.problem.finalStep && this.problem.finalStep.relationType === 'side' ? '辺の等しさ' : '角の等しさ';
     let steps = [['triangle', '三角形'], ['collect', '合同の根拠'], ['congruence', '合同条件'], ['final', fsLabel], ['qcollect', qlabel], ['qcondition', '成立条件']];
     if (!PH.hasLemma(this.problem)) steps = steps.slice(4);
+    else if (PH.trianglesGiven(this.problem)) steps = steps.slice(1);   // 三角形は問題文で指定
     const items = steps.map(function (st) {
       const i = ORDER.indexOf(st[0]);
       return { label: st[1], state: i < now ? 'is-done' : i === now ? 'is-now' : '' };
@@ -1495,7 +1507,8 @@
     const proof = PH.buildProof(p);
     const stage = PH.getStage(p.stage);
     const list = PH.stageProblems(p.stage);
-    const hasNext = list.indexOf(p) < list.length - 1;
+    // 左右対称の道すじの形（p45）は別のオブジェクトなので、id で探す
+    const hasNext = list.findIndex(function (x) { return x.id === p.id; }) < list.length - 1;
     const nextStage = PH.getStage(p.stage + 1);
     const lines = proof.lines.map(function (l) {
       return '<li class="proof-line">' +

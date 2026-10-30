@@ -300,6 +300,62 @@ test('ハンターモードで p43〜p45 を解ける（ミス・ヒントなし
   });
 });
 
+test('p45（問題48）：∠A のとなりの角は ∠DAB＝∠ABC・∠DAB＝∠CDA のどちらでも正解（左右対称の道すじ）', () => {
+  const p = P('p45');
+  const v = PH.problemVariant(p, 'd');
+  assert.equal(v.id, 'p45');
+  assert.deepEqual(PH.proofEngine.verify(v), []);
+  assert.deepEqual(PG.verifyKnown(v), []);
+  assert.deepEqual(PG.verify(v), []);
+  // ∠DAB＝∠CDA から始めても、ミスなしで★3
+  const g = new PH.Game(p);
+  const q1 = v.parallelogram.evidence.find((e) => e.id === 'q1');
+  assert.equal(answerQ(g, q1).status, 'correct');
+  assert.equal(g.problem.variantId, 'd');
+  assert.equal(g.engine.step('s1').label, '∠DAB＝∠CDA＝90°');
+  v.parallelogram.evidence.filter((e) => e.id !== 'q1').forEach((ev) => assert.equal(answerQ(g, ev).status, 'correct', ev.id));
+  assert.equal(g.selectCondition('rectangleDefinition'), true);
+  assert.equal(g.confirmCondition().ok, true);
+  assert.equal(g.misses, 0);
+  assert.equal(g.stars, 3);
+  assert.ok(/∠A＋∠D＝180°/.test(g.problem.explanation));
+  assert.ok(/∠A＋∠D＝180°/.test(g.problem.proofSteps[0].proofText));
+  // やり直すと元の形にもどる
+  g.reset();
+  assert.equal(g.problem, p);
+  // ∠DAB＝∠CDA を選んでから ∠DAB＝∠ABC を選びなおしても、元の形にもどって正解
+  const g2 = new PH.Game(p);
+  sel(g2, '∠DAB', '∠CDA');
+  assert.equal(g2.explain().status, 'explain');
+  g2.cancelExplain();
+  assert.equal(answerQ(g2, p.parallelogram.evidence[0]).status, 'correct');
+  assert.equal(g2.problem, p);
+  // 4つの角はすべて90°なので、根拠にしない角の等しさもミスにしない（ハンター・パズル）
+  [['∠ABC', '∠BCD'], ['∠BCD', '∠CDA']].forEach((pair) => {
+    const h = new PH.Game(p);
+    sel(h, pair[0], pair[1]);
+    const r = h.explain();
+    assert.equal(r.status, 'alternative', pair.join('='));
+    assert.equal(r.miss, false);
+    assert.equal(h.misses, 0);
+    assert.ok(/対角/.test(r.alt.text));
+  });
+  // 一方のとなりの角を見つけたあとで、もう一方を選んでもミスにしない
+  const g3 = new PH.Game(p);
+  answerQ(g3, p.parallelogram.evidence[0]);
+  sel(g3, '∠DAB', '∠CDA');
+  const r3 = g3.explain();
+  assert.equal(r3.status, 'alternative');
+  assert.equal(g3.misses, 0);
+  // チャレンジで入力しても、ミスにしない
+  const z = new PH.Puzzle(p, 'challenge');
+  const sol = z.solution();
+  fill(z, Object.assign({}, sol, { qe0: '∠ABC=∠BCD' }));
+  const rz = z.check();
+  assert.equal(z.misses, 0);
+  assert.equal(rz.result.slotStatus.qe0, 'ng');
+});
+
 test('証明パズル3レベル（おてがる・スタンダード・チャレンジ）で p43〜p45 を解ける', () => {
   NEW_IDS.forEach((id) => TYPES.forEach((t) => {
     const p = P(id);
@@ -696,6 +752,15 @@ test('p46・p47：長方形・ひし形の対角線の性質を、指定され�
       assert.equal(z.check().status, 'clear', id + ' ' + t);
     });
   });
+  // p46・p47（問題49・50）のハンター：三角形は問題文で指定しているので、三角形を選ぶ段階をとばして根拠から始める
+  DIAG_IDS.forEach((id) => {
+    const g = new PH.Game(P(id));
+    assert.equal(g.phase, 'collect', id);
+    assert.equal(g.mode, 'side', id);
+    assert.deepEqual(g.triangles, P(id).triangles, id);
+  });
+  // ほかの結論が辺・角の等しさの問題は、これまでどおり三角形を選ぶところから
+  assert.equal(new PH.Game(P('p18')).phase, 'triangle');
   // p46・p47（問題49・50）のパズル：三角形は問題文で指定しているので「△…と△…において」は答えない
   DIAG_IDS.forEach((id) => TYPES.forEach((t) => {
     const z = new PH.Puzzle(P(id), t);

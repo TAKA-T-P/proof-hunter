@@ -51,7 +51,36 @@
   PH.CONCLUSION_TYPES = ['triangleCongruence', 'equalSide', 'equalAngle', 'isoscelesTriangle', 'parallelogram', 'parallelLines', 'rhombus', 'rectangle', 'perpendicular'];
   PH.conclusionType = function (p) { return p.conclusionType || 'triangleCongruence'; };
   // 合同を示したあと、対応する辺・角の等しさを導く問題か（三角形選択・最終結論のステップがある）
+  /*
+   * 左右対称の道すじの形（p45：∠A＝90° から ∠B ではなく ∠D を先に求める）。
+   * variant の proofSteps・hints・explanation・altRoutes を差しかえ、evidence は id ごとに上書きした問題を返す（id は同じ）
+   */
+  const variantCache = {};
+  PH.problemVariant = function (p, variantId) {
+    const v = (p.variants || []).find(function (x) { return x.id === variantId; });
+    if (!v) return null;
+    const cacheKey = p.id + ':' + variantId;
+    if (variantCache[cacheKey]) return variantCache[cacheKey];
+    const q = JSON.parse(JSON.stringify(p));
+    q.variantOf = p.id;
+    q.variantId = variantId;
+    delete q.variants;
+    if (v.proofSteps) q.proofSteps = JSON.parse(JSON.stringify(v.proofSteps));
+    if (v.explanation) q.explanation = v.explanation;
+    if (v.hints) Object.assign(q.hints, JSON.parse(JSON.stringify(v.hints)));
+    const part = q.parallelogram || q;
+    if (v.altRoutes) part.altRoutes = JSON.parse(JSON.stringify(v.altRoutes));
+    Object.keys(v.evidence || {}).forEach(function (id) {
+      const ev = part.evidence.find(function (e) { return e.id === id; });
+      Object.assign(ev, JSON.parse(JSON.stringify(v.evidence[id])));
+    });
+    variantCache[cacheKey] = q;
+    return q;
+  };
+
   PH.hasFinalStep = function (p) { return PH.conclusionType(p) !== 'triangleCongruence' && !!p.finalStep; };
+  // 証明する三角形を問題文で指定している（p46・p47）：三角形を選ぶ・答える段階がない
+  PH.trianglesGiven = function (p) { return PH.hasFinalStep(p) && !!p.trianglesGiven; };
   // 途中で示す（または結論の）三角形の合同の表記 '△ABD≡△CBD'
   PH.congruenceText = function (p) { return '△' + p.triangles[0].join('') + '≡△' + p.triangles[1].join(''); };
   // 最終結論の理由（辺なら対応する辺、角なら対応する角）
@@ -2371,6 +2400,10 @@
   //   p36 は仮定の平行四辺形（knownParallelograms）の性質と中点（midpoints）を使う多段階証明（proofSteps）。
   //   evidence: [] … 三角形の合同を示す部分がない問題（平行四辺形の根拠は parallelogram.evidence）
   // ==================================================================
+  // p45（問題48）：根拠にしない角の等しさ（4つの角はすべて90°なので正しい）へのメッセージ
+  const ALT45_REST = 'たしかに等しいね！ でも、この問題では平行四辺形の対角の性質を使って、残りの角を求めよう！';
+  const ALT45_DONE = 'それも正しいね！ でも、∠A のとなりの角はもう90°と求めたね。残りは平行四辺形の対角の性質を使おう！';
+
   function ppHints(a, b, c, focus) {
     return [{ text: a }, { text: b, focus: focus || [] }, { text: c, focus: focus || [] }];
   }
@@ -3498,7 +3531,44 @@
         choices: ['rhombusDefinition', 'rectangleDefinition', 'squareDefinition'],
         chain: '∠A＝∠B＝∠C＝∠D＝90°',
         distractors: { equations: ['AB＝BC', 'AB＝AD', 'AD＝DC'], reasons: [] },
+        // 4つの角はすべて90°なので、根拠にしない角の等しさも正しい関係（ミスにしない）
+        altRoutes: [
+          { items: ['∠ABC', '∠BCD'], text: ALT45_REST },
+          { items: ['∠BCD', '∠CDA'], text: ALT45_REST },
+          { items: ['∠DAB', '∠CDA'], text: ALT45_DONE },
+        ],
       },
+      // ∠A のとなりの角は ∠B・∠D のどちらも 90° と言える（左右対称の道すじ）。ハンターで ∠DAB＝∠CDA を選ぶと、この形に切りかえる
+      variants: [
+        {
+          id: 'd', match: ['∠DAB', '∠CDA'],
+          proofSteps: [
+            { id: 's1', type: 'theorem', rule: 'parallelogramAdjacentSupplementary', quad: 'ABCD', premise: ['∠DAB', '∠CDA'],
+              premiseLabel: '∠A＝90°',
+              lead: '仮定より ∠A＝90° で、',
+              items: ['∠DAB', '∠CDA'], label: '∠DAB＝∠CDA＝90°', short: '∠DAB＝∠CDA＝90°', dependsOn: [],
+              proofText: '平行四辺形の隣り合う角の和は180°だから ∠A＋∠D＝180°。仮定より ∠A＝90° なので ∠D＝90°。よって、' },
+          ],
+          evidence: { q1: { items: ['∠DAB', '∠CDA'], label: '∠DAB＝∠CDA' } },
+          altRoutes: [
+            { items: ['∠ABC', '∠BCD'], text: ALT45_REST },
+            { items: ['∠BCD', '∠CDA'], text: ALT45_REST },
+            { items: ['∠DAB', '∠ABC'], text: ALT45_DONE },
+          ],
+          hints: {
+            q1: ppHints('平行四辺形の隣り合う角の和は？', '∠A＝90°なら、∠Dは何度かな？ ∠DABと∠CDAに注目しよう。',
+              '∠DABと∠CDAを選んで「詳しい理由を説明する」を押そう！', ['∠DAB', '∠CDA']),
+            s1: stepHints('平行四辺形の隣り合う角の和は？', '∠A＋∠D＝180°で ∠A＝90° だから、∠D＝180°－90°＝90°。',
+              '「平行四辺形の隣り合う角の和は180°」を使おう！', ['∠DAB', '∠CDA']),
+            pcondition: [
+              { text: '集めた3つの根拠で、4つの角を比べよう！' },
+              { text: '∠A＝∠D＝90°、∠A＝∠C、∠B＝∠D から、∠A＝∠B＝∠C＝∠D＝90° だね。' },
+              { text: '4つの角がすべて等しいね。「4つの角がすべて等しい」を選ぼう！' },
+            ],
+          },
+          explanation: '平行四辺形の隣り合う角の和は180°なので ∠A＋∠D＝180°。∠A＝90° なので ∠D＝90°。平行四辺形の対角は等しいので ∠C＝∠A＝90°、∠B＝∠D＝90°。4つの角がすべて等しい（すべて90°）ので、四角形ABCDは長方形です。',
+        },
+      ],
       puzzle: { type: 'fill', distractors: { equations: [], reasons: [] } },
       hints: {
         q1: ppHints('平行四辺形の隣り合う角の和は？', '∠A＝90°なら、∠Bは何度かな？ ∠DABと∠ABCに注目しよう。',
@@ -3541,6 +3611,7 @@
       difficulty: 2,
       stage: 10,
       statement: '長方形ABCDの対角線の長さが等しいこと（AC＝DB）を、△ABCと△DCBの合同を使って証明しよう。',
+      trianglesGiven: true,   // 問題文で三角形を指定：ハンターは三角形を選ぶ段階をとばし、パズルは「△ABCと△DCBにおいて」を答えない
       given: ['四角形ABCDは長方形'],
       conclusion: 'AC＝DB',
       conclusionType: 'equalSide',
@@ -3566,7 +3637,6 @@
       proof: { intro: '長方形ABCDで、△ABCと△DCBにおいて' },
       puzzle: {
         type: 'build',
-        trianglesGiven: true,   // 問題文で △ABCと△DCB を指定しているので、「△ABCと△DCBにおいて」は答えない
         distractors: {
           equations: ['AB＝BC', '∠BAC＝∠ACB', 'AC＝BC'],
           reasons: ['vertical'],
@@ -3601,6 +3671,7 @@
       difficulty: 3,
       stage: 10,
       statement: 'ひし形ABCDの対角線の交点をOとする。対角線が垂直に交わること（AC⊥BD）を、△ABOと△ADOの合同を使って証明しよう。',
+      trianglesGiven: true,   // 問題文で三角形を指定：ハンターは三角形を選ぶ段階をとばし、パズルは「△ABOと△ADOにおいて」を答えない
       given: ['四角形ABCDはひし形', 'Oは対角線ACとBDの交点'],
       conclusion: 'AC⊥BD',
       conclusionType: 'perpendicular',
@@ -3640,7 +3711,6 @@
       proof: { intro: 'ひし形ABCDで、△ABOと△ADOにおいて' },
       puzzle: {
         type: 'build',
-        trianglesGiven: true,   // 問題文で △ABOと△ADO を指定しているので、「△ABOと△ADOにおいて」は答えない
         distractors: {
           equations: ['AB＝AO', '∠ABO＝∠BAO', 'AO＝BO'],
           reasons: ['vertical'],

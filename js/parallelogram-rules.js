@@ -394,6 +394,7 @@
    *   keys    : 選んだ2つの要素キー、rel: 'parallel'（∥）か 'eq'（＝）、reasonId: 選んだ理由、foundIds: 見つけた根拠
    *   ctx     : { engine（多段階証明）, isEstablished(eqKey)（平行を導く角の等しさが証明済みか） }
    * 戻り値 status: correct / duplicate / wrong-reason / irrelevant / not-proved / property-unproved / wrong-equation / incomplete
+   *   / alternative（別の道すじで言える関係。ミスにしない。alt.text を表示）
    */
   function checkEvidence(p, keys, rel, reasonId, foundIds, ctx) {
     if (!keys || keys.length !== 2 || !keys[0] || !keys[1] || !reasonId) return { status: 'incomplete', miss: false };
@@ -414,6 +415,9 @@
       if (isTargetPropertyReason(p, reasonId) && targetProperties(p).some(function (f) { return f.key === key; })) return out('property-unproved', true, { evidence: ev });
       return out('wrong-reason', true, { evidence: ev });
     }
+    // 別の道すじで言える関係（p45 の ∠ABC＝∠BCD など）は、理由によらずミスにしない
+    const alt = altRoute(p, key);
+    if (alt) return out('alternative', false, { alt: alt });
     const st = otherStatus(p, key);
     if (st.status === 'target-property') return out(isTargetPropertyReason(p, reasonId) ? 'property-unproved' : 'wrong-equation', true);
     if (st.status === 'known') return st.reasons.indexOf(reasonId) >= 0 ? out('irrelevant', false, { outsideQuad: !isTargetRelation(p, keys) }) : out('wrong-reason', true);
@@ -479,9 +483,16 @@
     return V().equationKey(k[0], k[1]);
   }
 
-  // 等式・平行（カード・入力）の種類：evidence / target-property / irrelevant / wrong-equation（パズル用）
+  // 別の道すじで言える関係（parallelogram.altRoutes の1つ）。なければ null
+  function altRoute(p, key) {
+    if (!key) return null;
+    return ((p.parallelogram && p.parallelogram.altRoutes) || []).find(function (x) { return factKey(p.figure, x.items, 'eq') === key; }) || null;
+  }
+
+  // 等式・平行（カード・入力）の種類：evidence / target-property / irrelevant / alternative / wrong-equation（パズル用）
   function equationStatus(p, key) {
     if (matchEvidence(p, key)) return 'evidence';
+    if (altRoute(p, key)) return 'alternative';
     const st = otherStatus(p, key).status;
     return st === 'known' ? 'irrelevant' : st;
   }
@@ -660,6 +671,7 @@
     isPropertyReason: isPropertyReason,
     checkEvidence: checkEvidence,
     equationStatus: equationStatus,
+    altRoute: altRoute,
     viaKey: viaKey,
     rightVia: rightVia,
     verifyKnown: verifyKnown,
