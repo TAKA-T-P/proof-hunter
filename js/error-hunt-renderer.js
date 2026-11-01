@@ -2,7 +2,8 @@
  * error-hunt-renderer.js — 「証明の間違い探し」（Ver.1.1）の画面
  *
  *   PH.errorView.renderTop(el, unit)   … 問題一覧（#/error、#/error/category/<単元>）
- *   PH.errorView.renderReview(el)      … 苦手な問題（#/error/review）
+ *   PH.errorView.renderReview(el, kind) … 未クリアの問題（#/error/review/uncleared）・★★以下の問題（#/error/review/low）。
+ *                                         kind なし（#/error/review）は両方（Ver.1.2 までの「苦手な問題」）
  *   PH.errorView.mount(el, def, nav)   … プレイ画面と正解画面（#/error/play/<問題ID>）
  *   PH.errorView.unmount()
  * 証明文は論理ステップ（PH.errorHunt.structure）ごとに1つのボタン。スマホで文が折り返されても、1つのステップは1つのタップ領域。
@@ -75,7 +76,11 @@
   function renderTop(el, unit) {
     const all = PH.errorProblems();
     const st = stats(all);
-    const review = all.filter(function (d) { return PH.storage.isErrorReviewTarget(d.id); }).length;
+    const reviewBtn = function (kind, ico, label) {
+      return '<button class="review-btn review-' + kind + '" data-go="#/error/review/' + kind + '">' +
+        '<span class="review-label">' + label + '</span>' +
+        '<span class="review-sub"><span class="review-ico" aria-hidden="true">' + ico + '</span><span class="review-count">' + reviewList(kind).length + '問</span></span></button>';
+    };
     const units = PH.errorHunt.UNITS.filter(function (u) { return !unit || u.id === unit; });
     el.innerHTML = header('証明の間違い探し', '#/', 'ホーム') +
       modeSwitch('practice') +
@@ -84,7 +89,8 @@
           '<p class="eh-lead">🔎 証明文の中に間違いが1か所！ よく読んで見つけよう！</p>' +
           '<p class="stage-intro-stat">クリア ' + st.cleared + '/' + st.total + '問 ・ ★ ' + st.stars + '/' + (st.total * 3) + '</p>' +
         '</div>' +
-        '<a class="btn btn-gold eh-review-btn" href="#/error/review">苦手な問題に挑戦！<span class="cont-sub">（' + review + '問）</span></a>' +
+        // 「未クリア問題に挑戦」「★★以下の問題を復習」（横並び。ハンター・証明パズルと同じ）
+        '<div class="review-btns">' + reviewBtn('uncleared', '🎯', '未クリア問題に挑戦') + reviewBtn('low', '🔁', '★★以下の問題を復習') + '</div>' +
         '<nav class="eh-tabs" aria-label="単元">' +
           '<a class="eh-tab" href="#/error"' + (!unit ? ' aria-current="page"' : '') + '>すべて</a>' +
           PH.errorHunt.UNITS.map(function (u) {
@@ -100,12 +106,31 @@
       '</div>';
   }
 
-  function renderReview(el) {
-    const list = PH.errorProblems().filter(function (d) { return PH.storage.isErrorReviewTarget(d.id); });
-    el.innerHTML = header('間違い探し：苦手な問題', '#/error', '一覧') +
+  /*
+   * 復習の問題（Ver.1.3：ハンター・証明パズルと同じく2つに分ける）
+   *   uncleared … まだ自分で間違いを見つけていない問題（正解を確認しただけの問題もふくむ）
+   *   low       … 自分で見つけたが、最高評価が★★以下の問題
+   *   （省略）  … 両方（Ver.1.2 までの「苦手な問題」。古い URL #/error/review 用）
+   */
+  function reviewList(kind) {
+    return PH.errorProblems().filter(function (d) {
+      const r = PH.storage.getErrorRecord(d.id);
+      return kind === 'uncleared' ? !r.solvedByUser : kind === 'low' ? r.solvedByUser && r.bestStars < 3 : PH.storage.isErrorReviewTarget(d.id);
+    });
+  }
+
+  const REVIEW_KINDS = {
+    uncleared: { title: '未クリア問題に挑戦', note: 'まだ自分で間違いを見つけていない問題だよ。クリアをめざそう！', empty: '未クリアの問題はありません！', emptySub: 'すべての問題をクリアしたね！ すばらしい！' },
+    low: { title: '★★以下の問題を復習', note: 'クリアした問題のうち、★★以下の問題だよ。★★★をめざそう！', empty: '★★以下の問題はありません！', emptySub: 'クリアした問題はすべて★★★！ すばらしい！' },
+  };
+
+  function renderReview(el, kind) {
+    const k = REVIEW_KINDS[kind] || { title: '苦手な問題', note: 'まだ自分で見つけていない問題と、★★以下の問題だよ。★★★をめざそう！', empty: '復習する問題はありません！', emptySub: 'すべて★★★！ すばらしい！' };
+    const list = reviewList(kind);
+    el.innerHTML = header('間違い探し：' + k.title, '#/error', '一覧') +
       '<div class="eh-top">' + (list.length
-        ? '<p class="select-note">まだ自分で見つけていない問題と、★★以下の問題だよ。★★★をめざそう！</p><ul class="problem-list">' + list.map(function (d) { return card(d, true); }).join('') + '</ul>'
-        : '<div class="card review-empty"><p class="review-empty-title">復習する問題はありません！</p><p>すべて★★★！ すばらしい！</p>' +
+        ? '<p class="select-note">' + k.note + '</p><ul class="problem-list">' + list.map(function (d) { return card(d, true); }).join('') + '</ul>'
+        : '<div class="card review-empty"><p class="review-empty-title">' + k.empty + '</p><p>' + k.emptySub + '</p>' +
           '<a class="btn btn-primary" href="#/error">問題一覧へ</a></div>') +
       '</div>';
   }

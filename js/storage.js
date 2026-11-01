@@ -51,6 +51,11 @@
  *       highestTitleLevel,                     // 獲得した最高称号の段階 0〜10（bestPerfectStreak から導ける。下がらない）
  *       （lastResult には playId・perfect・perfectStreak・titleLevel・newTitleLevel も入る。同じ playId は二重に記録しない）
  *     }
+ *     summaryQuiz: {                           // Ver.1.3：条件・定義クイズ（15問。ほかのモードの記録とは独立）
+ *       best: { correct, total, timeMs, at } | null,   // 最高記録（正解数が多いほう、同じならクリアタイムが短いほう）
+ *       playCount,                             // 15問を最後まで終えた回数
+ *       lastResult: { correct, total, timeMs, at, newBest, items: [{ id, input, correct }] } | null,
+ *     }
  *   }
  *   Ver.0.7 までの rankCertification（コースの記録の形そのもの）は、読みこむときに legacy へ移す（1回だけ。保存すると新しい形になる）。
  *   記録はモードごと・解答レベルごとに別々。古いデータに無い項目は空として読み、過去のプレイ内容は推測で補わない。
@@ -84,6 +89,29 @@
       puzzleMigrated: false, lastProblemId: null, lastPuzzleProblemId: null, lastMode: null, sound: true,
       rankCertification: blankCert(),
       errorHunt: blankErrorHunt(),
+      summaryQuiz: blankSummaryQuiz(),
+    };
+  }
+
+  // 条件・定義クイズの記録（Ver.1.3）
+  function blankSummaryQuiz() { return { best: null, playCount: 0, lastResult: null }; }
+  function cleanQuizScore(r) {
+    if (!isObj(r) || !Number.isInteger(r.correct) || !Number.isInteger(r.total) || !(r.timeMs >= 0)) return null;
+    return { correct: r.correct, total: r.total, timeMs: r.timeMs, at: typeof r.at === 'string' ? r.at : null };
+  }
+  function cleanSummaryQuiz(r) {
+    if (!isObj(r)) return blankSummaryQuiz();
+    const last = cleanQuizScore(r.lastResult);
+    if (last) {
+      last.newBest = r.lastResult.newBest === true;
+      last.items = Array.isArray(r.lastResult.items) ? r.lastResult.items.filter(isObj).map(function (it) {
+        return { id: String(it.id), input: Array.isArray(it.input) ? it.input.map(String) : [], correct: it.correct === true };
+      }) : [];
+    }
+    return {
+      best: cleanQuizScore(r.best),
+      playCount: Number.isInteger(r.playCount) && r.playCount > 0 ? r.playCount : 0,
+      lastResult: last,
     };
   }
 
@@ -321,6 +349,7 @@
           data.sound = parsed.sound !== false;
           data.rankCertification = cleanCert(parsed.rankCertification);
           data.errorHunt = cleanErrorHunt(parsed.errorHunt);     // Ver.1.1。古いデータには無いので空から
+          data.summaryQuiz = cleanSummaryQuiz(parsed.summaryQuiz);   // Ver.1.3。古いデータには無いので空から
           data.version = VERSION;
         }
       }
@@ -602,6 +631,33 @@
     };
   }
 
+  // ---- 条件・定義クイズ（Ver.1.3） ---------------------------------------------------
+
+  function getSummaryQuiz() { return JSON.parse(JSON.stringify(load().summaryQuiz)); }
+
+  /*
+   * 15問を終えた結果を記録する。result = PH.summary.QuizSession#result()
+   *   戻り値 { newBest（自己ベスト更新。初挑戦は false）, firstTime, best }
+   */
+  function recordSummaryQuiz(result) {
+    const score = cleanQuizScore(result);
+    if (!score) return null;
+    const r = load().summaryQuiz;
+    score.at = new Date().toISOString();
+    const firstTime = !r.best;
+    const better = firstTime || score.correct > r.best.correct ||
+      (score.correct === r.best.correct && score.timeMs < r.best.timeMs);
+    const newBest = !firstTime && better;
+    if (better) r.best = Object.assign({}, score);
+    r.playCount++;
+    r.lastResult = Object.assign({}, score, {
+      newBest: newBest,
+      items: (result.items || []).map(function (it) { return { id: it.id, input: it.input.slice(), correct: it.correct === true }; }),
+    });
+    save();
+    return { newBest: newBest, firstTime: firstTime, best: Object.assign({}, r.best) };
+  }
+
   function getSound() { return load().sound !== false; }
   function setSound(on) { load().sound = !!on; save(); }
 
@@ -635,6 +691,8 @@
     getErrorChallenge: getErrorChallenge,
     getErrorChallengeHistory: getErrorChallengeHistory,
     recordErrorChallenge: recordErrorChallenge,
+    getSummaryQuiz: getSummaryQuiz,
+    recordSummaryQuiz: recordSummaryQuiz,
     _reset: _reset,
   };
 

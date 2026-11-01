@@ -18,13 +18,15 @@
  *   #/rank/<コース>/result  #/rank/<コース>/review  #/rank/<コース>/grades   結果・間違えた問題・段位一覧（コース別）
  *   #/rank/legacy            Ver.0.7 までの段位認定の記録
  *   #/error                  証明の間違い探し：問題一覧（Ver.1.1）。#/error/category/<単元> は単元だけ
- *   #/error/review           証明の間違い探し：苦手な問題
+ *   #/error/review/uncleared 証明の間違い探し：未クリアの問題（#/error/review/low は★★以下の問題。#/error/review は両方）
  *   #/error/play/<問題ID>    証明の間違い探し：プレイ（開くたびに新しい状態で開始。Ver.1.2：誤りバリエーションも開くたびに選ぶ）
  *   #/error/challenge        ランダム5問チャレンジ：コースを選ぶ（Ver.1.2）
  *   #/error/challenge/<コース>/play    プレイ（「〜コースに挑戦」から来たときだけ始まる）。コースは basic / comprehensive
  *   #/error/challenge/<コース>/result  #/error/challenge/<コース>/review/<問題番号>   結果発表・1問の振り返り（コース別。結果発表の Q1〜Q5 から）
  *   #/error/challenge/<コース>/titles  連続PERFECT の称号一覧（コース別。段位認定の段位とは別）
  *   #/error/dev              開発者用：誤りバリエーションの確認（生徒の画面からはリンクしない）
+ *   #/summary                条件・定義のまとめ（Ver.1.3。あそびかたのメニューのいちばん上から）
+ *   #/summary/quiz           条件・定義クイズ（開くたびに新しい15問）。#/summary/result はその結果
  *   （Ver.0.7 までの #/rank/play などを開いたときは、段位認定のトップへ戻す）
  * 記録・評価はモードごとに別々。証明パズルは、さらに解答レベル（おてがる／スタンダード／チャレンジ）ごとに別々
  * （storage.js の mode 引数：'hunter' / 'puzzle:<レベル>'）。
@@ -59,7 +61,7 @@
     },
   };
 
-  const SCREENS = ['title', 'select', 'howto', 'play', 'puzzle', 'rank', 'error'];
+  const SCREENS = ['title', 'select', 'howto', 'play', 'puzzle', 'rank', 'error', 'summary'];
 
   // 記録の種類：ハンターはそのまま、パズルは選んでいる解答レベルの記録
   function recMode(mode) {
@@ -432,6 +434,8 @@
   })();
   // あそびかたのメニュー（表示順）。start … 最後の「はじめる！」で開く画面
   const HOWTO_MENU = [
+    // Ver.1.3：説明のスライドではなく、まとめの画面を開く（go）
+    { id: 'summary', ico: '📘', name: '条件・定義のまとめ', desc: '合同条件・平行四辺形になるための条件・定義を確認＆クイズ', go: '#/summary' },
     { id: 'hunter', ico: '🔍', name: 'ハンターモード', desc: '図をタップして、根拠を見つける遊び方', start: '#/select' },
     { id: 'puzzle', ico: '🧩', name: '証明パズル', desc: 'カードで証明文を完成させる遊び方・3つのレベル', start: '#/puzzle' },
     // small … 説明・アイコンなしの小さいボタン（となり合うものは横に並べる）
@@ -452,7 +456,7 @@
           '<button class="btn howto-small howto-' + m.id + '" data-go="#/howto/' + m.id + '">' + m.name + '</button>' +
           (next && next.small ? '' : '</div>');
       }
-      return '<button class="mode-card howto-item howto-' + m.id + '" data-go="#/howto/' + m.id + '">' +
+      return '<button class="mode-card howto-item howto-' + m.id + '" data-go="' + (m.go || '#/howto/' + m.id) + '">' +
         '<span class="mode-ico" aria-hidden="true">' + m.ico + '</span>' +
         '<span class="mode-text"><span class="mode-name">' + m.name + '</span><span class="mode-desc">' + m.desc + '</span></span></button>';
     }).join('');
@@ -520,6 +524,7 @@
     PH.puzzleView.unmount();
     PH.rankView.unmount();      // プレイ中にほかの画面へ移ったら、その挑戦は記録しない
     PH.errorView.unmount();
+    PH.summaryView.unmount();
     doc.title = '証明ハンター';
 
     if (name === 'select') {
@@ -535,6 +540,8 @@
       routeRank(parts[1], parts[2]);
     } else if (name === 'error' && mode === 'hunter') {
       routeError(parts[1], parts[2], parts[3], parts[4]);
+    } else if (name === 'summary' && mode === 'hunter') {
+      routeSummary(parts[1]);
     } else if (name === 'howto' && mode === 'hunter') {
       howtoMode = HOWTO[parts[1]] ? parts[1] : null;      // なければメニュー
       howtoPage = 0;
@@ -555,6 +562,23 @@
       renderTitle();
       show('title');
     }
+  }
+
+  // 条件・定義のまとめ・クイズの画面（Ver.1.3）
+  function routeSummary(sub) {
+    const el = doc.getElementById('screen-summary');
+    if (sub === 'quiz') {
+      show('summary');
+      doc.body.setAttribute('data-screen', 'summary-quiz');
+      PH.summaryView.mountQuiz(el, { result: function () { go('#/summary/result'); } });
+      doc.title = '条件・定義クイズ｜証明ハンター';
+      return;
+    }
+    if (sub === 'result') PH.summaryView.renderResult(el);
+    else if (sub) { go('#/summary'); return; }
+    else PH.summaryView.renderSummary(el);
+    doc.title = '条件・定義のまとめ｜証明ハンター';
+    show('summary');
   }
 
   // 証明の間違い探しの画面（Ver.1.1）
@@ -585,7 +609,7 @@
       doc.title = '間違い探し' + def.no + '｜証明ハンター';
       return;
     }
-    if (sub === 'review') PH.errorView.renderReview(el);
+    if (sub === 'review') PH.errorView.renderReview(el, arg);     // #/error/review/uncleared・#/error/review/low
     else if (sub === 'category' && PH.errorHunt.UNITS.some(function (u) { return u.id === arg; })) PH.errorView.renderTop(el, arg);
     else if (sub) { go('#/error'); return; }
     else PH.errorView.renderTop(el, null);
