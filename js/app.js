@@ -26,7 +26,8 @@
  *   #/error/challenge/<コース>/titles  連続PERFECT の称号一覧（コース別。段位認定の段位とは別）
  *   #/error/dev              開発者用：誤りバリエーションの確認（生徒の画面からはリンクしない）
  *   #/summary                条件・定義のまとめ（Ver.1.3。あそびかたのメニューのいちばん上から）
- *   #/summary/quiz           条件・定義クイズ（開くたびに新しい15問）。#/summary/result はその結果
+ *   #/summary/quiz/<モード>  条件・定義クイズ（開くたびに新しい15問）。#/summary/result/<モード> はその結果
+ *                            モードは random（図つき・ランダム）/ text（問題文だけ・順番固定）
  *   （Ver.0.7 までの #/rank/play などを開いたときは、段位認定のトップへ戻す）
  * 記録・評価はモードごとに別々。証明パズルは、さらに解答レベル（おてがる／スタンダード／チャレンジ）ごとに別々
  * （storage.js の mode 引数：'hunter' / 'puzzle:<レベル>'）。
@@ -541,7 +542,7 @@
     } else if (name === 'error' && mode === 'hunter') {
       routeError(parts[1], parts[2], parts[3], parts[4]);
     } else if (name === 'summary' && mode === 'hunter') {
-      routeSummary(parts[1]);
+      routeSummary(parts[1], parts[2]);
     } else if (name === 'howto' && mode === 'hunter') {
       howtoMode = HOWTO[parts[1]] ? parts[1] : null;      // なければメニュー
       howtoPage = 0;
@@ -565,16 +566,18 @@
   }
 
   // 条件・定義のまとめ・クイズの画面（Ver.1.3）
-  function routeSummary(sub) {
+  function routeSummary(sub, mode) {
     const el = doc.getElementById('screen-summary');
+    // モードのない URL（#/summary/quiz・#/summary/result）は図つき・ランダムへ
+    if ((sub === 'quiz' || sub === 'result') && !PH.summary.isMode(mode)) { go('#/summary/' + sub + '/random'); return; }
     if (sub === 'quiz') {
       show('summary');
       doc.body.setAttribute('data-screen', 'summary-quiz');
-      PH.summaryView.mountQuiz(el, { result: function () { go('#/summary/result'); } });
+      PH.summaryView.mountQuiz(el, { result: function () { go('#/summary/result/' + mode); } }, mode);
       doc.title = '条件・定義クイズ｜証明ハンター';
       return;
     }
-    if (sub === 'result') PH.summaryView.renderResult(el);
+    if (sub === 'result') PH.summaryView.renderResult(el, mode);
     else if (sub) { go('#/summary'); return; }
     else PH.summaryView.renderSummary(el);
     doc.title = '条件・定義のまとめ｜証明ハンター';

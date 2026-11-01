@@ -52,10 +52,14 @@
  *       （lastResult には playId・perfect・perfectStreak・titleLevel・newTitleLevel も入る。同じ playId は二重に記録しない）
  *     }
  *     summaryQuiz: {                           // Ver.1.3：条件・定義クイズ（15問。ほかのモードの記録とは独立）
- *       best: { correct, total, timeMs, at } | null,   // 最高記録（正解数が多いほう、同じならクリアタイムが短いほう）
- *       playCount,                             // 15問を最後まで終えた回数
- *       lastResult: { correct, total, timeMs, at, newBest, items: [{ id, input, correct }] } | null,
+ *       random: <クイズの記録>, text: <クイズの記録>,   // 図つき・ランダム／問題文だけ・順番固定（モードごとに独立）
  *     }
+ *     <クイズの記録> = {
+ *       best: { correct, total, timeMs, penaltyMs, misses, at } | null,   // 最高記録（正解数が多いほう、同じならクリアタイムが短いほう）
+ *       playCount,                             // 15問を最後まで終えた回数
+ *       lastResult: { correct, total, timeMs, penaltyMs, misses, at, newBest, items: [{ id, input, correct, penaltyMs }] } | null,
+ *     }
+ *     （timeMs は不正解のペナルティをふくむクリアタイム。モードに分ける前の記録 { best, playCount, lastResult } は random として読む）
  *   }
  *   Ver.0.7 までの rankCertification（コースの記録の形そのもの）は、読みこむときに legacy へ移す（1回だけ。保存すると新しい形になる）。
  *   記録はモードごと・解答レベルごとに別々。古いデータに無い項目は空として読み、過去のプレイ内容は推測で補わない。
@@ -93,26 +97,39 @@
     };
   }
 
-  // 条件・定義クイズの記録（Ver.1.3）
-  function blankSummaryQuiz() { return { best: null, playCount: 0, lastResult: null }; }
+  // 条件・定義クイズの記録（Ver.1.3。モードごと）
+  const QUIZ_MODES = ['random', 'text'];
+  function blankQuizRecord() { return { best: null, playCount: 0, lastResult: null }; }
+  function blankSummaryQuiz() { return { random: blankQuizRecord(), text: blankQuizRecord() }; }
+  function nonNegInt(v) { return Number.isInteger(v) && v > 0 ? v : 0; }
   function cleanQuizScore(r) {
     if (!isObj(r) || !Number.isInteger(r.correct) || !Number.isInteger(r.total) || !(r.timeMs >= 0)) return null;
-    return { correct: r.correct, total: r.total, timeMs: r.timeMs, at: typeof r.at === 'string' ? r.at : null };
+    return {
+      correct: r.correct, total: r.total, timeMs: r.timeMs,
+      penaltyMs: nonNegInt(r.penaltyMs), misses: nonNegInt(r.misses), at: typeof r.at === 'string' ? r.at : null,
+    };
   }
-  function cleanSummaryQuiz(r) {
-    if (!isObj(r)) return blankSummaryQuiz();
+  function cleanQuizRecord(r) {
+    if (!isObj(r)) return blankQuizRecord();
     const last = cleanQuizScore(r.lastResult);
     if (last) {
       last.newBest = r.lastResult.newBest === true;
       last.items = Array.isArray(r.lastResult.items) ? r.lastResult.items.filter(isObj).map(function (it) {
-        return { id: String(it.id), input: Array.isArray(it.input) ? it.input.map(String) : [], correct: it.correct === true };
+        return {
+          id: String(it.id), input: Array.isArray(it.input) ? it.input.map(String) : [],
+          correct: it.correct === true, penaltyMs: nonNegInt(it.penaltyMs),
+        };
       }) : [];
     }
-    return {
-      best: cleanQuizScore(r.best),
-      playCount: Number.isInteger(r.playCount) && r.playCount > 0 ? r.playCount : 0,
-      lastResult: last,
-    };
+    return { best: cleanQuizScore(r.best), playCount: nonNegInt(r.playCount), lastResult: last };
+  }
+  function cleanSummaryQuiz(r) {
+    if (!isObj(r)) return blankSummaryQuiz();
+    // モードに分ける前の記録（{ best, playCount, lastResult }）は、図つき・ランダムの記録として読む
+    if (!isObj(r.random) && !isObj(r.text) && ('best' in r || 'playCount' in r || 'lastResult' in r)) {
+      return { random: cleanQuizRecord(r), text: blankQuizRecord() };
+    }
+    return { random: cleanQuizRecord(r.random), text: cleanQuizRecord(r.text) };
   }
 
   // 段位認定の記録全体（コースごとの記録と、Ver.0.7 までの記録）
@@ -633,16 +650,19 @@
 
   // ---- 条件・定義クイズ（Ver.1.3） ---------------------------------------------------
 
-  function getSummaryQuiz() { return JSON.parse(JSON.stringify(load().summaryQuiz)); }
+  function quizMode(m) { return QUIZ_MODES.indexOf(m) >= 0 ? m : 'random'; }
+
+  // モードの記録（コピー）。mode は 'random'（省略時）/ 'text'
+  function getSummaryQuiz(mode) { return JSON.parse(JSON.stringify(load().summaryQuiz[quizMode(mode)])); }
 
   /*
-   * 15問を終えた結果を記録する。result = PH.summary.QuizSession#result()
+   * 15問を終えた結果を記録する。result = PH.summary.QuizSession#result()（result.mode のモードの記録になる）
    *   戻り値 { newBest（自己ベスト更新。初挑戦は false）, firstTime, best }
    */
   function recordSummaryQuiz(result) {
     const score = cleanQuizScore(result);
     if (!score) return null;
-    const r = load().summaryQuiz;
+    const r = load().summaryQuiz[quizMode(result.mode)];
     score.at = new Date().toISOString();
     const firstTime = !r.best;
     const better = firstTime || score.correct > r.best.correct ||
@@ -652,7 +672,9 @@
     r.playCount++;
     r.lastResult = Object.assign({}, score, {
       newBest: newBest,
-      items: (result.items || []).map(function (it) { return { id: it.id, input: it.input.slice(), correct: it.correct === true }; }),
+      items: (result.items || []).map(function (it) {
+        return { id: it.id, input: it.input.slice(), correct: it.correct === true, penaltyMs: nonNegInt(it.penaltyMs) };
+      }),
     });
     save();
     return { newBest: newBest, firstTime: firstTime, best: Object.assign({}, r.best) };

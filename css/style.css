@@ -1608,8 +1608,15 @@ button.eh-line:disabled { cursor: default; opacity: 1; color: var(--ink); }
 
 .sm-body { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
 .sm-quiz { padding: 12px 14px; text-align: center; }
-.sm-quiz-desc { margin: 8px 0 0; font-size: .9rem; color: var(--muted); }
-.sm-quiz-best { margin: 6px 0 0; font-size: .9rem; color: var(--navy); }
+.sm-quiz-h { margin: 0; color: var(--navy); font-size: 1.15rem; }
+.sm-quiz-desc { margin: 4px 0 0; font-size: .88rem; color: var(--muted); }
+.sm-quiz-best { margin: 4px 0 0; font-size: .9rem; color: var(--navy); }
+.sm-quiz-modes { margin-top: 10px; display: grid; gap: 10px; }
+@media (min-width: 560px) { .sm-quiz-modes { grid-template-columns: 1fr 1fr; } }
+.sm-quiz-mode { padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.sm-quiz-start { font-size: 1.05rem; padding: 3px 8px; }
+.sm-quiz-start.sm-quiz-text { background: var(--navy); border-color: var(--navy); }
+.sm-quiz-mdesc { margin: 4px 0 0; font-size: .82rem; color: var(--muted); }
 .sm-sec { padding: 10px 14px 14px; }
 .sm-h { margin: 0 0 8px; padding-left: 10px; border-left: 6px solid var(--blue); color: var(--navy); font-size: 1.12rem; }
 .sm-conds { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -1680,6 +1687,13 @@ button.eh-line:disabled { cursor: default; opacity: 1; color: var(--ink); }
 .sq-feedback.is-ng .sq-judge { color: var(--red); }
 .sq-yours { margin: 4px 0 0; color: #991b1b; font-size: .92rem; overflow-wrap: anywhere; }
 .sq-correct { margin: 6px 0 10px; font-weight: 900; color: var(--navy); overflow-wrap: anywhere; }
+.sq-correct-h { margin: 6px 0 0; font-size: .82rem; color: var(--muted); font-weight: 700; }
+.sq-penalty { margin: -4px 0 10px; font-weight: 900; color: var(--red); }
+.sq-text-q { margin: 0 0 6px; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; }
+.sq-text-q b { color: var(--blue); }
+.sq-sub { margin: 0 0 6px; font-weight: 900; color: var(--navy); font-size: 1.05rem; }
+.sq-done { list-style: none; margin: 0 0 6px; padding: 6px 8px; display: grid; gap: 2px; border-radius: 8px; background: var(--blue-50); font-size: .85rem; }
+.sq-done .is-ng { color: #991b1b; }
 
 /* 結果 */
 .sq-result { padding: 14px; text-align: center; }
@@ -1689,6 +1703,7 @@ button.eh-line:disabled { cursor: default; opacity: 1; color: var(--ink); }
 .sq-stat span { font-size: .85rem; color: var(--muted); font-weight: 700; }
 .sq-stat b { font-size: 1.9rem; color: var(--navy); font-variant-numeric: tabular-nums; }
 .sq-stat small { font-size: .9rem; }
+.sq-stat .sq-stat-pen { font-size: .72rem; color: var(--red); font-weight: 700; }
 .sq-newbest { margin: 8px 0 0; font-weight: 900; color: var(--gold-dark); }
 .sq-best { margin: 6px 0 0; font-weight: 700; color: var(--navy); }
 .sq-time-note { margin: 4px 0 0; font-size: .78rem; color: var(--muted); }

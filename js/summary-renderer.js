@@ -2,8 +2,8 @@
  * summary-renderer.js — 条件・定義のまとめ・条件・定義クイズの画面（Ver.1.3）
  *
  *   #/summary          まとめ（三角形の合同条件・二等辺三角形・平行四辺形になるための条件・特別な平行四辺形）
- *   #/summary/quiz     クイズ（開くたびに新しい15問。再読み込みでもはじめから）
- *   #/summary/result   結果（直近の挑戦。正解数・クリアタイム・自己ベスト・1問ずつの答え）
+ *   #/summary/quiz/<モード>     クイズ（開くたびに新しい15問。再読み込みでもはじめから）。モードは random / text（summary.js）
+ *   #/summary/result/<モード>   結果（そのモードの直近の挑戦。正解数・クリアタイム・自己ベスト・1問ずつの答え）
  * 問題・判定・時間の計算は PH.summary（summary.js）。この画面は操作を渡して描画するだけにする。
  */
 (function (root) {
@@ -167,13 +167,22 @@
     }).join('') + '</ol>';
   }
 
+  // クイズの入口（モードごとのボタンと自己ベスト）
   function quizBox() {
-    const r = PH.storage.getSummaryQuiz();
     return '<div class="card sm-quiz">' +
-      '<button class="btn btn-confirm btn-big" data-go="#/summary/quiz">📝 条件・定義クイズ</button>' +
-      '<p class="sm-quiz-desc">合同条件5つ・平行四辺形になるための条件5つ・定義5つの全15問。キーで言葉を並べて答えよう！</p>' +
-      (r.best ? '<p class="sm-quiz-best">自己ベスト：<b>' + r.best.correct + '/' + r.best.total + '問</b>・<b>' + fmtTime(r.best.timeMs) + '</b>' +
-        (r.lastResult ? ' <button class="btn btn-small" data-go="#/summary/result">前回の結果</button>' : '') + '</p>' : '') +
+      '<h2 class="sm-quiz-h">📝 条件・定義クイズ</h2>' +
+      '<p class="sm-quiz-desc">合同条件5つ・平行四辺形になるための条件5つ・定義5つの全15問。キーで言葉を並べて答えよう！ ' +
+        'まちがえるとタイムにペナルティ（n回目は＋10×n秒）。</p>' +
+      '<div class="sm-quiz-modes">' + S().MODES.map(function (m) {
+        const r = PH.storage.getSummaryQuiz(m.id);
+        return '<div class="sm-quiz-mode">' +
+          '<button class="btn btn-confirm btn-big sm-quiz-start sm-quiz-' + m.id + '" data-go="#/summary/quiz/' + m.id + '">' +
+            '<span>' + m.ico + ' ' + esc(m.label) + '</span></button>' +
+          '<p class="sm-quiz-mdesc">' + esc(m.desc) + '</p>' +
+          (r.best ? '<p class="sm-quiz-best">自己ベスト：<b>' + r.best.correct + '/' + r.best.total + '問</b>・<b>' + fmtTime(r.best.timeMs) + '</b>' +
+            (r.lastResult ? ' <button class="btn btn-small" data-go="#/summary/result/' + m.id + '">前回の結果</button>' : '') + '</p>' : '') +
+        '</div>';
+      }).join('') + '</div>' +
     '</div>';
   }
 
@@ -255,20 +264,44 @@
     '</div>';
   }
 
-  function feedback(q, item) {
+  function feedback(item) {
+    const q = S().question(item.id);
+    const unordered = !session.current();     // 順不同の問題（見せる条件は、まだ答えていなかったものの1つ）
     return '<div class="sq-feedback ' + (item.correct ? 'is-ok' : 'is-ng') + '">' +
       '<p class="sq-judge">' + (item.correct ? '⭕ 正解！' : '❌ ざんねん…') + '</p>' +
-      (item.correct ? '' : '<p class="sq-yours">あなたの答え：' + esc(item.input.join('')) + '</p>') +
+      (item.correct ? '' : '<p class="sq-yours">あなたの答え：' + esc(item.input.join('')) + (item.dup ? '（その条件はもう答えたよ）' : '') + '</p>') +
+      (!item.correct && unordered ? '<p class="sq-correct-h">まだ答えていない条件の1つ</p>' : '') +
       '<p class="sq-correct">' + esc(q.text) + (q.after ? esc(q.after) : '') + '</p>' +
+      (item.penaltyMs ? '<p class="sq-penalty">⏱️ ペナルティ ＋' + item.penaltyMs / 1000 + '秒</p>' : '') +
       '<button class="btn btn-primary btn-big" data-sq="next">' + (session.isLast() ? '結果を見る ▶' : 'つぎへ ▶') + '</button>' +
     '</div>';
   }
 
+  const NUMS = ['①', '②', '③', '④', '⑤'];
+
+  // 問題文だけのモード：大問の文と、いま答える小問（問題1・2は「○つ目」と、すでに答えた条件）
+  function textQuestion(s, fbItem) {
+    const p = s.problem;
+    let sub;
+    if (p.unordered) {
+      const done = session.answeredInProblem().filter(function (it) { return it !== fbItem; });
+      sub = '<p class="sq-sub">' + s.k + 'つ目</p>' +
+        (done.length ? '<ul class="sq-done">' + done.map(function (it) {
+          const q = S().question(it.id);
+          return '<li class="' + (it.correct ? 'is-ok' : 'is-ng') + '">' + (it.correct ? '⭕ ' : '❌ ') + esc(q.text) + '</li>';
+        }).join('') + '</ul>' : '');
+    } else {
+      sub = '<p class="sq-sub">' + NUMS[s.k - 1] + ' ' + esc(s.q.name) + '</p>';
+    }
+    return '<p class="sq-text-q"><b>問題' + p.no + '</b>　' + esc(p.text) + '</p>' + sub;
+  }
+
   function renderQuiz() {
     const el = mounted.el;
-    const q = session.current();
-    const g = S().group(q.group);
+    const s = session.slot();
     const fb = session.phase === 'feedback';
+    const q = fb ? S().question(lastFeedback.id) : s.q;     // 答えの欄のうしろの言葉（定義）に使う
+    const tag = s.problem ? '問題' + s.problem.no : S().group(s.group).label;
     el.innerHTML =
       '<header class="page-header">' +
         '<button class="head-btn" data-go="#/summary" aria-label="まとめに戻る"><span class="ico">◀</span><span class="lbl">まとめ</span></button>' +
@@ -277,14 +310,16 @@
       '</header>' +
       '<div class="sq-body">' +
         '<div class="sq-progress"><b>' + (session.index + 1) + '</b> / ' + session.total() +
-          '<span class="sq-group sq-g-' + q.group + '">' + esc(g.label) + '</span>' +
-          '<span class="sq-score">正解 ' + session.correctCount() + '</span></div>' +
+          '<span class="sq-group sq-g-' + s.group + '">' + esc(tag) + '</span>' +
+          '<span class="sq-score">正解 ' + session.correctCount() +
+            (session.penaltyMs ? '・ペナルティ ＋' + session.penaltyMs / 1000 + '秒' : '') + '</span></div>' +
         '<div class="card sq-q">' +
-          '<div class="sq-fig" aria-hidden="true">' + fig(q.fig) + '</div>' +
-          '<p class="sq-prompt">' + esc(S().prompt(q)) + '</p>' +
-          answerLine(q, fb ? lastFeedback.input : session.input) +
+          (s.problem
+            ? textQuestion(s, fb ? lastFeedback : null)
+            : '<div class="sq-fig" aria-hidden="true">' + fig(s.q.fig) + '</div><p class="sq-prompt">' + esc(S().prompt(s.q)) + '</p>') +
+          answerLine(q && q.group === 'def' ? q : {}, fb ? lastFeedback.input : session.input) +
         '</div>' +
-        (fb ? feedback(q, lastFeedback) : keypad()) +
+        (fb ? feedback(lastFeedback) : keypad()) +
       '</div>';
     if (fb) el.querySelector('[data-sq="next"]').focus();
   }
@@ -322,9 +357,9 @@
     }
   }
 
-  function mountQuiz(el, nav) {
+  function mountQuiz(el, nav, mode) {
     unmount();
-    session = new PH.summary.QuizSession();
+    session = new PH.summary.QuizSession({ mode: mode });
     session.start(now());
     mounted = { el: el, nav: nav };
     mounted.onClick = function (e) {
@@ -361,17 +396,28 @@
 
   // ---- 結果 -----------------------------------------------------------------------
 
-  function renderResult(el) {
-    const r = PH.storage.getSummaryQuiz();
+  // ふりかえりの見出し（問題文だけのモードは出題順が決まっているので「問題1（1つ目）」「問題3 ①二等辺三角形」）
+  function itemLabel(mode, q, i) {
+    if (mode === 'text') {
+      const p = S().TEXT_PROBLEMS[Math.floor(i / 5)], k = i % 5;
+      return p ? '問題' + p.no + (p.unordered ? '（' + (k + 1) + 'つ目）' : ' ' + NUMS[k] + ' ' + q.name) : '';
+    }
+    return q.group === 'def' ? q.name + 'の定義' : S().group(q.group).label + '（' + q.no + '）';
+  }
+
+  function renderResult(el, mode) {
+    const m = S().mode(mode) || S().mode('random');
+    const r = PH.storage.getSummaryQuiz(m.id);
     const last = r.lastResult;
     const head =
       '<header class="page-header">' +
         '<button class="head-btn" data-go="#/summary" aria-label="まとめに戻る"><span class="ico">◀</span><span class="lbl">まとめ</span></button>' +
-        '<h1 class="page-title">クイズの結果</h1>' +
+        '<h1 class="page-title">クイズの結果（' + esc(m.label) + '）</h1>' +
       '</header>';
+    const retry = '#/summary/quiz/' + m.id;
     if (!last) {
       el.innerHTML = head + '<div class="sm-body"><div class="card sq-result"><p>まだ記録がありません。</p>' +
-        '<button class="btn btn-confirm btn-big" data-go="#/summary/quiz">クイズに挑戦！</button></div></div>';
+        '<button class="btn btn-confirm btn-big" data-go="' + retry + '">クイズに挑戦！</button></div></div>';
       return;
     }
     const perfect = last.correct === last.total;
@@ -381,21 +427,22 @@
           (perfect ? '<p class="sq-perfect">🎉 全問正解！</p>' : '') +
           '<div class="sq-stats">' +
             '<div class="sq-stat"><span>正解数</span><b>' + last.correct + '<small> / ' + last.total + '問</small></b></div>' +
-            '<div class="sq-stat"><span>クリアタイム</span><b>' + fmtTime(last.timeMs) + '</b></div>' +
+            '<div class="sq-stat"><span>クリアタイム</span><b>' + fmtTime(last.timeMs) + '</b>' +
+              (last.penaltyMs ? '<small class="sq-stat-pen">（ペナルティ ＋' + last.penaltyMs / 1000 + '秒をふくむ）</small>' : '') + '</div>' +
           '</div>' +
           (last.newBest ? '<p class="sq-newbest">✨ 自己ベスト更新！</p>' : '') +
           (r.best ? '<p class="sq-best">自己ベスト：' + r.best.correct + '/' + r.best.total + '問・' + fmtTime(r.best.timeMs) + '</p>' : '') +
-          '<p class="sq-time-note">※ 答え合わせを見ている時間は、クリアタイムにふくめない</p>' +
+          '<p class="sq-time-note">※ 不正解のペナルティは n 回目が＋10×n 秒。答え合わせを見ている時間は、クリアタイムにふくめない</p>' +
           '<div class="sq-result-btns">' +
-            '<button class="btn btn-confirm btn-big" data-go="#/summary/quiz">もう一度挑戦</button>' +
+            '<button class="btn btn-confirm btn-big" data-go="' + retry + '">もう一度挑戦</button>' +
             '<button class="btn btn-big" data-go="#/summary">まとめにもどる</button>' +
           '</div>' +
         '</div>' +
         '<div class="card sq-review"><h2 class="sm-h">ふりかえり</h2><ol class="sq-items">' +
-          last.items.map(function (it) {
+          last.items.map(function (it, i) {
             const q = S().question(it.id);
             if (!q) return '';
-            const label = q.group === 'def' ? q.name + 'の定義' : S().group(q.group).label + '（' + q.no + '）';
+            const label = itemLabel(m.id, q, i) + (it.penaltyMs ? '・ペナルティ ＋' + it.penaltyMs / 1000 + '秒' : '');
             return '<li class="sq-item ' + (it.correct ? 'is-ok' : 'is-ng') + '">' +
               '<span class="sq-mark">' + (it.correct ? '⭕' : '❌') + '</span>' +
               '<span class="sq-item-body"><span class="sq-item-label">' + esc(label) + '</span>' +
